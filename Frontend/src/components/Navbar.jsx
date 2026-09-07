@@ -5,15 +5,7 @@ import { Bell } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 import logo from "../assets/logo_simple.png";
-
-function greeting() {
-  const h = new Date().getHours();
-
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-
-  return "Good Evening";
-}
+import { getGreeting } from "../utils/greeting";
 
 export default function Navbar() {
   const { user, alerts } = useApp();
@@ -39,10 +31,7 @@ export default function Navbar() {
         </span>
 
         <div>
-          <p className="text-[11px] text-ink-400 leading-none">
-            {greeting()}
-          </p>
-
+          <p className="text-[11px] text-ink-400 leading-none">{getGreeting()}</p>
           <p className="text-sm font-display font-bold text-ink-900 leading-tight">
             {user?.name || "User"}
           </p>

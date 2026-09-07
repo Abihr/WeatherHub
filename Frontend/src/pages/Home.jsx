@@ -1,18 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { MapPin, RefreshCw } from "lucide-react";
-
 import { useApp } from "../context/AppContext";
 import WeatherCard from "../components/WeatherCard";
 import { weatherIcon } from "../data/mockData";
 import EmptyState from "../components/EmptyState";
-
-function greeting() {
-  const h = new Date().getHours();
-
-  if (h < 12) return "Good Morning";
-  if (h < 17) return "Good Afternoon";
-  return "Good Evening";
-}
+import { getGreeting } from "../utils/greeting";
 
 function getLocationText(friend) {
   if (!friend) return "Unknown location";
@@ -90,7 +82,7 @@ export default function Home() {
       <div className="hidden md:flex items-center justify-between">
         <div>
           <p className="text-sm text-ink-400">
-            {greeting()},
+            {getGreeting()},
           </p>
 
           <h1 className="text-2xl font-display font-extrabold text-ink-900">
@@ -242,6 +234,7 @@ export default function Home() {
 
                     <p className="text-xs text-ink-400 flex items-center gap-1 truncate">
                       <MapPin size={11} />
+
                       <span className="truncate">
                         {locationText}
                       </span>
