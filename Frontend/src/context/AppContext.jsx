@@ -541,64 +541,44 @@ export function AppProvider({ children, firebaseUser }) {
   // ==========================================================
 
   useEffect(() => {
-    if (!user?.id) {
-      setReceived([]);
-      setSent([]);
-      return;
-    }
+  if (!user?.id) {
+    setReceived([]);
+    setSent([]);
+    return;
+  }
 
-    let cancelled = false;
+  let cancelled = false;
 
-    async function loadFirebaseData() {
-      try {
-        const [
-          friends,
-          receivedRequests,
-          sentRequests,
-        ] = await Promise.all([
-          fs.getFriends(user.id),
-          fs.getReceivedRequests(user.id),
-          fs.getSentRequests(user.id),
-        ]);
+  async function loadFirebaseData() {
+    try {
+      const [
+        receivedRequests,
+        sentRequests,
+      ] = await Promise.all([
+        fs.getReceivedRequests(user.id),
+        fs.getSentRequests(user.id),
+      ]);
 
-        if (cancelled) {
-          return;
-        }
-
-        const uniqueFriends = Array.from(
-          new Map(
-            friends.map((friend) => [
-              friend.friendId || friend.id,
-              friend,
-            ])
-          ).values()
-        );
-
-        // Don't need to set friends here permanently
-        // because subscribeToFriends controls friendsList.
-        //
-        // But this gives us an initial fallback while the
-        // real-time listener starts.
-
-        setFriendsList(uniqueFriends);
-
-        setReceived(receivedRequests);
-
-        setSent(sentRequests);
-      } catch (error) {
-        console.error(
-          "Failed to load Firebase data:",
-          error
-        );
+      if (cancelled) {
+        return;
       }
+
+      setReceived(receivedRequests);
+      setSent(sentRequests);
+    } catch (error) {
+      console.error(
+        "Failed to load Firebase data:",
+        error
+      );
     }
+  }
 
-    loadFirebaseData();
+  loadFirebaseData();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
+  return () => {
+    cancelled = true;
+  };
+}, [user?.id]);
 
   // ==========================================================
   // SEND FRIEND REQUEST
