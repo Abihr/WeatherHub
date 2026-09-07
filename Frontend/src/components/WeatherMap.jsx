@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   MapContainer,
@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 
 import L from "leaflet";
+
 import "leaflet/dist/leaflet.css";
 
 import { X, MapPin } from "lucide-react";
@@ -142,8 +143,91 @@ function getTemperature(weather) {
   return null;
 }
 
-export default function WeatherMap({ user, friends = [] }) {
+/*
+ * Format Firebase weatherUpdatedAt.
+ *
+ * Examples:
+ * just now
+ * 1 minute ago
+ * 5 minutes ago
+ * 2 hours ago
+ * 08 Sep, 07:30 PM
+ */
+function formatWeatherUpdatedAt(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  try {
+    const date = timestamp?.toDate
+      ? timestamp.toDate()
+      : new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    const diffMs = Date.now() - date.getTime();
+
+    // Prevent weird future timestamps
+    if (diffMs < 0) {
+      return "just now";
+    }
+
+    const diffMinutes = Math.floor(diffMs / 60000);
+
+    if (diffMinutes < 1) {
+      return "just now";
+    }
+
+    if (diffMinutes === 1) {
+      return "1 minute ago";
+    }
+
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minutes ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+
+    if (diffHours === 1) {
+      return "1 hour ago";
+    }
+
+    if (diffHours < 24) {
+      return `${diffHours} hours ago`;
+    }
+
+    return date.toLocaleString([], {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
+export default function WeatherMap({
+  user,
+  friends = [],
+}) {
   const [selected, setSelected] = useState(null);
+
+  /*
+   * Used to refresh the "Updated X minutes ago"
+   * text automatically.
+   */
+  const [, setTimeTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeTick((value) => value + 1);
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const userCoordinates = getCoordinates(user);
 
@@ -165,6 +249,43 @@ export default function WeatherMap({ user, friends = [] }) {
       );
     });
   }, [friends]);
+
+  /*
+   * Keep selected friend data updated when
+   * Firebase sends a new friendsList.
+   *
+   * This is important for real-time weather updates.
+   */
+  useEffect(() => {
+    if (!selected?.id && !selected?.isYou) {
+      return;
+    }
+
+    if (selected.isYou) {
+      setSelected((current) => ({
+        ...current,
+        ...user,
+        isYou: true,
+      }));
+
+      return;
+    }
+
+    const updatedFriend = friends.find(
+      (friend) => friend.id === selected.id
+    );
+
+    if (updatedFriend) {
+      const coordinates =
+        getCoordinates(updatedFriend);
+
+      setSelected({
+        ...updatedFriend,
+        latitude: coordinates?.lat,
+        longitude: coordinates?.lng,
+      });
+    }
+  }, [friends, user]);
 
   return (
     <div
@@ -194,10 +315,14 @@ export default function WeatherMap({ user, friends = [] }) {
           position={
             selected
               ? (() => {
-                  const coordinates = getCoordinates(selected);
+                  const coordinates =
+                    getCoordinates(selected);
 
                   return coordinates
-                    ? [coordinates.lat, coordinates.lng]
+                    ? [
+                        coordinates.lat,
+                        coordinates.lng,
+                      ]
                     : null;
                 })()
               : null
@@ -241,7 +366,8 @@ export default function WeatherMap({ user, friends = [] }) {
 
         {/* FRIEND LOCATIONS FROM FIREBASE */}
         {visibleFriends.map((friend) => {
-          const coordinates = getCoordinates(friend);
+          const coordinates =
+            getCoordinates(friend);
 
           if (!coordinates) return null;
 
@@ -294,7 +420,10 @@ export default function WeatherMap({ user, friends = [] }) {
           "
         >
           {visibleFriends.length} friend
-          {visibleFriends.length !== 1 ? "s" : ""} shown
+          {visibleFriends.length !== 1
+            ? "s"
+            : ""}{" "}
+          shown
         </span>
 
         <span
@@ -370,25 +499,40 @@ export default function WeatherMap({ user, friends = [] }) {
 
             <p className="text-xs text-ink-400 flex items-center gap-1">
               <MapPin size={11} />
-
               {getLocationText(selected)}
             </p>
 
             {/* WEATHER */}
             {selected.weather &&
-            (selected.isYou || selected.weatherSharing) ? (
-              <p className="text-sm mt-1.5">
-                {weatherIcon[selected.weather.icon] || "🌤️"}{" "}
+            (selected.isYou ||
+              selected.weatherSharing) ? (
+              <>
+                <p className="text-sm mt-1.5">
+                  {weatherIcon[
+                    selected.weather.icon
+                  ] || "🌤️"}{" "}
+                  {getTemperature(
+                    selected.weather
+                  ) !== null
+                    ? `${getTemperature(
+                        selected.weather
+                      )}°C`
+                    : "--"}{" "}
+                  {" · "}
+                  {selected.weather.condition ||
+                    "Weather unavailable"}
+                </p>
 
-                {getTemperature(selected.weather) !== null
-                  ? `${getTemperature(selected.weather)}°C`
-                  : "--"}
-
-                {" · "}
-
-                {selected.weather.condition ||
-                  "Weather unavailable"}
-              </p>
+                {/* UPDATED TIME */}
+                {selected.weatherUpdatedAt && (
+                  <p className="text-xs text-ink-400 mt-1">
+                    🕐 Updated{" "}
+                    {formatWeatherUpdatedAt(
+                      selected.weatherUpdatedAt
+                    )}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="text-xs mt-1.5 text-ink-400">
                 🔒 Weather not shared
@@ -398,6 +542,7 @@ export default function WeatherMap({ user, friends = [] }) {
 
           {/* CLOSE */}
           <button
+            type="button"
             onClick={() => setSelected(null)}
             className="
               text-ink-400
