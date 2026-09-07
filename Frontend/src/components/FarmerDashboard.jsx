@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Sprout, 
   Droplets, 
@@ -15,6 +15,7 @@ import {
   Cloud,
   RefreshCw
 } from 'lucide-react';
+import { getGreeting, getGreetingRefreshDelay } from '../utils/greeting';
 
 // Mock Data - Replace with API calls later
 const MOCK_FARMER_DATA = {
@@ -102,6 +103,7 @@ const FarmerDashboard = () => {
     { id: 2, label: 'Inspect wheat for fungal infection', crop: 'Wheat', due: 'Today', done: false },
     { id: 3, label: 'Review sugarcane harvest timing', crop: 'Sugarcane', due: 'Tomorrow', done: false }
   ]);
+  const [currentGreeting, setCurrentGreeting] = useState(getGreeting());
 
   const getWeatherIcon = (condition) => {
     switch(condition) {
@@ -139,9 +141,27 @@ const FarmerDashboard = () => {
   };
 
   const completedTasks = tasks.filter(task => task.done).length;
+  useEffect(() => {
+    let timer;
+
+    const scheduleGreetingRefresh = () => {
+      timer = window.setTimeout(() => {
+        setCurrentGreeting(getGreeting());
+        scheduleGreetingRefresh();
+      }, getGreetingRefreshDelay());
+    };
+
+    scheduleGreetingRefresh();
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className="min-h-screen bg-ink-50/50 p-6">
+      <section className="mb-6 rounded-xl bg-gradient-to-r from-sky-100 via-white to-green-50 p-5 shadow-card border border-sky-100">
+        <p className="text-sm text-ink-500">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <h2 className="mt-1 text-2xl font-display font-bold text-ink-900">{currentGreeting}, Farmer</h2>
+        <p className="mt-1 text-sm text-ink-500">Here is your farm plan and weather outlook for today.</p>
+      </section>
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-6">
         <div className="flex items-center gap-3">
