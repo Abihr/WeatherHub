@@ -1,13 +1,16 @@
-
 import { useEffect, useMemo, useState } from "react";
+
 import { useLocation } from "react-router-dom";
 
 import { useApp } from "../context/AppContext";
+
 import WeatherComparison from "../components/WeatherComparison";
+
 import EmptyState from "../components/EmptyState";
 
 export default function Compare() {
   const { user, friendsList } = useApp();
+
   const routerLocation = useLocation();
 
   /*
@@ -74,25 +77,21 @@ export default function Compare() {
   //     friends.map((friend) => ({
   //       id: friend.id,
   //       name: friend.name,
-  //       weatherSharing:
-  //         friend.weatherSharing,
-  //       hasWeather:
-  //         !!friend.weather,
-  //       weather:
-  //         friend.weather,
+  //       weatherSharing: friend.weatherSharing,
+  //       hasWeather: !!friend.weather,
+  //       weather: friend.weather,
+  //       weatherUpdatedAt: friend.weatherUpdatedAt,
   //     })),
   //     null,
   //     2
   //   )
   // );
 
-  // console.log(
-  //   "🔥 SELECTED FRIEND:",
-  //   friend
-  // );
+  // console.log("🔥 SELECTED FRIEND:", friend);
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10 flex flex-col gap-5">
+
       {/* Page Title */}
       <h1 className="text-xl md:text-2xl font-display font-extrabold text-ink-900">
         Compare Weather
@@ -156,8 +155,7 @@ export default function Compare() {
                   friend.location ?? null,
 
                 /*
-                 * Explicitly pass Firebase
-                 * weather sharing status.
+                 * Firebase weather sharing status.
                  */
                 weatherSharing:
                   friend.weatherSharing === true,
@@ -170,6 +168,19 @@ export default function Compare() {
                   friend.weatherSharing === true
                     ? friend.weather
                     : null,
+
+                /*
+                 * Firebase weather update timestamp.
+                 *
+                 * This is used by WeatherComparison.jsx
+                 * to show:
+                 *
+                 * "Updated just now"
+                 * "Updated 5 minutes ago"
+                 * etc.
+                 */
+                weatherUpdatedAt:
+                  friend.weatherUpdatedAt ?? null,
               }}
               friendLabel={
                 friend.name?.split(" ")[0] ||
@@ -182,4 +193,3 @@ export default function Compare() {
     </div>
   );
 }
-
