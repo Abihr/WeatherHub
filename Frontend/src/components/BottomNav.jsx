@@ -29,7 +29,7 @@ const moreLinks = [
     // { to: "/requests", label: "Requests", icon: Inbox },
     // { to: "/alerts", label: "Alerts", icon: Bell },
     { to: "/profile", label: "Profile", icon: User },
-    // { to: "/settings", label: "Settings", icon: Settings },
+    
 ];
 
 export default function BottomNav() {
