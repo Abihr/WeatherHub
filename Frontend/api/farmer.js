@@ -59,23 +59,54 @@ export async function GET(request) {
       const forecastResponse = await fetch(forecastUrl);
       const forecastData = await forecastResponse.json();
 
+      // Debug information
+      console.log(
+        "Forecast API status:",
+        forecastResponse.status
+      );
+
+      console.log(
+        "Forecast API response:",
+        forecastData
+      );
+
       if (forecastResponse.ok && forecastData.daily) {
-        forecast = forecastData.daily.slice(0, 7).map((day) => ({
-          date: new Date(day.dt * 1000).toISOString().split("T")[0],
-          temperature: {
-            min: day.temp.min,
-            max: day.temp.max
-          },
-          humidity: day.humidity,
-          rainfall: day.rain || 0,
-          precipitationProbability: day.pop || 0,
-          windSpeed: day.wind_speed,
-          condition: day.weather?.[0]?.main || "Unknown",
-          description: day.weather?.[0]?.description || ""
-        }));
+        forecast = forecastData.daily
+          .slice(0, 7)
+          .map((day) => ({
+            date: new Date(day.dt * 1000)
+              .toISOString()
+              .split("T")[0],
+
+            temperature: {
+              min: day.temp.min,
+              max: day.temp.max
+            },
+
+            humidity: day.humidity,
+
+            rainfall: day.rain || 0,
+
+            precipitationProbability:
+              day.pop || 0,
+
+            windSpeed: day.wind_speed,
+
+            condition:
+              day.weather?.[0]?.main ||
+              "Unknown",
+
+            description:
+              day.weather?.[0]?.description ||
+              ""
+          }));
       }
+
     } catch (forecastError) {
-      console.error("Forecast error:", forecastError);
+      console.error(
+        "Forecast error:",
+        forecastError
+      );
     }
 
     // --------------------------------
@@ -353,7 +384,10 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error("Farmer weather error:", error);
+    console.error(
+      "Farmer weather error:",
+      error
+    );
 
     return Response.json(
       { error: "Failed to fetch farmer weather" },
