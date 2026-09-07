@@ -10,6 +10,7 @@ import {
   query,
   where,
   serverTimestamp,
+  onSnapshot, // ADD THIS
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -799,19 +800,15 @@ export async function updateLocationSharing(
 export async function updateUserLocation(
   userId,
   latitude,
-  longitude
+  longitude,
+  locationName = "",
+  country = ""
 ) {
   if (!userId) {
-    throw new Error(
-      "User ID is required"
-    );
+    throw new Error("User ID is required");
   }
 
-  const userRef = doc(
-    db,
-    "users",
-    userId
-  );
+  const userRef = doc(db, "users", userId);
 
   await setDoc(
     userRef,
@@ -824,10 +821,16 @@ export async function updateUserLocation(
       location: {
         lat: latitude,
         lng: longitude,
+        city: locationName,
+        name: locationName,
+        country,
       },
 
-      locationUpdatedAt:
-        serverTimestamp(),
+      locationText: locationName
+        ? `${locationName}${country ? `, ${country}` : ""}`
+        : "",
+
+      locationUpdatedAt: serverTimestamp(),
     },
     {
       merge: true,
@@ -904,3 +907,91 @@ export async function updateUserWeather(
   return true;
 }
 
+// =========================================================
+// REAL-TIME FRIEND WEATHER
+// =========================================================
+
+export function subscribeToFriends(userId, callback) {
+  if (!userId) {
+    return () => {};
+  }
+
+  const friendsRef = collection(
+    db,
+    "users",
+    userId,
+    "friends"
+  );
+
+  let unsubscribeFriendListeners = [];
+
+  const unsubscribeFriends = onSnapshot(
+    friendsRef,
+    async (snapshot) => {
+      // Remove old listeners
+      unsubscribeFriendListeners.forEach((unsubscribe) => {
+        unsubscribe();
+      });
+
+      unsubscribeFriendListeners = [];
+
+      const friendIds = snapshot.docs.map(
+        (friendDoc) => friendDoc.id
+      );
+
+      if (friendIds.length === 0) {
+        callback([]);
+        return;
+      }
+
+      const friends = [];
+
+      for (const friendId of friendIds) {
+        const friendRef = doc(db, "users", friendId);
+
+        const unsubscribeFriend = onSnapshot(
+          friendRef,
+          (friendSnapshot) => {
+            if (!friendSnapshot.exists()) {
+              return;
+            }
+
+            const friend = {
+              id: friendSnapshot.id,
+              ...friendSnapshot.data(),
+            };
+
+            // Store/update friend in local list
+            const index = friends.findIndex(
+              (item) => item.id === friend.id
+            );
+
+            if (index >= 0) {
+              friends[index] = friend;
+            } else {
+              friends.push(friend);
+            }
+
+            callback([...friends]);
+          }
+        );
+
+        unsubscribeFriendListeners.push(
+          unsubscribeFriend
+        );
+      }
+    }
+  );
+
+  return () => {
+    unsubscribeFriends();
+
+    unsubscribeFriendListeners.forEach(
+      (unsubscribe) => {
+        unsubscribe();
+      }
+    );
+
+    unsubscribeFriendListeners = [];
+  };
+}
