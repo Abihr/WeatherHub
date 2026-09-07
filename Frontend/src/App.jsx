@@ -36,22 +36,30 @@ function AppShell() {
       <div className="flex-1 min-w-0">
         <Navbar />
 
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/friends" element={<Friends />} />
-          <Route path="/requests" element={<FriendRequests />} />
-          <Route path="/compare" element={<Compare />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/blocked" element={<BlockedUsers />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/chatbot" element={<Chatbot />} />
-          <Route path="/Frontend" element={<Chatbot />} />
-          <Route path="/railway-weather" element={<RailwayWeather />} />
-          <Route path="/railway" element={<RailwayWeather />} />
-          <Route path="/farmer" element={<Farmer />} />
-        </Routes>
+        <div className="animate-page-enter">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/friends" element={<Friends />} />
+            <Route path="/requests" element={<FriendRequests />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/blocked" element={<BlockedUsers />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/chatbot" element={<Chatbot />} />
+            <Route path="/Frontend" element={<Chatbot />} />
+            <Route
+              path="/railway-weather"
+              element={<RailwayWeather />}
+            />
+            <Route
+              path="/railway"
+              element={<RailwayWeather />}
+            />
+            <Route path="/farmer" element={<Farmer />} />
+          </Routes>
+        </div>
       </div>
 
       <BottomNav />
