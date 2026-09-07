@@ -1,16 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-
 import {
   MoreVertical,
   Lock,
   MapPin,
-  User,
-  Eye,
   RefreshCw,
   UserMinus,
   ShieldOff,
 } from "lucide-react";
-
 import { weatherIcon } from "../data/mockData";
 import { useApp } from "../context/AppContext";
 
@@ -20,17 +16,13 @@ export default function FriendCard({
   onBlock,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-
   const menuRef = useRef(null);
 
-  const {
-    removeFriend,
-    pushToast,
-  } = useApp();
+  const { removeFriend } = useApp();
 
-  /* =====================================================
-     CLOSE MENU WHEN CLICKING OUTSIDE
-  ===================================================== */
+  // ============================================================
+  // CLOSE MENU WHEN CLICKING OUTSIDE
+  // ============================================================
 
   useEffect(() => {
     function onClick(e) {
@@ -42,22 +34,24 @@ export default function FriendCard({
       }
     }
 
-    document.addEventListener(
-      "mousedown",
-      onClick
-    );
+    document.addEventListener("mousedown", onClick);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        onClick
-      );
+      document.removeEventListener("mousedown", onClick);
     };
   }, []);
 
-  /* =====================================================
-     SAFE INITIALS
-  ===================================================== */
+  // ============================================================
+  // CHECK IF USER IS UNAVAILABLE
+  // ============================================================
+
+  const isUnavailable =
+    friend?.blockedMe === true ||
+    friend?.isBlocked === true;
+
+  // ============================================================
+  // USER INITIALS
+  // ============================================================
 
   const initials = (friend?.name || "User")
     .split(" ")
@@ -67,27 +61,20 @@ export default function FriendCard({
     .join("")
     .toUpperCase();
 
-  /* =====================================================
-     FRIEND WEATHER
-  ===================================================== */
+  // ============================================================
+  // WEATHER
+  // ============================================================
 
   const weather = friend?.weather;
 
-  /*
-    IMPORTANT:
-
-    Weather should only be visible when:
-    1. Friend has explicitly enabled weather sharing
-    2. Weather data exists
-  */
-
   const weatherShared =
     friend?.weatherSharing === true &&
-    !!weather;
+    !!weather &&
+    !isUnavailable;
 
-  /* =====================================================
-     FRIEND LOCATION
-  ===================================================== */
+  // ============================================================
+  // LOCATION
+  // ============================================================
 
   const locationText =
     typeof friend?.location === "string"
@@ -96,196 +83,162 @@ export default function FriendCard({
         weather?.locationName ||
         "";
 
-  /* =====================================================
-     TEMPERATURE
-  ===================================================== */
+  // ============================================================
+  // TEMPERATURE
+  // ============================================================
 
   const temperature =
-    weather?.temperature ??
-    weather?.temp;
+    weather?.temperature ?? weather?.temp;
 
-  /* =====================================================
-     RENDER
-  ===================================================== */
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="rounded-xl2 bg-white shadow-card p-5 flex flex-col gap-4 animate-enter">
 
-      {/* =================================================
-          FRIEND HEADER
-      ================================================= */}
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
 
       <div className="flex items-start gap-3">
 
-        {/* Avatar */}
+        {/* ======================================================
+            AVATAR
+        ====================================================== */}
 
-        <div className="h-11 w-11 rounded-full bg-sky-100 text-sky-700 font-display font-semibold flex items-center justify-center text-sm shrink-0">
-          {initials}
+        <div className="h-11 w-11 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+          {isUnavailable ? (
+            <Lock
+              size={18}
+              className="text-ink-400"
+            />
+          ) : (
+            <span className="font-display font-semibold text-sm">
+              {initials}
+            </span>
+          )}
         </div>
 
-        {/* Friend Information */}
+        {/* ======================================================
+            USER INFORMATION
+        ====================================================== */}
 
         <div className="flex-1 min-w-0">
 
+          {/* NAME */}
+
           <p className="font-semibold text-ink-800 truncate">
-            {friend?.name || "User"}
+            {isUnavailable
+              ? "User unavailable"
+              : friend?.name || "User"}
           </p>
 
-          <p className="text-xs text-ink-400">
-            @{friend?.username || "username"}
-          </p>
+          {/* USERNAME
+              Hidden when unavailable
+          */}
 
-          {/* Location */}
+          {!isUnavailable && (
+            <p className="text-xs text-ink-400">
+              @{friend?.username || "username"}
+            </p>
+          )}
 
-          {locationText && (
+          {/* LOCATION
+              Hidden when unavailable
+          */}
+
+          {!isUnavailable && locationText && (
             <p className="text-xs text-ink-400 flex items-center gap-1 mt-0.5">
               <MapPin size={11} />
               {locationText}
             </p>
           )}
-
         </div>
 
-        {/* =================================================
-            MENU
-        ================================================= */}
+        {/* ======================================================
+            THREE DOT MENU
+            COMPLETELY HIDDEN FOR UNAVAILABLE USERS
+        ====================================================== */}
 
-        <div
-          className="relative"
-          ref={menuRef}
-        >
-
-          <button
-            type="button"
-            onClick={() =>
-              setMenuOpen(
-                (value) => !value
-              )
-            }
-            className="h-8 w-8 rounded-full flex items-center justify-center text-ink-400 hover:bg-sky-50 hover:text-ink-700 transition-colors"
+        {!isUnavailable && (
+          <div
+            className="relative"
+            ref={menuRef}
           >
-            <MoreVertical size={16} />
-          </button>
+            <button
+              type="button"
+              onClick={() =>
+                setMenuOpen((value) => !value)
+              }
+              className="h-8 w-8 rounded-full flex items-center justify-center text-ink-400 hover:bg-sky-50 hover:text-ink-700 transition-colors"
+            >
+              <MoreVertical size={16} />
+            </button>
 
-          {menuOpen && (
-            <div className="absolute right-0 top-9 z-20 w-48 bg-white rounded-xl2 shadow-pop border border-sky-100 py-1.5 animate-enter">
+            {menuOpen && (
+              <div className="absolute right-0 top-9 z-20 w-48 bg-white rounded-xl2 shadow-pop border border-sky-100 py-1.5 animate-enter">
 
-              {/* View Profile */}
+                {/* COMPARE WEATHER */}
 
-              <MenuItem
-                icon={User}
-                label="View Profile"
-                onClick={() => {
-                  setMenuOpen(false);
+                <MenuItem
+                  icon={RefreshCw}
+                  label="Compare Weather"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onCompare?.(friend);
+                  }}
+                />
 
-                  pushToast(
-                    `Viewing ${
-                      friend?.name || "User"
-                    }'s profile`
-                  );
-                }}
-              />
+                {/* REMOVE FRIEND */}
 
-              {/* View Weather */}
+                <MenuItem
+                  icon={UserMinus}
+                  label="Remove Friend"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    removeFriend(friend?.id);
+                  }}
+                />
 
-              <MenuItem
-                icon={Eye}
-                label="View Weather"
-                onClick={() => {
-                  setMenuOpen(false);
+                {/* BLOCK USER */}
 
-                  if (weatherShared) {
-                    pushToast(
-                      `${
-                        friend?.name || "User"
-                      }'s weather is available`
-                    );
-                  } else {
-                    pushToast(
-                      `${
-                        friend?.name || "User"
-                      }'s weather is not shared`,
-                      "error"
-                    );
-                  }
-                }}
-              />
+                <MenuItem
+                  icon={ShieldOff}
+                  label="Block User"
+                  tone="danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onBlock?.(friend);
+                  }}
+                />
 
-              {/* Compare Weather */}
-
-              <MenuItem
-                icon={RefreshCw}
-                label="Compare Weather"
-                onClick={() => {
-                  setMenuOpen(false);
-
-                  onCompare?.(friend);
-                }}
-              />
-
-              {/* Remove Friend */}
-
-              <MenuItem
-                icon={UserMinus}
-                label="Remove Friend"
-                onClick={() => {
-                  setMenuOpen(false);
-
-                  removeFriend(
-                    friend?.id
-                  );
-                }}
-              />
-
-              {/* Block User */}
-
-              <MenuItem
-                icon={ShieldOff}
-                label="Block User"
-                tone="danger"
-                onClick={() => {
-                  setMenuOpen(false);
-
-                  onBlock?.(friend);
-                }}
-              />
-
-            </div>
-          )}
-
-        </div>
-
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* =================================================
-          FRIEND WEATHER
-      ================================================= */}
+      {/* ========================================================
+          WEATHER SECTION
+      ======================================================== */}
 
       {weatherShared ? (
-
-        /* =================================================
-           WEATHER SHARED
-        ================================================= */
-
         <div className="rounded-xl2 bg-sky-50 px-4 py-3 flex items-center gap-3">
 
-          {/* Weather Icon */}
+          {/* WEATHER ICON */}
 
           <span className="text-2xl leading-none">
-            {weatherIcon?.[weather.icon] ||
-              "🌤️"}
+            {weatherIcon?.[weather.icon] || "🌤️"}
           </span>
 
-          {/* Weather Details */}
+          {/* WEATHER INFORMATION */}
 
           <div className="flex-1 min-w-0">
 
             <p className="text-sm font-semibold text-ink-800">
-              {weather.condition ||
-                "Current Weather"}
+              {weather.condition || "Current Weather"}
             </p>
-
-            {/* Humidity */}
 
             {weather.humidity !== undefined &&
               weather.humidity !== null && (
@@ -294,86 +247,76 @@ export default function FriendCard({
                 </p>
               )}
 
-            {/* Location */}
-
             {locationText && (
               <p className="text-xs text-ink-400 truncate">
                 {locationText}
               </p>
             )}
-
           </div>
 
-          {/* Temperature */}
+          {/* TEMPERATURE */}
 
           <p className="text-xl font-display font-bold text-ink-900">
-
             {temperature !== undefined &&
             temperature !== null
               ? `${temperature}°`
               : "--"}
-
           </p>
-
         </div>
-
       ) : (
-
-        /* =================================================
-           WEATHER NOT SHARED
-        ================================================= */
+        /* ======================================================
+           WEATHER NOT SHARED / USER UNAVAILABLE
+        ====================================================== */
 
         <div className="rounded-xl2 bg-ink-50 px-4 py-3.5 flex items-center gap-2.5 text-ink-400">
 
           <Lock size={14} />
 
           <div>
-
             <p className="text-sm font-medium text-ink-500">
               Weather Not Shared
             </p>
 
             <p className="text-xs">
-              {(friend?.name ||
-                "This user"
-              ).split(" ")[0]}
-
-              {" hasn't shared weather data yet."}
+              {isUnavailable
+                ? "User hasn't shared weather data yet."
+                : `${
+                    (
+                      friend?.name ||
+                      "This user"
+                    ).split(" ")[0]
+                  } hasn't shared weather data yet.`}
             </p>
-
           </div>
-
         </div>
-
       )}
 
-      {/* =================================================
-          ACTIONS
-      ================================================= */}
+      {/* ========================================================
+          COMPARE BUTTON
+          HIDDEN FOR UNAVAILABLE USERS
+      ======================================================== */}
 
-      <div className="flex gap-2">
+      {!isUnavailable && (
+        <div className="flex gap-2">
 
-        {/* Compare */}
+          <button
+            type="button"
+            onClick={() => onCompare?.(friend)}
+            className="flex-1 text-sm font-medium py-2 rounded-xl2 bg-sky-500 text-white hover:bg-sky-600 transition-colors"
+          >
+            Compare
+          </button>
 
-        <button
-          type="button"
-          onClick={() =>
-            onCompare?.(friend)
-          }
-          className="flex-1 text-sm font-medium py-2 rounded-xl2 bg-sky-500 text-white hover:bg-sky-600 transition-colors"
-        >
-          Compare
-        </button>
-
-      </div>
+        </div>
+      )}
 
     </div>
   );
 }
 
-/* =========================================================
-   MENU ITEM
-========================================================= */
+// ================================================================
+// MENU ITEM COMPONENT
+// ================================================================
 
 function MenuItem({
   icon: Icon,

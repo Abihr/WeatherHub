@@ -1,5 +1,7 @@
 import { Lock } from "lucide-react";
+
 import { useApp } from "../context/AppContext";
+
 import EmptyState from "../components/EmptyState";
 
 export default function BlockedUsers() {
@@ -13,7 +15,7 @@ export default function BlockedUsers() {
         </h1>
 
         <p className="text-sm text-ink-400 mt-0.5">
-          Unblocking doesn't restore friendship — they'll need to send a new request.
+          Unblocking restores the friendship automatically.
         </p>
       </div>
 
@@ -30,21 +32,25 @@ export default function BlockedUsers() {
               key={b.id}
               className="rounded-xl2 bg-white shadow-card p-4 flex items-center gap-3 animate-enter"
             >
+              {/* Avatar */}
               <div className="h-11 w-11 rounded-full bg-ink-50 text-ink-400 font-display font-semibold flex items-center justify-center text-sm shrink-0">
                 {b.name
                   ?.split(" ")
+                  .filter(Boolean)
                   .map((n) => n[0])
                   .slice(0, 2)
-                  .join("")}
+                  .join("")
+                  .toUpperCase()}
               </div>
 
+              {/* User Information */}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-ink-800 truncate">
-                  {b.name}
+                  {b.name || "User"}
                 </p>
 
                 <p className="text-xs text-ink-400">
-                  @{b.username}
+                  @{b.username || "username"}
                 </p>
 
                 <p className="text-xs text-red-400 flex items-center gap-1 mt-0.5">
@@ -53,7 +59,9 @@ export default function BlockedUsers() {
                 </p>
               </div>
 
+              {/* Unblock */}
               <button
+                type="button"
                 onClick={() => unblockUserById(b)}
                 className="text-sm font-medium px-3.5 py-1.5 rounded-full bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors shrink-0"
               >
