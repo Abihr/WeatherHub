@@ -984,100 +984,158 @@ export function subscribeToFriends(userId, callback) {
     "friends"
   );
 
+  const blockedRef = collection(
+    db,
+    "blockedUsers"
+  );
+
+  let unsubscribeFriends = null;
   let unsubscribeFriendListeners = [];
   let friendData = new Map();
+  let blockedByIds = new Set();
 
-  const unsubscribeFriends = onSnapshot(
-    friendsRef,
-    (snapshot) => {
-      // Remove old friend listeners
-      unsubscribeFriendListeners.forEach((unsubscribe) => {
-        unsubscribe();
-      });
+  // ==========================================================
+  // START FRIEND LISTENER
+  // ==========================================================
 
-      unsubscribeFriendListeners = [];
-      friendData = new Map();
+  function startFriendListeners(snapshot) {
+    // Remove previous friend listeners
+    unsubscribeFriendListeners.forEach(
+      (unsubscribe) => unsubscribe()
+    );
 
-      const friendIds = snapshot.docs.map(
-        (friendDoc) => friendDoc.id
+    unsubscribeFriendListeners = [];
+    friendData = new Map();
+
+    const friendIds = snapshot.docs.map(
+      (friendDoc) => friendDoc.id
+    );
+
+    if (friendIds.length === 0) {
+      callback([]);
+      return;
+    }
+
+    friendIds.forEach((friendId) => {
+      const friendRef = doc(
+        db,
+        "users",
+        friendId
       );
 
-      // No friends
-      if (friendIds.length === 0) {
-        callback([]);
-        return;
-      }
+      const unsubscribeFriend = onSnapshot(
+        friendRef,
+        (friendSnapshot) => {
+          if (!friendSnapshot.exists()) {
+            return;
+          }
 
-      friendIds.forEach((friendId) => {
-        const friendRef = doc(
-          db,
-          "users",
-          friendId
-        );
+          const data = friendSnapshot.data();
 
-        const unsubscribeFriend = onSnapshot(
-          friendRef,
-          (friendSnapshot) => {
-            if (!friendSnapshot.exists()) {
-              return;
-            }
+          // ====================================================
+          // CHECK IF THIS FRIEND BLOCKED CURRENT USER
+          // ====================================================
 
-            const data = friendSnapshot.data();
+          const blockedMe =
+            blockedByIds.has(friendId);
 
-            const friend = {
+          let friend;
+
+          if (blockedMe) {
+            // ==================================================
+            // USER BLOCKED CURRENT USER
+            // HIDE PRIVATE INFORMATION
+            // ==================================================
+
+            friend = {
+              id: friendId,
+              friendId,
+
+              name: "User unavailable",
+              username: "",
+              email: "",
+              photoURL: "",
+
+              location: null,
+              locationText: "Location not available",
+              latitude: null,
+              longitude: null,
+
+              weather: null,
+
+              weatherSharing: false,
+              locationSharing: "off",
+
+              weatherUpdatedAt: null,
+              locationUpdatedAt: null,
+
+              blockedMe: true,
+            };
+          } else {
+            // ==================================================
+            // NORMAL FRIEND
+            // ==================================================
+
+            friend = {
               id: friendSnapshot.id,
               friendId: friendSnapshot.id,
 
-              // Profile
               name: data.name || "User",
               username: data.username || "",
               email: data.email || "",
               photoURL: data.photoURL || "",
 
-              // Location
               location: data.location || null,
               locationText: data.locationText || "",
               latitude: data.latitude ?? null,
               longitude: data.longitude ?? null,
 
-              // Weather
               weather: data.weather || null,
 
-              // Sharing
               weatherSharing:
                 data.weatherSharing === true,
 
               locationSharing:
                 data.locationSharing || "off",
 
-              // IMPORTANT
               weatherUpdatedAt:
                 data.weatherUpdatedAt || null,
 
               locationUpdatedAt:
                 data.locationUpdatedAt || null,
+
+              blockedMe: false,
             };
-
-            // Update this friend
-            friendData.set(friendId, friend);
-
-            // Send latest complete list
-            callback(
-              Array.from(friendData.values())
-            );
-          },
-          (error) => {
-            console.error(
-              `Friend listener error (${friendId}):`,
-              error
-            );
           }
-        );
 
-        unsubscribeFriendListeners.push(
-          unsubscribeFriend
-        );
-      });
+          friendData.set(friendId, friend);
+
+          callback(
+            Array.from(friendData.values())
+          );
+        },
+        (error) => {
+          console.error(
+            `Friend listener error (${friendId}):`,
+            error
+          );
+        }
+      );
+
+      unsubscribeFriendListeners.push(
+        unsubscribeFriend
+      );
+    });
+  }
+
+  // ==========================================================
+  // LISTEN TO FRIENDSHIP CHANGES
+  // ==========================================================
+
+  unsubscribeFriends = onSnapshot(
+    friendsRef,
+    (snapshot) => {
+      startFriendListeners(snapshot);
     },
     (error) => {
       console.error(
@@ -1089,8 +1147,77 @@ export function subscribeToFriends(userId, callback) {
     }
   );
 
+  // ==========================================================
+  // LISTEN TO PEOPLE WHO BLOCKED CURRENT USER
+  //
+  // blockedUsers:
+  //
+  // {
+  //   blockerId: User1,
+  //   blockedUserId: User2
+  // }
+  //
+  // For User2:
+  //
+  // blockedUserId == User2
+  //
+  // means User1 blocked User2.
+  // ==========================================================
+
+  const unsubscribeBlocked = onSnapshot(
+    query(
+      blockedRef,
+      where(
+        "blockedUserId",
+        "==",
+        userId
+      )
+    ),
+    (snapshot) => {
+      blockedByIds = new Set(
+        snapshot.docs.map(
+          (blockDoc) =>
+            blockDoc.data().blockerId
+        )
+      );
+
+      // Rebuild friend data so the UI
+      // immediately hides/shows information.
+      if (unsubscribeFriends) {
+        // Trigger a fresh read of friendship documents.
+        // The existing listener remains active.
+        getDocs(friendsRef)
+          .then((friendsSnapshot) => {
+            startFriendListeners(
+              friendsSnapshot
+            );
+          })
+          .catch((error) => {
+            console.error(
+              "Failed to refresh friends after block change:",
+              error
+            );
+          });
+      }
+    },
+    (error) => {
+      console.error(
+        "Blocked users listener error:",
+        error
+      );
+    }
+  );
+
+  // ==========================================================
+  // CLEANUP
+  // ==========================================================
+
   return () => {
-    unsubscribeFriends();
+    if (unsubscribeFriends) {
+      unsubscribeFriends();
+    }
+
+    unsubscribeBlocked();
 
     unsubscribeFriendListeners.forEach(
       (unsubscribe) => {
@@ -1100,5 +1227,6 @@ export function subscribeToFriends(userId, callback) {
 
     unsubscribeFriendListeners = [];
     friendData.clear();
+    blockedByIds.clear();
   };
 }
