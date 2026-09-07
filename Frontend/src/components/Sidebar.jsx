@@ -26,7 +26,6 @@ const links = [
   { to: "/compare", label: "Compare", icon: RefreshCw },
   { to: "/chatbot", label: "WeatherGPT", icon: Bot },
   { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/railway", label: "Railway", icon: Train },
   { to: "/farmer", label: "Farmer", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
   { to: "/railway-weather", label: "Railway Weather", icon: Train },
@@ -40,7 +39,6 @@ export default function Sidebar() {
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-2 mb-8">
-
         <div
           className="
             w-15 h-15
@@ -69,14 +67,11 @@ export default function Sidebar() {
         >
           WeatherHub
         </span>
-
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-1">
-
         {links.map(({ to, label, icon: Icon }) => (
-
           <NavLink
             key={to}
             to={to}
@@ -89,7 +84,6 @@ export default function Sidebar() {
               }`
             }
           >
-
             <Icon
               size={18}
               strokeWidth={2.1}
@@ -105,16 +99,12 @@ export default function Sidebar() {
                 {received.length}
               </span>
             )}
-
           </NavLink>
-
         ))}
-
       </nav>
 
       {/* Settings */}
       <div className="pt-4 mt-4 border-t border-sky-100">
-
         <NavLink
           to="/settings"
           className={({ isActive }) =>
@@ -125,18 +115,14 @@ export default function Sidebar() {
             }`
           }
         >
-
           <Settings
             size={18}
             strokeWidth={2.1}
           />
 
           Settings
-
         </NavLink>
-
       </div>
-
     </aside>
   );
 }
