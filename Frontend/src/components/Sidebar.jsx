@@ -10,7 +10,8 @@ import {
   User,
   Settings,
   Bot,
- Train 
+  Sprout,
+  Train,
 } from "lucide-react";
 
 import { useApp } from "../context/AppContext";
@@ -25,6 +26,8 @@ const links = [
   { to: "/compare", label: "Compare", icon: RefreshCw },
   { to: "/chatbot", label: "WeatherGPT", icon: Bot },
   { to: "/alerts", label: "Alerts", icon: Bell },
+  { to: "/railway", label: "Railway", icon: Train },
+  { to: "/farmer", label: "Farmer", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
   { to: "/railway-weather", label: "Railway Weather", icon: Train },
 ];
@@ -50,12 +53,7 @@ export default function Sidebar() {
         >
           <img
             src={logo}
-            className="
-              w-full h-full
-              object-cover
-              transition-transform duration-200
-              hover:scale-110
-            "
+            className="w-full h-full object-cover transition-transform duration-200 hover:scale-110"
             alt="WeatherHub logo"
           />
         </div>

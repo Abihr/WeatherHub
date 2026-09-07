@@ -26,6 +26,7 @@ import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
 import Chatbot from "./pages/Chatbot";
 import RailwayWeather from "./components/RailwayWeather";
+import Farmer from "./pages/Farmer";
 
 function AppShell() {
   return (
@@ -48,6 +49,8 @@ function AppShell() {
           <Route path="/chatbot" element={<Chatbot />} />
           <Route path="/Frontend" element={<Chatbot />} />
           <Route path="/railway-weather" element={<RailwayWeather />} />
+          <Route path="/railway" element={<RailwayWeather />} />
+          <Route path="/farmer" element={<Farmer />} />
         </Routes>
       </div>
 
