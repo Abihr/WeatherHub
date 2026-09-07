@@ -22,7 +22,8 @@ const links = [
   { to: "/map", label: "Map", icon: Map },
   { to: "/compare", label: "Compare", icon: RefreshCw },
   { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/railway", label: "Railway", icon: Train }, // ← NEW
+  { to: "/railway", label: "Railway", icon: Train },
+  { to: "/farmer", label: "Farmer", icon: Sprout }, // ← NEW
   { to: "/profile", label: "Profile", icon: User },
 ];
 

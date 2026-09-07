@@ -15,7 +15,8 @@ import Profile from "./pages/Profile";
 import BlockedUsers from "./pages/BlockedUsers";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
-import RailwayWeather from "./components/RailwayWeather"; // ← ADD THIS IMPORT
+import RailwayWeather from "./components/RailwayWeather";
+import Farmer from "../pages/Farmer"; 
 
 function AppShell() {
   return (
@@ -36,6 +37,7 @@ function AppShell() {
           <Route path="/blocked" element={<BlockedUsers />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/railway" element={<RailwayWeather />} /> {/* ← ADD THIS ROUTE */}
+          <Route path="/farmer" element={<Farmer />} /> {/* ← ADD THIS ROUTE */}
         </Routes>
       </div>
 
