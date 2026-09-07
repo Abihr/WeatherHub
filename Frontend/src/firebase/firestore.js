@@ -678,6 +678,63 @@ export async function blockUser(
 }
 
 /* =========================================================
+   GET BLOCKED USERS
+========================================================= */
+
+export async function getBlockedUsers(userId) {
+  if (!userId) return [];
+
+  try {
+    const blockedRef = collection(db, "blockedUsers");
+
+    const q = query(
+      blockedRef,
+      where("blockerId", "==", userId)
+    );
+
+    const snapshot = await getDocs(q);
+
+    const blockedUsers = await Promise.all(
+      snapshot.docs.map(async (blockDoc) => {
+        const data = blockDoc.data();
+
+        const blockedUser = await getUser(
+          data.blockedUserId
+        );
+
+        if (!blockedUser) {
+          return null;
+        }
+
+        return {
+          // IMPORTANT:
+          // This is the Firestore blockedUsers document ID
+          blockId: blockDoc.id,
+
+          // This is the actual user's UID
+          id: data.blockedUserId,
+
+          name: blockedUser.name || "User",
+          username: blockedUser.username || "",
+          email: blockedUser.email || "",
+          photoURL: blockedUser.photoURL || "",
+
+          createdAt: data.createdAt || null,
+        };
+      })
+    );
+
+    return blockedUsers.filter(Boolean);
+  } catch (error) {
+    console.error(
+      "getBlockedUsers error:",
+      error
+    );
+
+    return [];
+  }
+}
+/* =========================================================
    UNBLOCK USER
 ========================================================= */
 
