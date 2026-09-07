@@ -911,6 +911,10 @@ export async function updateUserWeather(
 // REAL-TIME FRIEND WEATHER
 // =========================================================
 
+// =========================================================
+// REAL-TIME FRIEND WEATHER + PROFILE
+// =========================================================
+
 export function subscribeToFriends(userId, callback) {
   if (!userId) {
     return () => {};
@@ -924,30 +928,35 @@ export function subscribeToFriends(userId, callback) {
   );
 
   let unsubscribeFriendListeners = [];
+  let friendData = new Map();
 
   const unsubscribeFriends = onSnapshot(
     friendsRef,
-    async (snapshot) => {
-      // Remove old listeners
+    (snapshot) => {
+      // Remove old friend listeners
       unsubscribeFriendListeners.forEach((unsubscribe) => {
         unsubscribe();
       });
 
       unsubscribeFriendListeners = [];
+      friendData = new Map();
 
       const friendIds = snapshot.docs.map(
         (friendDoc) => friendDoc.id
       );
 
+      // No friends
       if (friendIds.length === 0) {
         callback([]);
         return;
       }
 
-      const friends = [];
-
-      for (const friendId of friendIds) {
-        const friendRef = doc(db, "users", friendId);
+      friendIds.forEach((friendId) => {
+        const friendRef = doc(
+          db,
+          "users",
+          friendId
+        );
 
         const unsubscribeFriend = onSnapshot(
           friendRef,
@@ -956,30 +965,70 @@ export function subscribeToFriends(userId, callback) {
               return;
             }
 
+            const data = friendSnapshot.data();
+
             const friend = {
               id: friendSnapshot.id,
-              ...friendSnapshot.data(),
+              friendId: friendSnapshot.id,
+
+              // Profile
+              name: data.name || "User",
+              username: data.username || "",
+              email: data.email || "",
+              photoURL: data.photoURL || "",
+
+              // Location
+              location: data.location || null,
+              locationText: data.locationText || "",
+              latitude: data.latitude ?? null,
+              longitude: data.longitude ?? null,
+
+              // Weather
+              weather: data.weather || null,
+
+              // Sharing
+              weatherSharing:
+                data.weatherSharing === true,
+
+              locationSharing:
+                data.locationSharing || "off",
+
+              // IMPORTANT
+              weatherUpdatedAt:
+                data.weatherUpdatedAt || null,
+
+              locationUpdatedAt:
+                data.locationUpdatedAt || null,
             };
 
-            // Store/update friend in local list
-            const index = friends.findIndex(
-              (item) => item.id === friend.id
+            // Update this friend
+            friendData.set(friendId, friend);
+
+            // Send latest complete list
+            callback(
+              Array.from(friendData.values())
             );
-
-            if (index >= 0) {
-              friends[index] = friend;
-            } else {
-              friends.push(friend);
-            }
-
-            callback([...friends]);
+          },
+          (error) => {
+            console.error(
+              `Friend listener error (${friendId}):`,
+              error
+            );
           }
         );
 
         unsubscribeFriendListeners.push(
           unsubscribeFriend
         );
-      }
+      });
+    },
+    (error) => {
+      console.error(
+        "Friends listener error:",
+        error
+      );
+
+      callback([]);
     }
   );
 
@@ -993,5 +1042,6 @@ export function subscribeToFriends(userId, callback) {
     );
 
     unsubscribeFriendListeners = [];
+    friendData.clear();
   };
 }

@@ -1,4 +1,3 @@
-
 import { weatherIcon } from "../data/mockData";
 
 /*
@@ -23,9 +22,6 @@ function getLocationText(friend) {
 
   /*
    * 1. Weather location name
-   *
-   * Example:
-   * weather.locationName = "Kolkata"
    */
   if (
     typeof friend.weather?.locationName === "string" &&
@@ -36,9 +32,6 @@ function getLocationText(friend) {
 
   /*
    * 2. Firebase locationText
-   *
-   * Example:
-   * "Kolkata, IN"
    */
   if (
     typeof friend.locationText === "string" &&
@@ -74,20 +67,66 @@ function getLocationText(friend) {
     return friend.location;
   }
 
-  /*
-   * IMPORTANT:
-   *
-   * Do NOT fall back to:
-   * location.lat
-   * location.lng
-   *
-   * We don't want:
-   * 22.57, 88.36
-   *
-   * We want:
-   * Kolkata
-   */
   return "Unknown location";
+}
+
+/*
+ * Format Firestore weatherUpdatedAt timestamp.
+ *
+ * Examples:
+ * "Updated just now"
+ * "Updated 5 minutes ago"
+ * "Updated 2 hours ago"
+ * "Updated 08 Sep, 07:30 PM"
+ */
+function formatWeatherUpdatedAt(timestamp) {
+  if (!timestamp) {
+    return null;
+  }
+
+  try {
+    const date = timestamp?.toDate
+      ? timestamp.toDate()
+      : new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+
+    if (diffMinutes < 1) {
+      return "just now";
+    }
+
+    if (diffMinutes === 1) {
+      return "1 minute ago";
+    }
+
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minutes ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+
+    if (diffHours === 1) {
+      return "1 hour ago";
+    }
+
+    if (diffHours < 24) {
+      return `${diffHours} hours ago`;
+    }
+
+    return date.toLocaleString([], {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
 }
 
 /*
@@ -104,7 +143,6 @@ function Delta({
   const friendValue = Number(friend) || 0;
 
   const diff = friendValue - youValue;
-
   const positive = diff >= 0;
 
   const max = Math.max(
@@ -232,6 +270,14 @@ export default function WeatherComparison({
   const friendLocation =
     getLocationText(friend);
 
+  /*
+   * Friend weather update time.
+   */
+  const friendWeatherUpdatedAt =
+    formatWeatherUpdatedAt(
+      friend?.weatherUpdatedAt
+    );
+
   return (
     <div className="rounded-xl3 bg-white shadow-card p-6 animate-enter">
       {/* Header */}
@@ -281,6 +327,13 @@ export default function WeatherComparison({
             <p className="text-2xl font-display font-bold">
               {friendTemperature}°C
             </p>
+
+            {/* Weather update time */}
+            {friendWeatherUpdatedAt && (
+              <p className="text-xs text-sky-100 mt-2">
+                Updated {friendWeatherUpdatedAt}
+              </p>
+            )}
           </div>
         ) : (
           <div className="rounded-xl2 bg-ink-50 p-4 text-center flex flex-col items-center justify-center">
@@ -384,4 +437,3 @@ export default function WeatherComparison({
     </div>
   );
 }
-
