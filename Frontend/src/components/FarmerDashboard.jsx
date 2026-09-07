@@ -162,6 +162,16 @@ const FarmerDashboard = () => {
   const [cropRisks, setCropRisks] = useState([]);
 
   // ----------------------------------------------------------
+  // REAL CROP RECOMMENDATIONS
+  // Starts with mock data until backend data is loaded.
+  // ----------------------------------------------------------
+
+  const [cropRecommendations, setCropRecommendations] =
+    useState(
+      MOCK_FARMER_DATA.cropRecommendations
+    );
+
+  // ----------------------------------------------------------
   // UI state
   // ----------------------------------------------------------
 
@@ -264,6 +274,301 @@ const FarmerDashboard = () => {
 
 
   // ==========================================================
+  // CROP RECOMMENDATION ENGINE
+  // Generates recommendations from real weather data.
+  // ==========================================================
+
+  const generateCropRecommendation = (
+    weather,
+    crop
+  ) => {
+
+    if (!weather || !crop) {
+      return null;
+    }
+
+    const temperature =
+      Number(weather.temperature ?? 0);
+
+    const humidity =
+      Number(weather.humidity ?? 0);
+
+    const rainfall =
+      Number(weather.rainfall ?? 0);
+
+    const windSpeed =
+      Number(weather.windSpeed ?? 0);
+
+    const normalizedCrop =
+      crop.toLowerCase();
+
+
+    // --------------------------------------------------------
+    // WHEAT
+    // --------------------------------------------------------
+
+    if (normalizedCrop === "wheat") {
+
+      if (rainfall > 10) {
+
+        return {
+          crop,
+          action: "Monitor Field",
+          timing: "Today",
+          confidence: "88%",
+          recommendation:
+            "Rainfall is present. Avoid unnecessary irrigation and monitor the field for excess moisture."
+        };
+
+      }
+
+
+      if (temperature >= 30) {
+
+        return {
+          crop,
+          action: "Irrigation",
+          timing: "Today",
+          confidence: "86%",
+          recommendation:
+            "Temperature is relatively high. Check soil moisture and irrigate if the field is dry."
+        };
+
+      }
+
+
+      return {
+        crop,
+        action: "Crop Monitoring",
+        timing: "Today",
+        confidence: "82%",
+        recommendation:
+          "Current weather conditions are suitable. Continue regular crop monitoring."
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // SUGARCANE
+    // --------------------------------------------------------
+
+    if (normalizedCrop === "sugarcane") {
+
+      if (rainfall > 20) {
+
+        return {
+          crop,
+          action: "Check Drainage",
+          timing: "Today",
+          confidence: "91%",
+          recommendation:
+            "Heavy rainfall is detected. Check field drainage and avoid additional irrigation."
+        };
+
+      }
+
+
+      if (temperature >= 35) {
+
+        return {
+          crop,
+          action: "Irrigation",
+          timing: "Today",
+          confidence: "87%",
+          recommendation:
+            "High temperature may increase water demand. Check soil moisture and irrigate if required."
+        };
+
+      }
+
+
+      return {
+        crop,
+        action: "Crop Monitoring",
+        timing: "Today",
+        confidence: "83%",
+        recommendation:
+          "Weather conditions are currently suitable. Continue normal crop monitoring."
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // COTTON
+    // --------------------------------------------------------
+
+    if (normalizedCrop === "cotton") {
+
+      if (humidity >= 80) {
+
+        return {
+          crop,
+          action: "Disease Monitoring",
+          timing: "Today",
+          confidence: "92%",
+          recommendation:
+            "High humidity can increase disease risk. Inspect cotton plants for fungal infections and leaf damage."
+        };
+
+      }
+
+
+      if (temperature >= 35) {
+
+        return {
+          crop,
+          action: "Irrigation",
+          timing: "Today",
+          confidence: "89%",
+          recommendation:
+            "High temperature may increase water requirements. Check soil moisture and irrigate if necessary."
+        };
+
+      }
+
+
+      if (rainfall > 20) {
+
+        return {
+          crop,
+          action: "Monitor Drainage",
+          timing: "Today",
+          confidence: "87%",
+          recommendation:
+            "Significant rainfall is present. Monitor field drainage and avoid unnecessary irrigation."
+        };
+
+      }
+
+
+      return {
+        crop,
+        action: "Crop Monitoring",
+        timing: "Today",
+        confidence: "84%",
+        recommendation:
+          "Current weather is favorable. Continue monitoring cotton growth and soil moisture."
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // MAIZE
+    // --------------------------------------------------------
+
+    if (normalizedCrop === "maize") {
+
+      if (temperature >= 35) {
+
+        return {
+          crop,
+          action: "Irrigation",
+          timing: "Today",
+          confidence: "88%",
+          recommendation:
+            "High temperature may cause increased water demand. Check soil moisture and irrigate if required."
+        };
+
+      }
+
+
+      if (humidity >= 80) {
+
+        return {
+          crop,
+          action: "Disease Monitoring",
+          timing: "Today",
+          confidence: "89%",
+          recommendation:
+            "High humidity can increase fungal disease risk. Inspect maize leaves and stems."
+        };
+
+      }
+
+
+      if (rainfall > 20) {
+
+        return {
+          crop,
+          action: "Check Drainage",
+          timing: "Today",
+          confidence: "86%",
+          recommendation:
+            "Heavy rainfall is present. Monitor drainage and avoid additional irrigation."
+        };
+
+      }
+
+
+      return {
+        crop,
+        action: "Crop Monitoring",
+        timing: "Today",
+        confidence: "82%",
+        recommendation:
+          "Weather conditions are currently suitable for maize. Continue normal monitoring."
+      };
+    }
+
+
+    // --------------------------------------------------------
+    // GENERIC FALLBACK
+    // --------------------------------------------------------
+
+    if (rainfall > 20) {
+
+      return {
+        crop,
+        action: "Check Drainage",
+        timing: "Today",
+        confidence: "80%",
+        recommendation:
+          "Heavy rainfall detected. Monitor drainage and avoid unnecessary irrigation."
+      };
+
+    }
+
+
+    if (temperature >= 35) {
+
+      return {
+        crop,
+        action: "Irrigation",
+        timing: "Today",
+        confidence: "80%",
+        recommendation:
+          "High temperature detected. Check soil moisture and irrigate if required."
+      };
+
+    }
+
+
+    if (windSpeed >= 10) {
+
+      return {
+        crop,
+        action: "Monitor Field",
+        timing: "Today",
+        confidence: "75%",
+        recommendation:
+          "Higher wind speeds are present. Monitor crops for physical damage."
+      };
+
+    }
+
+
+    return {
+      crop,
+      action: "Crop Monitoring",
+      timing: "Today",
+      confidence: "78%",
+      recommendation:
+        "Current weather conditions look favorable. Continue normal farm monitoring."
+    };
+  };
+
+
+  // ==========================================================
   // FETCH FARMER DATA
   // ==========================================================
 
@@ -338,6 +643,26 @@ const FarmerDashboard = () => {
 
 
       setCropRisks(combinedRisks);
+
+
+      // ------------------------------------------------------
+      // Generate crop recommendations
+      // from real backend weather data
+      // ------------------------------------------------------
+
+      const generatedRecommendations =
+        responses
+          .map((data) =>
+            generateCropRecommendation(
+              data,
+              data.crop
+            )
+          )
+          .filter(Boolean);
+
+      setCropRecommendations(
+        generatedRecommendations
+      );
 
 
       // ------------------------------------------------------
@@ -416,9 +741,9 @@ const FarmerDashboard = () => {
   const filteredRecommendations =
     selectedCrop === "all"
 
-      ? farmerData.cropRecommendations
+      ? cropRecommendations
 
-      : farmerData.cropRecommendations.filter(
+      : cropRecommendations.filter(
           (recommendation) =>
             recommendation.crop === selectedCrop
         );
