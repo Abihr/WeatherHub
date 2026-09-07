@@ -275,10 +275,10 @@ export function AppProvider({ children, firebaseUser }) {
     const unsubscribe = fs.subscribeToFriends(
       user.id,
       (friends) => {
-        console.log(
-          "REAL-TIME FRIEND UPDATE:",
-          friends
-        );
+        // console.log(
+        //   "REAL-TIME FRIEND UPDATE:",
+        //   friends
+        // );
 
         // Remove duplicates
         const uniqueFriends = Array.from(
