@@ -30,7 +30,7 @@ const moreLinks = [
   { to: "/chatbot", label: "WeatherGPT", icon: Bot },
   { to: "/requests", label: "Requests", icon: Inbox },
   { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/farmer", label: "Farmer", icon: Sprout },
+  { to: "/farmer", label: "Agriculture", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

@@ -27,7 +27,7 @@ const links = [
   { to: "/compare", label: "Compare", icon: RefreshCw },
   { to: "/chatbot", label: "WeatherGPT", icon: Bot },
   { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/farmer", label: "Farmer", icon: Sprout },
+  { to: "/farmer", label: "Agriculture", icon: Sprout },
   { to: "/profile", label: "Profile", icon: User },
   { to: "/railway-weather", label: "Railway Weather", icon: Train },
 ];
