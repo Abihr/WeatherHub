@@ -27,7 +27,6 @@ const primaryLinks = [
 
 const moreLinks = [
     // { to: "/compare", label: "Compare", icon: RefreshCw },
-    { to: "/chatbot", label: "WeatherGPT", icon: Bot },
     // { to: "/requests", label: "Requests", icon: Inbox },
     // { to: "/alerts", label: "Alerts", icon: Bell },
     { to: "/profile", label: "Profile", icon: User },
