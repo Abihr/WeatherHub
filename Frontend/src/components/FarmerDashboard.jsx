@@ -1273,7 +1273,7 @@ const FarmerDashboard = () => {
             mt-1
           ">
 
-            {farmerData.weatherForecast.today.temp}
+           {Math.round(farmerData.weatherForecast.today.temp)}
             °C
 
           </h3>
