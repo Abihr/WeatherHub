@@ -3,19 +3,18 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import {
-  Home,
-  Users,
-  Map,
-  Train,
-  MoreHorizontal,
-  RefreshCw,
-  User,
-  Bot,
-  Inbox,
-  Bell,
-  Sprout,
-  Settings,
-  X,
+    Home,
+    Users,
+    Map,
+    Train,
+    MoreHorizontal,
+    RefreshCw,
+    User,
+    Bot,
+    // Inbox,
+    Bell,
+    Settings,
+    X,
 } from "lucide-react";
 
 const primaryLinks = [
@@ -26,14 +25,15 @@ const primaryLinks = [
 ];
 
 const moreLinks = [
-  { to: "/compare", label: "Compare", icon: RefreshCw },
-  { to: "/chatbot", label: "WeatherGPT", icon: Bot },
-  { to: "/requests", label: "Requests", icon: Inbox },
-  { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/farmer", label: "Agriculture", icon: Sprout },
-  { to: "/profile", label: "Profile", icon: User },
-  { to: "/settings", label: "Settings", icon: Settings },
+    // { to: "/compare", label: "Compare", icon: RefreshCw },
+    { to: "/chatbot", label: "WeatherGPT", icon: Bot },
+    // { to: "/requests", label: "Requests", icon: Inbox },
+    // { to: "/alerts", label: "Alerts", icon: Bell },
+    { to: "/profile", label: "Profile", icon: User },
+    
 ];
+
+
 
 export default function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false);

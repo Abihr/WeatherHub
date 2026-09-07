@@ -22,12 +22,11 @@ import logo from "../assets/logo_simple.png";
 const links = [
   { to: "/", label: "Home", icon: Home },
   { to: "/friends", label: "Friends", icon: Users },
-  { to: "/requests", label: "Requests", icon: Inbox },
+  // { to: "/requests", label: "Requests", icon: Inbox },
   { to: "/map", label: "Map", icon: Map },
-  { to: "/compare", label: "Compare", icon: RefreshCw },
+  // { to: "/compare", label: "Compare", icon: RefreshCw },
   { to: "/chatbot", label: "WeatherGPT", icon: Bot },
-  { to: "/alerts", label: "Alerts", icon: Bell },
-  { to: "/farmer", label: "Agriculture", icon: Sprout },
+  { to: "/alerts", label: "Alerts", icon: Bell },  
   { to: "/profile", label: "Profile", icon: User },
   { to: "/railway-weather", label: "Railway Weather", icon: Train },
 ];

@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useCallback,
@@ -13,7 +12,6 @@ import {
 } from "../data/mockData";
 
 import * as fs from "../firebase/firestore";
-
 import { getCurrentWeather } from "../services/weatherService";
 import { getCurrentPosition } from "../services/locationService";
 
@@ -21,57 +19,33 @@ const AppContext = createContext(null);
 
 let toastId = 0;
 
-/* =========================================================
-   REVERSE GEOCODING
-
-   Converts:
-
-   latitude + longitude
-
-   into:
-
-   Kolkata
-   Kalyani
-   Rāmchandrapur
-   etc.
-========================================================= */
+// ============================================================
+// REVERSE GEOCODING
+// ============================================================
 
 async function getPlaceName(latitude, longitude) {
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
+    const url =
+      `https://nominatim.openstreetmap.org/reverse` +
+      `?format=jsonv2` +
+      `&lat=${latitude}` +
+      `&lon=${longitude}` +
+      `&zoom=10` +
+      `&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
     if (!response.ok) {
-      throw new Error(
-        "Reverse geocoding failed"
-      );
+      throw new Error("Failed to get location name");
     }
 
     const data = await response.json();
 
     const address = data?.address || {};
-
-    /*
-      Prefer city/town/village/municipality.
-
-      Example result:
-
-      city: Kolkata
-
-      OR
-
-      town: Kalyani
-
-      OR
-
-      village: Rāmchandrapur
-    */
 
     const placeName =
       address.city ||
@@ -82,28 +56,16 @@ async function getPlaceName(latitude, longitude) {
       address.county ||
       "";
 
-    const country =
-      address.country_code
-        ?.toUpperCase() || "";
-
-    console.log(
-      "📍 REVERSE GEOCODE RESULT:",
-      {
-        placeName,
-        country,
-        address,
-      }
-    );
+    const country = address.country_code
+      ? address.country_code.toUpperCase()
+      : "";
 
     return {
       placeName,
       country,
     };
   } catch (error) {
-    console.error(
-      "Reverse geocoding error:",
-      error
-    );
+    console.error("Reverse geocoding error:", error);
 
     return {
       placeName: "",
@@ -112,101 +74,34 @@ async function getPlaceName(latitude, longitude) {
   }
 }
 
-export function AppProvider({
-  children,
-  firebaseUser,
-}) {
+// ============================================================
+// PROVIDER
+// ============================================================
+
+export function AppProvider({ children, firebaseUser }) {
+  // ==========================================================
+  // STATE
+  // ==========================================================
+
   const [user, setUser] = useState(null);
 
-  const [friendsList, setFriendsList] =
-    useState([]);
+  const [friendsList, setFriendsList] = useState([]);
 
-  const [received, setReceived] =
-    useState([]);
+  const [received, setReceived] = useState([]);
 
-  const [sent, setSent] =
-    useState([]);
+  const [sent, setSent] = useState([]);
 
-  const [blocked, setBlocked] =
-    useState(initialBlocked);
+  const [blocked, setBlocked] = useState(initialBlocked);
 
-  const [toasts, setToasts] =
-    useState([]);
+  const [toasts, setToasts] = useState([]);
 
-  const [locating, setLocating] =
-    useState(false);
+  const [locating, setLocating] = useState(false);
 
-  const [darkMode, setDarkMode] =
-    useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
-  /* =======================================================
-     FIREBASE AUTH USER
-  ======================================================= */
-
-  useEffect(() => {
-    if (!firebaseUser) {
-      setUser(null);
-      setFriendsList([]);
-      setReceived([]);
-      setSent([]);
-      return;
-    }
-
-    const loadUser = async () => {
-      try {
-        const firebaseData =
-          await fs.getUser(
-            firebaseUser.uid
-          );
-
-        setUser({
-          ...(firebaseData || {}),
-
-          id: firebaseUser.uid,
-
-          name:
-            firebaseUser.displayName ||
-            firebaseData?.name ||
-            "User",
-
-          email:
-            firebaseUser.email ||
-            firebaseData?.email ||
-            "",
-
-          photoURL:
-            firebaseUser.photoURL ||
-            firebaseData?.photoURL ||
-            "",
-        });
-      } catch (error) {
-        console.error(
-          "Failed to load Firebase user:",
-          error
-        );
-
-        setUser({
-          id: firebaseUser.uid,
-
-          name:
-            firebaseUser.displayName ||
-            "User",
-
-          email:
-            firebaseUser.email || "",
-
-          photoURL:
-            firebaseUser.photoURL || "",
-        });
-      }
-    };
-
-    loadUser();
-  }, [firebaseUser]);
-
-  /* =======================================================
-     TOASTS
-  ======================================================= */
+  // ==========================================================
+  // TOASTS
+  // ==========================================================
 
   const pushToast = useCallback(
     (message, tone = "success") => {
@@ -223,335 +118,412 @@ export function AppProvider({
 
       setTimeout(() => {
         setToasts((current) =>
-          current.filter(
-            (toast) => toast.id !== id
-          )
+          current.filter((toast) => toast.id !== id)
         );
       }, 3200);
     },
     []
   );
 
-  const dismissToast = useCallback(
-    (id) => {
-      setToasts((current) =>
-        current.filter(
-          (toast) => toast.id !== id
-        )
-      );
-    },
-    []
-  );
+  const dismissToast = useCallback((id) => {
+    setToasts((current) =>
+      current.filter((toast) => toast.id !== id)
+    );
+  }, []);
 
-  /* =======================================================
-     LOAD FRIENDS
-  ======================================================= */
+  // ==========================================================
+  // LOAD CURRENT USER
+  // ==========================================================
 
-  const refreshFriends = useCallback(
-    async () => {
-      if (!user?.id) {
-        return [];
-      }
+  useEffect(() => {
+    let cancelled = false;
 
-      try {
-        console.log(
-          "🔄 Refreshing friends..."
-        );
-
-        const friends =
-          await fs.getFriends(user.id);
-
-        const uniqueFriends =
-          Array.from(
-            new Map(
-              friends.map((friend) => [
-                friend.id,
-                friend,
-              ])
-            ).values()
-          );
-
-        setFriendsList(uniqueFriends);
-
-        console.log(
-          "✅ FRIENDS REFRESHED:",
-          uniqueFriends
-        );
-
-        return uniqueFriends;
-      } catch (error) {
-        console.error(
-          "❌ Failed to refresh friends:",
-          error
-        );
-
-        pushToast(
-          "Failed to refresh friends",
-          "error"
-        );
-
-        return [];
-      }
-    },
-    [user?.id, pushToast]
-  );
-
-  /* =======================================================
-     LOCATION + WEATHER
-  ======================================================= */
-
-  const detectLocation = useCallback(
-    async () => {
-      if (!user?.id) {
+    async function loadUser() {
+      if (!firebaseUser) {
+        setUser(null);
+        setFriendsList([]);
+        setReceived([]);
+        setSent([]);
         return;
       }
 
-      setLocating(true);
-
       try {
-        /* ---------------------------------------------------
-           1. GET GPS
-        --------------------------------------------------- */
-
-        const {
-          latitude,
-          longitude,
-        } = await getCurrentPosition();
-
-        console.log(
-          "📍 EXACT LATITUDE:",
-          latitude
+        const firebaseProfile = await fs.getUser(
+          firebaseUser.uid
         );
 
-        console.log(
-          "📍 EXACT LONGITUDE:",
-          longitude
-        );
+        if (cancelled) return;
 
-        /* ---------------------------------------------------
-           2. GET PLACE NAME
-        --------------------------------------------------- */
+        const mergedUser = {
+          ...(firebaseProfile || {}),
 
-        const place =
-          await getPlaceName(
-            latitude,
-            longitude
-          );
+          id: firebaseUser.uid,
 
-        console.log(
-          "📍 PLACE NAME:",
-          place.placeName
-        );
+          uid: firebaseUser.uid,
 
-        console.log(
-          "🌍 COUNTRY:",
-          place.country
-        );
+          name:
+            firebaseProfile?.name ||
+            firebaseUser.displayName ||
+            "User",
 
-        /* ---------------------------------------------------
-           3. GET WEATHER
-        --------------------------------------------------- */
+          email:
+            firebaseProfile?.email ||
+            firebaseUser.email ||
+            "",
 
-        const weather =
-          await getCurrentWeather(
-            latitude,
-            longitude
-          );
-
-        console.log(
-          "🌤️ CURRENT WEATHER:",
-          weather
-        );
-
-        console.log(
-          "🌡️ Temperature:",
-          weather?.temperature ??
-            weather?.temp
-        );
-
-        console.log(
-          "☁️ Condition:",
-          weather?.condition
-        );
-
-        console.log(
-          "💧 Humidity:",
-          weather?.humidity
-        );
-
-        console.log(
-          "💨 Wind:",
-          weather?.wind
-        );
-
-        console.log(
-          "🌧️ Rain:",
-          weather?.rain
-        );
-
-        /* ---------------------------------------------------
-           4. DETERMINE FINAL LOCATION NAME
-
-           Priority:
-
-           1. Weather API locationName
-           2. Reverse geocoding placeName
-           3. Existing user location name
-        --------------------------------------------------- */
-
-        const finalLocationName =
-          weather?.locationName ||
-          place.placeName ||
-          user?.location?.city ||
-          "";
-
-        const finalCountry =
-          weather?.country ||
-          place.country ||
-          "";
-
-        console.log(
-          "📍 FINAL LOCATION NAME:",
-          finalLocationName
-        );
-
-        /* ---------------------------------------------------
-           5. SAVE LOCATION TO FIREBASE
-        --------------------------------------------------- */
-
-        await fs.updateUserLocation(
-          user.id,
-          latitude,
-          longitude,
-          finalLocationName,
-          finalCountry
-        );
-
-        /* ---------------------------------------------------
-           6. SAVE WEATHER TO FIREBASE
-
-           Make sure weather contains locationName.
-        --------------------------------------------------- */
-
-        const weatherToSave = {
-          ...weather,
-
-          temperature:
-            weather?.temperature ??
-            weather?.temp ??
-            null,
-
-          locationName:
-            finalLocationName,
-
-          country:
-            finalCountry,
+          photoURL:
+            firebaseProfile?.photoURL ||
+            firebaseUser.photoURL ||
+            "",
         };
 
-        await fs.updateUserWeather(
-          user.id,
-          weatherToSave
-        );
-
-        /* ---------------------------------------------------
-           7. LOCATION TEXT
-
-           Example:
-
-           Kolkata, IN
-
-           Rāmchandrapur, IN
-        --------------------------------------------------- */
-
-        const locationText =
-          finalLocationName
-            ? `${finalLocationName}${
-                finalCountry
-                  ? `, ${finalCountry}`
-                  : ""
-              }`
-            : "";
-
-        /* ---------------------------------------------------
-           8. UPDATE LOCAL USER
-        --------------------------------------------------- */
-
-        setUser((currentUser) => {
-          if (!currentUser) {
-            return currentUser;
-          }
-
-          return {
-            ...currentUser,
-
-            id: user.id,
-
-            latitude,
-            longitude,
-
-            location: {
-              city: finalLocationName,
-
-              name: finalLocationName,
-
-              lat: latitude,
-              lng: longitude,
-            },
-
-            locationText,
-
-            weather: weatherToSave,
-
-            weatherSharing:
-              currentUser.weatherSharing ??
-              false,
-
-            locationSharing:
-              currentUser.locationSharing ??
-              "off",
-          };
-        });
-
-        /* ---------------------------------------------------
-           9. REFRESH FRIENDS
-
-           This makes sure friend's latest Firebase
-           weatherSharing/location/weather is loaded.
-        --------------------------------------------------- */
-
-        await refreshFriends();
-
-        pushToast(
-          finalLocationName
-            ? `Location updated: ${finalLocationName}`
-            : "Location & weather updated"
-        );
+        setUser(mergedUser);
       } catch (error) {
-        console.error(
-          "Location/weather error:",
-          error
-        );
+        console.error("Failed to load user:", error);
 
-        pushToast(
-          error?.message ||
-            "Couldn't access your location",
-          "error"
-        );
-      } finally {
-        setLocating(false);
+        if (cancelled) return;
+
+        setUser({
+          id: firebaseUser.uid,
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || "User",
+          email: firebaseUser.email || "",
+          photoURL: firebaseUser.photoURL || "",
+        });
       }
-    },
-    [
-      user?.id,
-      user?.location?.city,
-      pushToast,
-      refreshFriends,
-    ]
-  );
+    }
 
-  /* =======================================================
-     AUTOMATIC LOCATION DETECTION
-  ======================================================= */
+    loadUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser]);
+
+  // ==========================================================
+  // REFRESH FRIENDS - MANUAL FALLBACK
+  // ==========================================================
+
+  const refreshFriends = useCallback(async () => {
+    if (!user?.id) {
+      setFriendsList([]);
+      return [];
+    }
+
+    try {
+      const friends = await fs.getFriends(user.id);
+
+      const uniqueFriends = Array.from(
+        new Map(
+          friends.map((friend) => [
+            friend.friendId || friend.id,
+            friend,
+          ])
+        ).values()
+      );
+
+      setFriendsList(uniqueFriends);
+
+      return uniqueFriends;
+    } catch (error) {
+      console.error("refreshFriends error:", error);
+
+      pushToast(
+        "Failed to refresh friends",
+        "error"
+      );
+
+      return [];
+    }
+  }, [user?.id, pushToast]);
+
+  // ==========================================================
+  // REAL-TIME FRIEND LISTENER
+  //
+  // This is the IMPORTANT part.
+  //
+  // It listens to:
+  //
+  // users/currentUser/friends
+  //
+  // and then listens to:
+  //
+  // users/friendUID
+  //
+  // Therefore when a friend updates their:
+  //
+  // - weather
+  // - location
+  // - weatherSharing
+  // - locationSharing
+  // - profile
+  //
+  // the friendsList updates automatically.
+  // ==========================================================
+
+  useEffect(() => {
+    if (!user?.id) {
+      setFriendsList([]);
+      return;
+    }
+
+    console.log(
+      "Starting real-time friend listener:",
+      user.id
+    );
+
+    const unsubscribe = fs.subscribeToFriends(
+      user.id,
+      (friends) => {
+        // console.log(
+        //   "REAL-TIME FRIEND UPDATE:",
+        //   friends
+        // );
+
+        // Remove duplicates
+        const uniqueFriends = Array.from(
+          new Map(
+            friends.map((friend) => [
+              friend.friendId || friend.id,
+              friend,
+            ])
+          ).values()
+        );
+
+        setFriendsList(uniqueFriends);
+      }
+    );
+
+    return () => {
+      console.log(
+        "Stopping real-time friend listener"
+      );
+
+      unsubscribe();
+    };
+  }, [user?.id]);
+
+  // ==========================================================
+  // DETECT LOCATION + WEATHER
+  // ==========================================================
+
+  const detectLocation = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    setLocating(true);
+
+    try {
+      // ------------------------------------------------------
+      // GET GPS LOCATION
+      // ------------------------------------------------------
+
+      const position = await getCurrentPosition();
+
+      const {
+        latitude,
+        longitude,
+      } = position;
+
+      console.log(
+        "GPS LOCATION:",
+        latitude,
+        longitude
+      );
+
+      // ------------------------------------------------------
+      // GET PLACE NAME
+      // ------------------------------------------------------
+
+      const place = await getPlaceName(
+        latitude,
+        longitude
+      );
+
+      console.log(
+        "PLACE:",
+        place
+      );
+
+      // ------------------------------------------------------
+      // GET WEATHER
+      // ------------------------------------------------------
+
+      const weather = await getCurrentWeather(
+        latitude,
+        longitude
+      );
+
+      console.log(
+        "CURRENT WEATHER:",
+        weather
+      );
+
+      // ------------------------------------------------------
+      // FINAL LOCATION NAME
+      // ------------------------------------------------------
+
+      const finalLocationName =
+        weather?.locationName ||
+        place?.placeName ||
+        "";
+
+      const finalCountry =
+        weather?.country ||
+        place?.country ||
+        "";
+
+      // ------------------------------------------------------
+      // SAVE LOCATION TO FIREBASE
+      // ------------------------------------------------------
+
+      await fs.updateUserLocation(
+        user.id,
+        latitude,
+        longitude,
+        finalLocationName,
+        finalCountry
+      );
+
+      // ------------------------------------------------------
+      // NORMALIZE WEATHER
+      // ------------------------------------------------------
+
+      const weatherToSave = {
+        temperature:
+          weather?.temperature ??
+          weather?.temp ??
+          null,
+
+        condition:
+          weather?.condition ?? "",
+
+        feelsLike:
+          weather?.feelsLike ?? null,
+
+        humidity:
+          weather?.humidity ?? null,
+
+        wind:
+          weather?.wind ?? null,
+
+        rain:
+          weather?.rain ?? 0,
+
+        icon:
+          weather?.icon ?? "",
+
+        locationName:
+          finalLocationName,
+
+        country:
+          finalCountry,
+      };
+
+      // ------------------------------------------------------
+      // SAVE WEATHER TO FIREBASE
+      // ------------------------------------------------------
+
+      await fs.updateUserWeather(
+        user.id,
+        weatherToSave
+      );
+
+      // ------------------------------------------------------
+      // LOCATION TEXT
+      // ------------------------------------------------------
+
+      const locationText = finalLocationName
+        ? `${finalLocationName}${
+            finalCountry
+              ? `, ${finalCountry}`
+              : ""
+          }`
+        : "";
+
+      // ------------------------------------------------------
+      // UPDATE CURRENT USER LOCALLY
+      // ------------------------------------------------------
+
+      setUser((currentUser) => {
+        if (!currentUser) {
+          return currentUser;
+        }
+
+        return {
+          ...currentUser,
+
+          latitude,
+
+          longitude,
+
+          location: {
+            ...(currentUser.location || {}),
+
+            city: finalLocationName,
+
+            name: finalLocationName,
+
+            lat: latitude,
+
+            lng: longitude,
+
+            country: finalCountry,
+          },
+
+          locationText,
+
+          weather: weatherToSave,
+        };
+      });
+
+      // ------------------------------------------------------
+      // OPTIONAL MANUAL REFRESH
+      // Real-time listener will also update automatically.
+      // ------------------------------------------------------
+
+      await refreshFriends();
+
+      pushToast(
+        `Location updated: ${locationText || "Current location"}`,
+        "success"
+      );
+    } catch (error) {
+      console.error(
+        "Location/weather error:",
+        error
+      );
+
+      let message =
+        "Unable to get your location or weather.";
+
+      if (error?.code === 1) {
+        message =
+          "Location permission was denied.";
+      } else if (error?.code === 2) {
+        message =
+          "Your location could not be determined.";
+      } else if (error?.code === 3) {
+        message =
+          "Location request timed out.";
+      } else if (error?.message) {
+        message = error.message;
+      }
+
+      pushToast(message, "error");
+    } finally {
+      setLocating(false);
+    }
+  }, [
+    user?.id,
+    pushToast,
+    refreshFriends,
+  ]);
+
+  // ==========================================================
+  // AUTOMATIC LOCATION DETECTION
+  // ==========================================================
 
   useEffect(() => {
     if (!user?.id) {
@@ -561,16 +533,23 @@ export function AppProvider({
     detectLocation();
   }, [user?.id]);
 
-  /* =======================================================
-     LOAD FIREBASE DATA
-  ======================================================= */
+  // ==========================================================
+  // LOAD REQUESTS
+  //
+  // Friend weather itself is handled by onSnapshot above.
+  // Requests can continue using normal Firestore reads.
+  // ==========================================================
 
   useEffect(() => {
     if (!user?.id) {
+      setReceived([]);
+      setSent([]);
       return;
     }
 
-    const loadFirebaseData = async () => {
+    let cancelled = false;
+
+    async function loadFirebaseData() {
       try {
         const [
           friends,
@@ -578,69 +557,56 @@ export function AppProvider({
           sentRequests,
         ] = await Promise.all([
           fs.getFriends(user.id),
-
-          fs.getReceivedRequests(
-            user.id
-          ),
-
-          fs.getSentRequests(
-            user.id
-          ),
+          fs.getReceivedRequests(user.id),
+          fs.getSentRequests(user.id),
         ]);
 
-        const uniqueFriends =
-          Array.from(
-            new Map(
-              friends.map((friend) => [
-                friend.id,
-                friend,
-              ])
-            ).values()
-          );
+        if (cancelled) {
+          return;
+        }
+
+        const uniqueFriends = Array.from(
+          new Map(
+            friends.map((friend) => [
+              friend.friendId || friend.id,
+              friend,
+            ])
+          ).values()
+        );
+
+        // Don't need to set friends here permanently
+        // because subscribeToFriends controls friendsList.
+        //
+        // But this gives us an initial fallback while the
+        // real-time listener starts.
 
         setFriendsList(uniqueFriends);
 
-        setReceived(
-          receivedRequests
-        );
+        setReceived(receivedRequests);
 
         setSent(sentRequests);
-
-        console.log(
-          "👥 FIREBASE FRIENDS:",
-          uniqueFriends
-        );
-
-        console.log(
-          "📥 RECEIVED REQUESTS:",
-          receivedRequests
-        );
-
-        console.log(
-          "📤 SENT REQUESTS:",
-          sentRequests
-        );
       } catch (error) {
         console.error(
           "Failed to load Firebase data:",
           error
         );
       }
-    };
+    }
 
     loadFirebaseData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
-  /* =======================================================
-     SEND FRIEND REQUEST
-  ======================================================= */
+  // ==========================================================
+  // SEND FRIEND REQUEST
+  // ==========================================================
 
   const sendRequest = useCallback(
     async (person) => {
-      if (
-        !user?.id ||
-        !person?.id
-      ) {
+      if (!user?.id || !person?.id) {
         return;
       }
 
@@ -651,56 +617,76 @@ export function AppProvider({
             person.id
           );
 
-        const newRequest = {
-          requestId:
-            result.requestId,
-
-          senderId: user.id,
-
-          receiverId: person.id,
-
-          name:
-            person.name || "User",
-
-          username:
-            person.username || "",
-
-          location:
-            person.location || null,
-
-          photoURL:
-            person.photoURL || "",
-
-          status: "pending",
-        };
-
         setSent((current) => [
           ...current,
-          newRequest,
+          {
+            requestId: result.requestId,
+            senderId: user.id,
+            receiverId: person.id,
+            status: "pending",
+
+            name:
+              person.name || "User",
+
+            username:
+              person.username || "",
+
+            email:
+              person.email || "",
+
+            photoURL:
+              person.photoURL || "",
+
+            location:
+              person.location || null,
+
+            locationText:
+              person.locationText || "",
+
+            latitude:
+              person.latitude ?? null,
+
+            longitude:
+              person.longitude ?? null,
+
+            weather:
+              person.weather || null,
+
+            weatherSharing:
+              person.weatherSharing ?? false,
+
+            locationSharing:
+              person.locationSharing ?? "off",
+          },
         ]);
 
         pushToast(
-          "Friend request sent"
+          "Friend request sent",
+          "success"
         );
+
+        return result;
       } catch (error) {
         console.error(
-          "Send friend request error:",
+          "sendRequest error:",
           error
         );
 
         pushToast(
           error?.message ||
-            "Failed to send request",
+            "Failed to send friend request",
           "error"
         );
+
+        throw error;
       }
     },
     [user?.id, pushToast]
   );
 
-  /* =======================================================
-     CANCEL FRIEND REQUEST
-  ======================================================= */
+  // ==========================================================
+  // CANCEL FRIEND REQUEST
+  // ==========================================================
 
   const cancelRequest = useCallback(
     async (requestId) => {
@@ -716,17 +702,17 @@ export function AppProvider({
         setSent((current) =>
           current.filter(
             (request) =>
-              request.requestId !==
-              requestId
+              request.requestId !== requestId
           )
         );
 
         pushToast(
-          "Request cancelled"
+          "Friend request cancelled",
+          "success"
         );
       } catch (error) {
         console.error(
-          "Cancel request error:",
+          "cancelRequest error:",
           error
         );
 
@@ -740,31 +726,21 @@ export function AppProvider({
     [pushToast]
   );
 
-  /* =======================================================
-     ACCEPT FRIEND REQUEST
-  ======================================================= */
+  // ==========================================================
+  // ACCEPT FRIEND REQUEST
+  // ==========================================================
 
   const acceptRequest = useCallback(
     async (request) => {
       if (
+        !request?.requestId ||
         !user?.id ||
-        !request?.senderId ||
-        !request?.requestId
+        !request?.senderId
       ) {
-        console.error(
-          "Invalid request:",
-          request
-        );
-
         return;
       }
 
       try {
-        console.log(
-          "🤝 ACCEPTING FRIEND:",
-          request
-        );
-
         const result =
           await fs.acceptFriendRequest(
             request.requestId,
@@ -772,140 +748,93 @@ export function AppProvider({
             request.senderId
           );
 
-        console.log(
-          "✅ FRIENDSHIP CREATED:",
-          result
-        );
+        const friend =
+          result?.friend || {
+            id: request.senderId,
 
-        let friend =
-          result?.friend;
+            friendId:
+              request.senderId,
 
-        if (!friend) {
-          friend =
-            await fs.getUser(
-              request.senderId
-            );
-        }
+            name:
+              request.name || "User",
 
-        if (!friend) {
-          throw new Error(
-            "Friend user profile could not be found"
+            username:
+              request.username || "",
+
+            email:
+              request.email || "",
+
+            photoURL:
+              request.photoURL || "",
+
+            location:
+              request.location || null,
+
+            locationText:
+              request.locationText || "",
+
+            latitude:
+              request.latitude ?? null,
+
+            longitude:
+              request.longitude ?? null,
+
+            weather:
+              request.weather || null,
+
+            weatherSharing:
+              request.weatherSharing ?? false,
+
+            locationSharing:
+              request.locationSharing ??
+              "off",
+          };
+
+        setFriendsList((current) => {
+          const exists = current.some(
+            (item) =>
+              (item.friendId || item.id) ===
+              (friend.friendId || friend.id)
           );
-        }
 
-        const completeFriend = {
-          id: friend.id,
-
-          friendId: friend.id,
-
-          name:
-            friend.name ||
-            request.name ||
-            "User",
-
-          username:
-            friend.username ||
-            request.username ||
-            "",
-
-          email:
-            friend.email || "",
-
-          photoURL:
-            friend.photoURL ||
-            request.photoURL ||
-            "",
-
-          location:
-            friend.location ||
-            request.location ||
-            null,
-
-          locationText:
-            friend.locationText || "",
-
-          latitude:
-            friend.latitude ??
-            friend.location?.lat ??
-            null,
-
-          longitude:
-            friend.longitude ??
-            friend.location?.lng ??
-            null,
-
-          weather:
-            friend.weather || null,
-
-          weatherSharing:
-            friend.weatherSharing ??
-            false,
-
-          locationSharing:
-            friend.locationSharing ||
-            "none",
-
-          weatherUpdatedAt:
-            friend.weatherUpdatedAt ||
-            null,
-        };
-
-        console.log(
-          "👤 NEW FRIEND:",
-          completeFriend
-        );
-
-        setFriendsList(
-          (current) => {
-            const exists =
-              current.some(
-                (existingFriend) =>
-                  existingFriend.id ===
-                  completeFriend.id
-              );
-
-            if (exists) {
-              return current.map(
-                (existingFriend) =>
-                  existingFriend.id ===
-                  completeFriend.id
-                    ? completeFriend
-                    : existingFriend
-              );
-            }
-
-            return [
-              ...current,
-              completeFriend,
-            ];
+          if (exists) {
+            return current;
           }
+
+          return [...current, friend];
+        });
+
+        setReceived((current) =>
+          current.filter(
+            (item) =>
+              item.requestId !==
+              request.requestId
+          )
         );
 
-        setReceived(
-          (current) =>
-            current.filter(
-              (receivedRequest) =>
-                receivedRequest.requestId !==
-                request.requestId
-            )
-        );
-
+        // Refresh once.
+        // Real-time listener will then take over.
         await refreshFriends();
 
         pushToast(
-          `${completeFriend.name} is now your friend`
+          "Friend request accepted",
+          "success"
         );
+
+        return friend;
       } catch (error) {
         console.error(
-          "Accept friend request error:",
+          "acceptRequest error:",
           error
         );
 
         pushToast(
           error?.message ||
-            "Failed to accept request",
+            "Failed to accept friend request",
           "error"
         );
+
+        throw error;
       }
     },
     [
@@ -915,9 +844,9 @@ export function AppProvider({
     ]
   );
 
-  /* =======================================================
-     REJECT FRIEND REQUEST
-  ======================================================= */
+  // ==========================================================
+  // REJECT FRIEND REQUEST
+  // ==========================================================
 
   const rejectRequest = useCallback(
     async (requestId) => {
@@ -933,17 +862,17 @@ export function AppProvider({
         setReceived((current) =>
           current.filter(
             (request) =>
-              request.requestId !==
-              requestId
+              request.requestId !== requestId
           )
         );
 
         pushToast(
-          "Request rejected"
+          "Friend request rejected",
+          "success"
         );
       } catch (error) {
         console.error(
-          "Reject request error:",
+          "rejectRequest error:",
           error
         );
 
@@ -957,16 +886,13 @@ export function AppProvider({
     [pushToast]
   );
 
-  /* =======================================================
-     REMOVE FRIEND
-  ======================================================= */
+  // ==========================================================
+  // REMOVE FRIEND
+  // ==========================================================
 
   const removeFriend = useCallback(
     async (friendId) => {
-      if (
-        !user?.id ||
-        !friendId
-      ) {
+      if (!user?.id || !friendId) {
         return;
       }
 
@@ -979,16 +905,18 @@ export function AppProvider({
         setFriendsList((current) =>
           current.filter(
             (friend) =>
-              friend.id !== friendId
+              (friend.friendId || friend.id) !==
+              friendId
           )
         );
 
         pushToast(
-          "Friend removed"
+          "Friend removed",
+          "success"
         );
       } catch (error) {
         console.error(
-          "Remove friend error:",
+          "removeFriend error:",
           error
         );
 
@@ -1002,16 +930,13 @@ export function AppProvider({
     [user?.id, pushToast]
   );
 
-  /* =======================================================
-     BLOCK USER
-  ======================================================= */
+  // ==========================================================
+  // BLOCK USER
+  // ==========================================================
 
   const blockUserById = useCallback(
     async (person) => {
-      if (
-        !user?.id ||
-        !person?.id
-      ) {
+      if (!user?.id || !person?.id) {
         return;
       }
 
@@ -1022,60 +947,33 @@ export function AppProvider({
             person.id
           );
 
-        setFriendsList(
-          (current) =>
-            current.filter(
-              (friend) =>
-                friend.id !== person.id
-            )
-        );
-
-        setReceived(
-          (current) =>
-            current.filter(
-              (request) =>
-                request.senderId !==
-                person.id
-            )
-        );
-
-        setSent(
-          (current) =>
-            current.filter(
-              (request) =>
-                request.receiverId !==
-                person.id
-            )
-        );
-
         setBlocked((current) => [
           ...current,
-
           {
+            ...person,
             id: person.id,
-
-            name: person.name,
-
-            username:
-              person.username,
-
-            location:
-              person.location,
-
-            photoURL:
-              person.photoURL,
-
-            blockId:
-              result?.blockId,
+            blockId: result.blockId,
           },
         ]);
 
-        pushToast(
-          "User blocked"
+        // Remove from friends if necessary
+        setFriendsList((current) =>
+          current.filter(
+            (friend) =>
+              (friend.friendId || friend.id) !==
+              person.id
+          )
         );
+
+        pushToast(
+          "User blocked",
+          "success"
+        );
+
+        return result;
       } catch (error) {
         console.error(
-          "Block user error:",
+          "blockUserById error:",
           error
         );
 
@@ -1089,56 +987,56 @@ export function AppProvider({
     [user?.id, pushToast]
   );
 
-  /* =======================================================
-     UNBLOCK USER
-  ======================================================= */
+  // ==========================================================
+  // UNBLOCK USER
+  // ==========================================================
 
-  const unblockUserById =
-    useCallback(
-      async (person) => {
-        if (!person) {
-          return;
-        }
+  const unblockUserById = useCallback(
+    async (person) => {
+      const blockId =
+        person?.blockId ||
+        person?.id;
 
-        const blockId =
-          person?.blockId ||
-          person?.id;
+      if (!blockId) {
+        return;
+      }
 
-        try {
-          await fs.unblockUser(
-            blockId
-          );
+      try {
+        await fs.unblockUser(
+          blockId
+        );
 
-          setBlocked((current) =>
-            current.filter(
-              (blockedUser) =>
-                blockedUser.id !==
-                person.id
-            )
-          );
+        setBlocked((current) =>
+          current.filter(
+            (item) =>
+              (item.blockId || item.id) !==
+              blockId
+          )
+        );
 
-          pushToast(
-            "User unblocked"
-          );
-        } catch (error) {
-          console.error(
-            "Unblock user error:",
-            error
-          );
+        pushToast(
+          "User unblocked",
+          "success"
+        );
+      } catch (error) {
+        console.error(
+          "unblockUserById error:",
+          error
+        );
 
-          pushToast(
-            error?.message ||
-              "Failed to unblock user",
-            "error"
-          );
-        }
-      },
-      [pushToast]
-    );
+        pushToast(
+          error?.message ||
+            "Failed to unblock user",
+          "error"
+        );
+      }
+    },
+    [pushToast]
+  );
 
-  /* =======================================================
-     WEATHER SHARING
-  ======================================================= */
+  // ==========================================================
+  // WEATHER SHARING
+  // ==========================================================
 
   const updateWeatherSharing =
     useCallback(
@@ -1147,42 +1045,36 @@ export function AppProvider({
           return;
         }
 
-        const sharingEnabled =
-          Boolean(enabled);
-
         try {
+          const sharingEnabled =
+            Boolean(enabled);
+
           await fs.updateWeatherSharing(
             user.id,
             sharingEnabled
           );
 
-          setUser((current) => {
-            if (!current) {
-              return current;
+          setUser((currentUser) => {
+            if (!currentUser) {
+              return currentUser;
             }
 
             return {
-              ...current,
+              ...currentUser,
               weatherSharing:
                 sharingEnabled,
             };
           });
 
-          /*
-            Refresh friend list.
-
-            This is useful when the same user/session
-            needs the latest Firebase state.
-          */
-
           pushToast(
             sharingEnabled
-              ? "Weather sharing turned ON"
-              : "Weather sharing turned OFF"
+              ? "Weather sharing enabled"
+              : "Weather sharing disabled",
+            "success"
           );
         } catch (error) {
           console.error(
-            "Weather sharing error:",
+            "updateWeatherSharing error:",
             error
           );
 
@@ -1196,9 +1088,9 @@ export function AppProvider({
       [user?.id, pushToast]
     );
 
-  /* =======================================================
-     LOCATION SHARING
-  ======================================================= */
+  // ==========================================================
+  // LOCATION SHARING
+  // ==========================================================
 
   const updateLocationSharing =
     useCallback(
@@ -1213,17 +1105,24 @@ export function AppProvider({
             mode
           );
 
-          setUser((current) => ({
-            ...current,
-            locationSharing: mode,
-          }));
+          setUser((currentUser) => {
+            if (!currentUser) {
+              return currentUser;
+            }
+
+            return {
+              ...currentUser,
+              locationSharing: mode,
+            };
+          });
 
           pushToast(
-            "Location sharing updated"
+            "Location sharing updated",
+            "success"
           );
         } catch (error) {
           console.error(
-            "Location sharing error:",
+            "updateLocationSharing error:",
             error
           );
 
@@ -1237,69 +1136,84 @@ export function AppProvider({
       [user?.id, pushToast]
     );
 
-  /* =======================================================
-     SEARCH USERS
-  ======================================================= */
+  // ==========================================================
+  // SEARCH USERS
+  // ==========================================================
 
   const searchUsers = useCallback(
     async (term) => {
-      const text =
-        term?.trim().toLowerCase();
-
-      if (!text) {
+      if (!term?.trim()) {
         return [];
       }
 
       try {
-        const users =
-          await fs.searchUsers(text);
+        const results =
+          await fs.searchUsers(term);
 
-        const friendIds =
-          new Set(
-            friendsList.map(
-              (friend) => friend.id
-            )
-          );
-
-        const blockedIds =
-          new Set(
-            blocked.map(
-              (person) => person.id
-            )
-          );
-
-        const pendingIds =
-          new Set(
-            sent.map(
-              (request) =>
-                request.receiverId
-            )
-          );
-
-        return users
-          .filter(
-            (person) =>
-              person.id !== user?.id &&
-              !blockedIds.has(
-                person.id
-              )
+        const friendIds = new Set(
+          friendsList.map(
+            (friend) =>
+              friend.friendId || friend.id
           )
-          .map((person) => ({
-            ...person,
+        );
 
-            isFriend:
-              friendIds.has(
-                person.id
-              ),
+        const blockedIds = new Set(
+          blocked.map(
+            (person) =>
+              person.id ||
+              person.userId ||
+              person.blockedUserId
+          )
+        );
 
-            isPending:
-              pendingIds.has(
-                person.id
-              ),
-          }));
+        const sentIds = new Set(
+          sent.map(
+            (request) =>
+              request.receiverId
+          )
+        );
+
+        const receivedIds = new Set(
+          received.map(
+            (request) =>
+              request.senderId
+          )
+        );
+
+        return results.filter(
+          (person) => {
+            const id = person.id;
+
+            if (!id) {
+              return false;
+            }
+
+            if (id === user?.id) {
+              return false;
+            }
+
+            if (friendIds.has(id)) {
+              return false;
+            }
+
+            if (blockedIds.has(id)) {
+              return false;
+            }
+
+            if (sentIds.has(id)) {
+              return false;
+            }
+
+            if (receivedIds.has(id)) {
+              return true;
+            }
+
+            return true;
+          }
+        );
       } catch (error) {
         console.error(
-          "Search users error:",
+          "searchUsers error:",
           error
         );
 
@@ -1307,75 +1221,76 @@ export function AppProvider({
       }
     },
     [
+      user?.id,
       friendsList,
       blocked,
       sent,
-      user?.id,
+      received,
     ]
   );
 
-  /* =======================================================
-     DARK MODE
-  ======================================================= */
+  // ==========================================================
+  // DARK MODE
+  // ==========================================================
 
-  const toggleDarkMode =
-    useCallback(() => {
-      setDarkMode(
-        (previous) => !previous
-      );
-    }, []);
+  const toggleDarkMode = useCallback(() => {
+    setDarkMode((current) => !current);
+  }, []);
 
-  /* =======================================================
-     CONTEXT VALUE
-  ======================================================= */
+  // ==========================================================
+  // CONTEXT VALUE
+  // ==========================================================
 
   const value = {
+    // User
     user,
+    setUser,
 
+    // Friends
     friendsList,
-
-    received,
-
-    sent,
-
-    blocked,
-
-    toasts,
-
-    locating,
-
-    alerts: weatherAlerts,
-
-    darkMode,
-
-    toggleDarkMode,
-
-    pushToast,
-
-    dismissToast,
-
-    detectLocation,
-
     refreshFriends,
 
+    // Requests
+    received,
+    sent,
+
+    // Blocked users
+    blocked,
+
+    // Toasts
+    toasts,
+    pushToast,
+    dismissToast,
+
+    // Location
+    locating,
+    detectLocation,
+
+    // Weather alerts
+    weatherAlerts,
+
+    // Dark mode
+    darkMode,
+    toggleDarkMode,
+
+    // Friend requests
     sendRequest,
-
     cancelRequest,
-
     acceptRequest,
-
     rejectRequest,
 
+    // Friends
     removeFriend,
 
+    // Blocking
     blockUserById,
-
     unblockUserById,
 
+    // Sharing
     updateWeatherSharing,
-
     updateLocationSharing,
 
+    // Search
     searchUsers,
   };
 
@@ -1386,20 +1301,20 @@ export function AppProvider({
   );
 }
 
-/* =========================================================
-   USE APP
-========================================================= */
+// ============================================================
+// HOOK
+// ============================================================
 
 export function useApp() {
-  const context =
-    useContext(AppContext);
+  const context = useContext(AppContext);
 
   if (!context) {
     throw new Error(
-      "useApp must be used within AppProvider"
+      "useApp must be used inside AppProvider"
     );
   }
 
   return context;
 }
 
+export default AppContext;
