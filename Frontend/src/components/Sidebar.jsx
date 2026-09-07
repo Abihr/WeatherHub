@@ -9,6 +9,7 @@ import {
   User,
   Settings,
   CloudSun,
+  Sprout,
   Train,           // ← NEW
   AlertTriangle,   // ← NEW
 } from "lucide-react";

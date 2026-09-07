@@ -97,6 +97,11 @@ const FarmerDashboard = () => {
   const [farmerData] = useState(MOCK_FARMER_DATA);
   const [loading, setLoading] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState('all');
+  const [tasks, setTasks] = useState([
+    { id: 1, label: 'Irrigate cotton before 10 AM', crop: 'Cotton', due: 'Today', done: false },
+    { id: 2, label: 'Inspect wheat for fungal infection', crop: 'Wheat', due: 'Today', done: false },
+    { id: 3, label: 'Review sugarcane harvest timing', crop: 'Sugarcane', due: 'Tomorrow', done: false }
+  ]);
 
   const getWeatherIcon = (condition) => {
     switch(condition) {
@@ -126,6 +131,14 @@ const FarmerDashboard = () => {
   const filteredRecommendations = selectedCrop === 'all' 
     ? farmerData.cropRecommendations 
     : farmerData.cropRecommendations.filter(r => r.crop === selectedCrop);
+
+  const toggleTask = (taskId) => {
+    setTasks(currentTasks => currentTasks.map(task =>
+      task.id === taskId ? { ...task, done: !task.done } : task
+    ));
+  };
+
+  const completedTasks = tasks.filter(task => task.done).length;
 
   return (
     <div className="min-h-screen bg-ink-50/50 p-6">
@@ -216,6 +229,83 @@ const FarmerDashboard = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Field Conditions and Task Planner */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white rounded-xl p-5 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-ink-900 flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-blue-500" />
+              Field Conditions
+            </h3>
+            <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full">Good to work</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-blue-50">
+              <div className="flex items-center gap-2 text-blue-700 mb-1">
+                <Droplets className="w-4 h-4" />
+                <span className="text-xs font-medium">Humidity</span>
+              </div>
+              <p className="text-xl font-bold text-ink-900">65%</p>
+              <p className="text-xs text-ink-400">Moderate moisture</p>
+            </div>
+            <div className="p-3 rounded-lg bg-orange-50">
+              <div className="flex items-center gap-2 text-orange-700 mb-1">
+                <Thermometer className="w-4 h-4" />
+                <span className="text-xs font-medium">Temperature</span>
+              </div>
+              <p className="text-xl font-bold text-ink-900">32°C</p>
+              <p className="text-xs text-ink-400">Irrigate before noon</p>
+            </div>
+            <div className="p-3 rounded-lg bg-sky-50">
+              <div className="flex items-center gap-2 text-sky-700 mb-1">
+                <Wind className="w-4 h-4" />
+                <span className="text-xs font-medium">Wind speed</span>
+              </div>
+              <p className="text-xl font-bold text-ink-900">8 km/h</p>
+              <p className="text-xs text-ink-400">Safe for spraying</p>
+            </div>
+            <div className="p-3 rounded-lg bg-green-50">
+              <div className="flex items-center gap-2 text-green-700 mb-1">
+                <CloudRain className="w-4 h-4" />
+                <span className="text-xs font-medium">Rain expected</span>
+              </div>
+              <p className="text-xl font-bold text-ink-900">45mm</p>
+              <p className="text-xs text-ink-400">Thursday</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-ink-900 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              Farm Tasks
+            </h3>
+            <span className="text-xs text-ink-400">{completedTasks}/{tasks.length} complete</span>
+          </div>
+          <div className="space-y-2">
+            {tasks.map(task => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => toggleTask(task.id)}
+                className="w-full flex items-center gap-3 p-3 rounded-lg border border-ink-100 hover:bg-ink-50 text-left transition-colors"
+              >
+                {task.done ? (
+                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Clock className="w-5 h-5 text-ink-300 flex-shrink-0" />
+                )}
+                <span className={`flex-1 text-sm ${task.done ? 'line-through text-ink-400' : 'text-ink-700'}`}>
+                  {task.label}
+                  <span className="block text-xs text-ink-400 mt-0.5">{task.crop} · {task.due}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
