@@ -10,7 +10,7 @@ import {
   query,
   where,
   serverTimestamp,
-  onSnapshot, // ADD THIS
+  onSnapshot,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -63,12 +63,8 @@ export async function searchUsers(queryText) {
 
     return users.filter((user) => {
       const name = String(user.name || "").toLowerCase();
-      const username = String(
-        user.username || ""
-      ).toLowerCase();
-      const email = String(
-        user.email || ""
-      ).toLowerCase();
+      const username = String(user.username || "").toLowerCase();
+      const email = String(user.email || "").toLowerCase();
 
       return (
         name.includes(text) ||
@@ -86,14 +82,9 @@ export async function searchUsers(queryText) {
    FRIEND REQUESTS
 ========================================================= */
 
-export async function sendFriendRequest(
-  senderId,
-  receiverId
-) {
+export async function sendFriendRequest(senderId, receiverId) {
   if (!senderId || !receiverId) {
-    throw new Error(
-      "Sender and receiver are required"
-    );
+    throw new Error("Sender and receiver are required");
   }
 
   if (senderId === receiverId) {
@@ -102,10 +93,7 @@ export async function sendFriendRequest(
     );
   }
 
-  const requestsRef = collection(
-    db,
-    "friendRequests"
-  );
+  const requestsRef = collection(db, "friendRequests");
 
   const existingQuery = query(
     requestsRef,
@@ -114,24 +102,18 @@ export async function sendFriendRequest(
     where("status", "==", "pending")
   );
 
-  const existingSnapshot =
-    await getDocs(existingQuery);
+  const existingSnapshot = await getDocs(existingQuery);
 
   if (!existingSnapshot.empty) {
-    throw new Error(
-      "Friend request already sent"
-    );
+    throw new Error("Friend request already sent");
   }
 
-  const requestRef = await addDoc(
-    requestsRef,
-    {
-      senderId,
-      receiverId,
-      status: "pending",
-      createdAt: serverTimestamp(),
-    }
-  );
+  const requestRef = await addDoc(requestsRef, {
+    senderId,
+    receiverId,
+    status: "pending",
+    createdAt: serverTimestamp(),
+  });
 
   return {
     requestId: requestRef.id,
@@ -145,16 +127,11 @@ export async function sendFriendRequest(
    GET RECEIVED REQUESTS
 ========================================================= */
 
-export async function getReceivedRequests(
-  userId
-) {
+export async function getReceivedRequests(userId) {
   if (!userId) return [];
 
   try {
-    const requestsRef = collection(
-      db,
-      "friendRequests"
-    );
+    const requestsRef = collection(db, "friendRequests");
 
     const q = query(
       requestsRef,
@@ -168,9 +145,7 @@ export async function getReceivedRequests(
       snapshot.docs.map(async (requestDoc) => {
         const data = requestDoc.data();
 
-        const sender = await getUser(
-          data.senderId
-        );
+        const sender = await getUser(data.senderId);
 
         return {
           requestId: requestDoc.id,
@@ -180,25 +155,18 @@ export async function getReceivedRequests(
           status: data.status,
           createdAt: data.createdAt,
 
-          // Sender profile
           name: sender?.name || "User",
           username: sender?.username || "",
           email: sender?.email || "",
           photoURL: sender?.photoURL || "",
 
-          // Sender location
           location: sender?.location || null,
-          locationText:
-            sender?.locationText || "",
-          latitude:
-            sender?.latitude ?? null,
-          longitude:
-            sender?.longitude ?? null,
+          locationText: sender?.locationText || "",
+          latitude: sender?.latitude ?? null,
+          longitude: sender?.longitude ?? null,
 
-          // Sender weather
           weather: sender?.weather || null,
 
-          // Sharing settings
           weatherSharing:
             sender?.weatherSharing ?? false,
 
@@ -227,10 +195,7 @@ export async function getSentRequests(userId) {
   if (!userId) return [];
 
   try {
-    const requestsRef = collection(
-      db,
-      "friendRequests"
-    );
+    const requestsRef = collection(db, "friendRequests");
 
     const q = query(
       requestsRef,
@@ -256,28 +221,24 @@ export async function getSentRequests(userId) {
           status: data.status,
           createdAt: data.createdAt,
 
-          // Receiver profile
           name: receiver?.name || "User",
           username: receiver?.username || "",
           email: receiver?.email || "",
-          photoURL:
-            receiver?.photoURL || "",
+          photoURL: receiver?.photoURL || "",
 
-          // Receiver location
-          location:
-            receiver?.location || null,
+          location: receiver?.location || null,
           locationText:
             receiver?.locationText || "",
+
           latitude:
             receiver?.latitude ?? null,
+
           longitude:
             receiver?.longitude ?? null,
 
-          // Receiver weather
           weather:
             receiver?.weather || null,
 
-          // Sharing settings
           weatherSharing:
             receiver?.weatherSharing ?? false,
 
@@ -319,12 +280,6 @@ export async function acceptFriendRequest(
     );
   }
 
-  /*
-    user1 = current user
-    user2 = friend
-  */
-
-  // Update request status
   const requestRef = doc(
     db,
     "friendRequests",
@@ -335,7 +290,8 @@ export async function acceptFriendRequest(
     status: "accepted",
   });
 
-  // Add user2 to user1's friends
+  /* Add user2 to user1's friends */
+
   await setDoc(
     doc(
       db,
@@ -350,7 +306,8 @@ export async function acceptFriendRequest(
     }
   );
 
-  // Add user1 to user2's friends
+  /* Add user1 to user2's friends */
+
   await setDoc(
     doc(
       db,
@@ -365,7 +322,6 @@ export async function acceptFriendRequest(
     }
   );
 
-  // Fetch complete friend's profile
   const friend = await getUser(user2);
 
   console.log(
@@ -437,17 +393,6 @@ export async function getFriends(userId) {
   if (!userId) return [];
 
   try {
-    /*
-      Friends are stored here:
-
-      users
-        └── currentUser
-              └── friends
-                    ├── friendUID1
-                    ├── friendUID2
-                    └── ...
-    */
-
     const friendsRef = collection(
       db,
       "users",
@@ -473,29 +418,59 @@ export async function getFriends(userId) {
       return [];
     }
 
-    /*
-      IMPORTANT:
-      We fetch the friend's USER document
-      every time.
+    /* Users current user has blocked */
 
-      This means weatherSharing and weather
-      always come from:
+    const myBlockedQuery = query(
+      collection(db, "blockedUsers"),
+      where("blockerId", "==", userId)
+    );
 
-      users/{friendId}
+    /* Users who blocked current user */
 
-      and NOT from the friendship document.
-    */
+    const blockedMeQuery = query(
+      collection(db, "blockedUsers"),
+      where(
+        "blockedUserId",
+        "==",
+        userId
+      )
+    );
+
+    const [
+      myBlockedSnapshot,
+      blockedMeSnapshot,
+    ] = await Promise.all([
+      getDocs(myBlockedQuery),
+      getDocs(blockedMeQuery),
+    ]);
+
+    const blockedUserIds = new Set(
+      myBlockedSnapshot.docs.map(
+        (blockDoc) =>
+          blockDoc.data().blockedUserId
+      )
+    );
+
+    const blockedByIds = new Set(
+      blockedMeSnapshot.docs.map(
+        (blockDoc) =>
+          blockDoc.data().blockerId
+      )
+    );
 
     const friends = await Promise.all(
       snapshot.docs.map(async (friendDoc) => {
         const friendId = friendDoc.id;
 
-        console.log(
-          "Loading friend:",
-          friendId
-        );
+        /* ==========================================
+           YOU BLOCKED THIS PERSON
+           HIDE COMPLETELY
+        ========================================== */
 
-        // Get latest friend user document
+        if (blockedUserIds.has(friendId)) {
+          return null;
+        }
+
         const friend = await getUser(
           friendId
         );
@@ -509,38 +484,67 @@ export async function getFriends(userId) {
           return null;
         }
 
-        /*
-          IMPORTANT:
-          weatherSharing is read directly
-          from the friend's user document.
-        */
+        /* ==========================================
+           THEY BLOCKED YOU
+           SHOW UNAVAILABLE CARD
+        ========================================== */
 
-        const weatherSharing =
-          friend.weatherSharing === true;
+        if (blockedByIds.has(friendId)) {
+          console.log("FRIEND BLOCKED ME:", friendId);
 
-        /*
-          Weather is still returned from Firebase.
+          return {
+            id: friendId,
+            friendId,
 
-          We DO NOT delete weather when sharing
-          is turned off.
+            // Hide identity
+            name: "User unavailable",
+            username: "",
+            email: "",
+            photoURL: "",
 
-          The UI decides whether it can display it.
-        */
+            // Hide location
+            location: null,
+            locationText: "",
+            latitude: null,
+            longitude: null,
+
+            // Hide weather
+            weather: null,
+            weatherSharing: false,
+            locationSharing: "off",
+            weatherUpdatedAt: null,
+            locationUpdatedAt: null,
+
+            isBlocked: true,
+            blockedMe: true,
+            blockedByMe: false,
+
+            friendshipId: friendDoc.id,
+            friendshipCreatedAt:
+              friendDoc.data()?.createdAt || null,
+          };
+        }
+
+        /* ==========================================
+           NORMAL FRIEND
+        ========================================== */
 
         return {
-          id: friend.id,
+          id: friendId,
           friendId,
 
-          // Profile
-          name: friend.name || "User",
+          name:
+            friend.name || "User",
+
           username:
             friend.username || "",
+
           email:
             friend.email || "",
+
           photoURL:
             friend.photoURL || "",
 
-          // Location
           location:
             friend.location || null,
 
@@ -553,29 +557,35 @@ export async function getFriends(userId) {
           longitude:
             friend.longitude ?? null,
 
-          // Weather
           weather:
             friend.weather || null,
 
-          // Sharing
-          weatherSharing,
+          weatherSharing:
+            friend.weatherSharing === true,
 
           locationSharing:
-            friend.locationSharing ??
+            friend.locationSharing ||
             "off",
 
-          // Weather timestamp
           weatherUpdatedAt:
             friend.weatherUpdatedAt ||
             null,
 
-          // Friendship
+          locationUpdatedAt:
+            friend.locationUpdatedAt ||
+            null,
+
+          isBlocked: false,
+          blockedMe: false,
+          blockedByMe: false,
+
           friendshipId:
             friendDoc.id,
 
+          // Keep friendship internally
+          friendshipId: friendDoc.id,
           friendshipCreatedAt:
-            friendDoc.data()
-              ?.createdAt || null,
+            friendDoc.data()?.createdAt || null,
         };
       })
     );
@@ -613,7 +623,6 @@ export async function removeFriend(
     );
   }
 
-  // Remove friend from current user's list
   await deleteDoc(
     doc(
       db,
@@ -624,7 +633,6 @@ export async function removeFriend(
     )
   );
 
-  // Remove current user from friend's list
   await deleteDoc(
     doc(
       db,
@@ -663,12 +671,51 @@ export async function blockUser(
     "blockedUsers"
   );
 
+  const existingQuery = query(
+    blockedRef,
+    where(
+      "blockerId",
+      "==",
+      blockerId
+    ),
+    where(
+      "blockedUserId",
+      "==",
+      blockedUserId
+    )
+  );
+
+  const existingSnapshot =
+    await getDocs(existingQuery);
+
+  if (!existingSnapshot.empty) {
+    return {
+      blockId:
+        existingSnapshot.docs[0].id,
+    };
+  }
+
+  /*
+    IMPORTANT:
+    DO NOT DELETE FRIENDSHIP.
+  */
+
   const blockRef = await addDoc(
     blockedRef,
     {
       blockerId,
       blockedUserId,
-      createdAt: serverTimestamp(),
+      createdAt:
+        serverTimestamp(),
+    }
+  );
+
+  console.log(
+    "USER BLOCKED:",
+    {
+      blockerId,
+      blockedUserId,
+      blockId: blockRef.id,
     }
   );
 
@@ -681,48 +728,74 @@ export async function blockUser(
    GET BLOCKED USERS
 ========================================================= */
 
-export async function getBlockedUsers(userId) {
+export async function getBlockedUsers(
+  userId
+) {
   if (!userId) return [];
 
   try {
-    const blockedRef = collection(db, "blockedUsers");
+    const blockedRef = collection(
+      db,
+      "blockedUsers"
+    );
 
     const q = query(
       blockedRef,
-      where("blockerId", "==", userId)
+      where(
+        "blockerId",
+        "==",
+        userId
+      )
     );
 
     const snapshot = await getDocs(q);
 
-    const blockedUsers = await Promise.all(
-      snapshot.docs.map(async (blockDoc) => {
-        const data = blockDoc.data();
+    const blockedUsers =
+      await Promise.all(
+        snapshot.docs.map(
+          async (blockDoc) => {
+            const data =
+              blockDoc.data();
 
-        const blockedUser = await getUser(
-          data.blockedUserId
-        );
+            const blockedUser =
+              await getUser(
+                data.blockedUserId
+              );
 
-        if (!blockedUser) {
-          return null;
-        }
+            if (!blockedUser) {
+              return null;
+            }
 
-        return {
-          // IMPORTANT:
-          // This is the Firestore blockedUsers document ID
-          blockId: blockDoc.id,
+            return {
+              blockId:
+                blockDoc.id,
 
-          // This is the actual user's UID
-          id: data.blockedUserId,
+              id:
+                data.blockedUserId,
 
-          name: blockedUser.name || "User",
-          username: blockedUser.username || "",
-          email: blockedUser.email || "",
-          photoURL: blockedUser.photoURL || "",
+              name:
+                blockedUser.name ||
+                "User",
 
-          createdAt: data.createdAt || null,
-        };
-      })
-    );
+              username:
+                blockedUser.username ||
+                "",
+
+              email:
+                blockedUser.email ||
+                "",
+
+              photoURL:
+                blockedUser.photoURL ||
+                "",
+
+              createdAt:
+                data.createdAt ||
+                null,
+            };
+          }
+        )
+      );
 
     return blockedUsers.filter(Boolean);
   } catch (error) {
@@ -734,11 +807,14 @@ export async function getBlockedUsers(userId) {
     return [];
   }
 }
+
 /* =========================================================
    UNBLOCK USER
 ========================================================= */
 
-export async function unblockUser(blockId) {
+export async function unblockUser(
+  blockId
+) {
   if (!blockId) {
     throw new Error(
       "Block ID is required"
@@ -775,27 +851,6 @@ export async function updateWeatherSharing(
     "users",
     userId
   );
-
-  /*
-    IMPORTANT:
-
-    enabled MUST be a boolean.
-
-    AppContext should call:
-
-    updateWeatherSharing(userId, false)
-
-    NOT:
-
-    updateWeatherSharing(userId, {
-      weatherSharing: false
-    })
-
-    Because:
-
-    Boolean({ weatherSharing: false })
-    === true
-  */
 
   const sharingEnabled =
     Boolean(enabled);
@@ -862,10 +917,16 @@ export async function updateUserLocation(
   country = ""
 ) {
   if (!userId) {
-    throw new Error("User ID is required");
+    throw new Error(
+      "User ID is required"
+    );
   }
 
-  const userRef = doc(db, "users", userId);
+  const userRef = doc(
+    db,
+    "users",
+    userId
+  );
 
   await setDoc(
     userRef,
@@ -884,10 +945,14 @@ export async function updateUserLocation(
       },
 
       locationText: locationName
-        ? `${locationName}${country ? `, ${country}` : ""}`
+        ? `${locationName}${country
+          ? `, ${country}`
+          : ""
+        }`
         : "",
 
-      locationUpdatedAt: serverTimestamp(),
+      locationUpdatedAt:
+        serverTimestamp(),
     },
     {
       merge: true,
@@ -964,17 +1029,17 @@ export async function updateUserWeather(
   return true;
 }
 
-// =========================================================
-// REAL-TIME FRIEND WEATHER
-// =========================================================
+/* =========================================================
+   REAL-TIME FRIENDS
+========================================================= */
 
-// =========================================================
-// REAL-TIME FRIEND WEATHER + PROFILE
-// =========================================================
-
-export function subscribeToFriends(userId, callback) {
+export function subscribeToFriends(
+  userId,
+  callback
+) {
   if (!userId) {
-    return () => {};
+    callback([]);
+    return () => { };
   }
 
   const friendsRef = collection(
@@ -984,121 +1049,399 @@ export function subscribeToFriends(userId, callback) {
     "friends"
   );
 
-  let unsubscribeFriendListeners = [];
-  let friendData = new Map();
-
-  const unsubscribeFriends = onSnapshot(
-    friendsRef,
-    (snapshot) => {
-      // Remove old friend listeners
-      unsubscribeFriendListeners.forEach((unsubscribe) => {
-        unsubscribe();
-      });
-
-      unsubscribeFriendListeners = [];
-      friendData = new Map();
-
-      const friendIds = snapshot.docs.map(
-        (friendDoc) => friendDoc.id
-      );
-
-      // No friends
-      if (friendIds.length === 0) {
-        callback([]);
-        return;
-      }
-
-      friendIds.forEach((friendId) => {
-        const friendRef = doc(
-          db,
-          "users",
-          friendId
-        );
-
-        const unsubscribeFriend = onSnapshot(
-          friendRef,
-          (friendSnapshot) => {
-            if (!friendSnapshot.exists()) {
-              return;
-            }
-
-            const data = friendSnapshot.data();
-
-            const friend = {
-              id: friendSnapshot.id,
-              friendId: friendSnapshot.id,
-
-              // Profile
-              name: data.name || "User",
-              username: data.username || "",
-              email: data.email || "",
-              photoURL: data.photoURL || "",
-
-              // Location
-              location: data.location || null,
-              locationText: data.locationText || "",
-              latitude: data.latitude ?? null,
-              longitude: data.longitude ?? null,
-
-              // Weather
-              weather: data.weather || null,
-
-              // Sharing
-              weatherSharing:
-                data.weatherSharing === true,
-
-              locationSharing:
-                data.locationSharing || "off",
-
-              // IMPORTANT
-              weatherUpdatedAt:
-                data.weatherUpdatedAt || null,
-
-              locationUpdatedAt:
-                data.locationUpdatedAt || null,
-            };
-
-            // Update this friend
-            friendData.set(friendId, friend);
-
-            // Send latest complete list
-            callback(
-              Array.from(friendData.values())
-            );
-          },
-          (error) => {
-            console.error(
-              `Friend listener error (${friendId}):`,
-              error
-            );
-          }
-        );
-
-        unsubscribeFriendListeners.push(
-          unsubscribeFriend
-        );
-      });
-    },
-    (error) => {
-      console.error(
-        "Friends listener error:",
-        error
-      );
-
-      callback([]);
-    }
+  const blockedRef = collection(
+    db,
+    "blockedUsers"
   );
 
-  return () => {
-    unsubscribeFriends();
+  let unsubscribeFriends = null;
+  let unsubscribeBlocked = null;
+  let unsubscribeMyBlocked = null;
 
-    unsubscribeFriendListeners.forEach(
-      (unsubscribe) => {
-        unsubscribe();
+  let friendDocs = [];
+
+  let blockedByIds = new Set();
+  let blockedUserIds = new Set();
+
+  /*
+    IMPORTANT:
+    Wait until all three listeners have
+    received their first snapshot.
+
+    This prevents a blocked friend from
+    temporarily appearing before the
+    blockedUsers snapshot loads.
+  */
+
+  let friendsLoaded = false;
+  let blockedByLoaded = false;
+  let myBlockedLoaded = false;
+
+  /* =========================================================
+     BUILD FRIEND LIST
+  ========================================================= */
+
+  async function rebuildFriends() {
+    /*
+      Don't build anything until all Firestore
+      listeners have initialized.
+    */
+
+    if (
+      !friendsLoaded ||
+      !blockedByLoaded ||
+      !myBlockedLoaded
+    ) {
+      console.log(
+        "Waiting for friend/block snapshots..."
+      );
+
+      return;
+    }
+
+    if (!friendDocs.length) {
+      callback([]);
+      return;
+    }
+
+    const currentFriends =
+      [...friendDocs];
+
+    const friends =
+      await Promise.all(
+        currentFriends.map(
+          async (friendDoc) => {
+            const friendId =
+              friendDoc.id;
+
+            /* ==========================================
+               YOU BLOCKED THEM
+               HIDE COMPLETELY
+            ========================================== */
+
+            if (
+              blockedUserIds.has(
+                friendId
+              )
+            ) {
+              console.log(
+                "HIDING BLOCKED FRIEND:",
+                friendId
+              );
+
+              return null;
+            }
+
+            /* ==========================================
+               GET FRIEND PROFILE
+            ========================================== */
+
+            const friendSnapshot =
+              await getDoc(
+                doc(
+                  db,
+                  "users",
+                  friendId
+                )
+              );
+
+            if (
+              !friendSnapshot.exists()
+            ) {
+              return null;
+            }
+
+            const data =
+              friendSnapshot.data();
+
+            /* ==========================================
+               THEY BLOCKED YOU
+               KEEP CARD BUT HIDE DATA
+            ========================================== */
+
+            if (
+              blockedByIds.has(
+                friendId
+              )
+            ) {
+              console.log(
+                "FRIEND BLOCKED ME:",
+                friendId
+              );
+
+              return {
+                id: friendId,
+                friendId,
+
+                name:
+                  "User unavailable",
+
+                username: "",
+
+                email: "",
+                photoURL: "",
+
+                location: null,
+                locationText: "",
+
+                latitude: null,
+                longitude: null,
+
+                weather: null,
+                weatherSharing: false,
+
+                locationSharing:
+                  "off",
+
+                weatherUpdatedAt:
+                  null,
+
+                locationUpdatedAt:
+                  null,
+
+                isBlocked: true,
+                blockedMe: true,
+                blockedByMe: false,
+
+                friendshipId:
+                  friendDoc.id,
+
+                friendshipCreatedAt:
+                  friendDoc
+                    .data()
+                    ?.createdAt ||
+                  null,
+              };
+            }
+
+            /* ==========================================
+               NORMAL FRIEND
+            ========================================== */
+
+            return {
+              id: friendId,
+              friendId,
+
+              name:
+                data.name ||
+                "User",
+
+              username:
+                data.username ||
+                "",
+
+              email:
+                data.email ||
+                "",
+
+              photoURL:
+                data.photoURL ||
+                "",
+
+              location:
+                data.location ||
+                null,
+
+              locationText:
+                data.locationText ||
+                "",
+
+              latitude:
+                data.latitude ??
+                null,
+
+              longitude:
+                data.longitude ??
+                null,
+
+              weather:
+                data.weather ||
+                null,
+
+              weatherSharing:
+                data.weatherSharing ===
+                true,
+
+              locationSharing:
+                data.locationSharing ||
+                "off",
+
+              weatherUpdatedAt:
+                data.weatherUpdatedAt ||
+                null,
+
+              locationUpdatedAt:
+                data.locationUpdatedAt ||
+                null,
+
+              isBlocked: false,
+              blockedMe: false,
+              blockedByMe: false,
+
+              friendshipId:
+                friendDoc.id,
+
+              friendshipCreatedAt:
+                friendDoc
+                  .data()
+                  ?.createdAt ||
+                null,
+            };
+          }
+        )
+      );
+
+    const validFriends =
+      friends.filter(Boolean);
+
+    console.log(
+      "REAL-TIME FRIENDS:",
+      validFriends
+    );
+
+    callback(validFriends);
+  }
+
+  /* =========================================================
+     FRIENDSHIP LISTENER
+  ========================================================= */
+
+  unsubscribeFriends =
+    onSnapshot(
+      friendsRef,
+      async (snapshot) => {
+        friendDocs =
+          snapshot.docs;
+
+        friendsLoaded = true;
+
+        console.log(
+          "FRIENDSHIP CHANGED:",
+          friendDocs.length
+        );
+
+        await rebuildFriends();
+      },
+      (error) => {
+        console.error(
+          "Friends listener error:",
+          error
+        );
+
+        callback([]);
       }
     );
 
-    unsubscribeFriendListeners = [];
-    friendData.clear();
+  /* =========================================================
+     PEOPLE WHO BLOCKED CURRENT USER
+  ========================================================= */
+
+  unsubscribeBlocked =
+    onSnapshot(
+      query(
+        blockedRef,
+        where(
+          "blockedUserId",
+          "==",
+          userId
+        )
+      ),
+      async (snapshot) => {
+        blockedByIds =
+          new Set(
+            snapshot.docs.map(
+              (blockDoc) =>
+                blockDoc.data()
+                  .blockerId
+            )
+          );
+
+        blockedByLoaded = true;
+
+        console.log(
+          "PEOPLE WHO BLOCKED ME:",
+          Array.from(
+            blockedByIds
+          )
+        );
+
+        await rebuildFriends();
+      },
+      (error) => {
+        console.error(
+          "Blocked-by listener error:",
+          error
+        );
+      }
+    );
+
+  /* =========================================================
+     PEOPLE CURRENT USER BLOCKED
+  ========================================================= */
+
+  unsubscribeMyBlocked =
+    onSnapshot(
+      query(
+        blockedRef,
+        where(
+          "blockerId",
+          "==",
+          userId
+        )
+      ),
+      async (snapshot) => {
+        blockedUserIds =
+          new Set(
+            snapshot.docs.map(
+              (blockDoc) =>
+                blockDoc.data()
+                  .blockedUserId
+            )
+          );
+
+        myBlockedLoaded = true;
+
+        console.log(
+          "MY BLOCKED USERS:",
+          Array.from(
+            blockedUserIds
+          )
+        );
+
+        await rebuildFriends();
+      },
+      (error) => {
+        console.error(
+          "My blocked listener error:",
+          error
+        );
+      }
+    );
+
+  /* =========================================================
+     CLEANUP
+  ========================================================= */
+
+  return () => {
+    if (unsubscribeFriends) {
+      unsubscribeFriends();
+    }
+
+    if (unsubscribeBlocked) {
+      unsubscribeBlocked();
+    }
+
+    if (unsubscribeMyBlocked) {
+      unsubscribeMyBlocked();
+    }
+
+    friendDocs = [];
+
+    blockedByIds.clear();
+    blockedUserIds.clear();
+
+    friendsLoaded = false;
+    blockedByLoaded = false;
+    myBlockedLoaded = false;
   };
 }
