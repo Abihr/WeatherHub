@@ -2,10 +2,11 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
 
   const city = searchParams.get("city");
+  const crop = searchParams.get("crop");
 
-  if (!city) {
+  if (!city || !crop) {
     return Response.json(
-      { error: "City is required" },
+      { error: "City and crop are required" },
       { status: 400 }
     );
   }
@@ -29,6 +30,7 @@ export async function GET(request) {
 
     return Response.json({
       location: data.name,
+      crop: crop,
       temperature: data.main.temp,
       feelsLike: data.main.feels_like,
       humidity: data.main.humidity,
