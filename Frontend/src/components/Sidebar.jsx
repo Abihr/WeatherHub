@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 import {
   Home,
@@ -33,6 +34,30 @@ const links = [
 
 export default function Sidebar() {
   const { received } = useApp();
+
+  const [agricultureMode, setAgricultureMode] = useState(
+    localStorage.getItem("agricultureMode") === "true"
+  );
+
+  useEffect(() => {
+    const handleAgricultureModeChange = () => {
+      setAgricultureMode(
+        localStorage.getItem("agricultureMode") === "true"
+      );
+    };
+
+    window.addEventListener(
+      "agricultureModeChanged",
+      handleAgricultureModeChange
+    );
+
+    return () => {
+      window.removeEventListener(
+        "agricultureModeChanged",
+        handleAgricultureModeChange
+      );
+    };
+  }, []);
 
   return (
     <aside className="hidden md:flex md:flex-col w-64 shrink-0 h-screen sticky top-0 border-r border-sky-100 bg-white/70 backdrop-blur-sm px-4 py-6">
@@ -71,36 +96,41 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-1">
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              `group flex items-center gap-3 px-3.5 py-2.5 rounded-xl2 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-sky-100 text-sky-700"
-                  : "text-ink-500 hover:bg-sky-50 hover:text-ink-800"
-              }`
-            }
-          >
-            <Icon
-              size={18}
-              strokeWidth={2.1}
-            />
+        {links
+          .filter(
+            ({ to }) =>
+              to !== "/farmer" || agricultureMode
+          )
+          .map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `group flex items-center gap-3 px-3.5 py-2.5 rounded-xl2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-sky-100 text-sky-700"
+                    : "text-ink-500 hover:bg-sky-50 hover:text-ink-800"
+                }`
+              }
+            >
+              <Icon
+                size={18}
+                strokeWidth={2.1}
+              />
 
-            <span className="flex-1">
-              {label}
-            </span>
-
-            {/* Friend request notification */}
-            {label === "Requests" && received.length > 0 && (
-              <span className="text-[11px] font-semibold bg-sun-400 text-white rounded-full h-5 min-w-5 px-1 flex items-center justify-center">
-                {received.length}
+              <span className="flex-1">
+                {label}
               </span>
-            )}
-          </NavLink>
-        ))}
+
+              {/* Friend request notification */}
+              {label === "Requests" && received.length > 0 && (
+                <span className="text-[11px] font-semibold bg-sun-400 text-white rounded-full h-5 min-w-5 px-1 flex items-center justify-center">
+                  {received.length}
+                </span>
+              )}
+            </NavLink>
+          ))}
       </nav>
 
       {/* Settings */}
