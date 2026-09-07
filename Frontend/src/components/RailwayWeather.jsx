@@ -32,6 +32,10 @@ const RailwayWeather = () => {
   const [showAlert, setShowAlert] = useState(true);
   const [expandedCard, setExpandedCard] = useState(null);
 
+  // Nearby stations state
+  const [nearbyMode, setNearbyMode] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+
   // Fetch railway weather data from the Vercel API
   const fetchWeatherData = async () => {
     try {
@@ -72,6 +76,90 @@ const RailwayWeather = () => {
       : weatherData.filter(
           w => w.stationCode === selectedStation
         );
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) ** 2;
+
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
+
+    return R * c;
+  };
+
+  // Find stations nearest to the user's current location
+  const findNearbyStations = () => {
+    setLocationError(null);
+
+    if (!navigator.geolocation) {
+      setLocationError(
+        'Geolocation is not supported by your browser.'
+      );
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const userLatitude = position.coords.latitude;
+        const userLongitude = position.coords.longitude;
+
+        const stationsWithDistance = weatherData
+          .filter(
+            station =>
+              typeof station.latitude === 'number' &&
+              typeof station.longitude === 'number'
+          )
+          .map(station => ({
+            ...station,
+            distance: calculateDistance(
+              userLatitude,
+              userLongitude,
+              station.latitude,
+              station.longitude
+            ),
+          }))
+          .sort(
+            (a, b) => a.distance - b.distance
+          );
+
+        setWeatherData(stationsWithDistance);
+        setSelectedStation('all');
+        setNearbyMode(true);
+      },
+      locationError => {
+        console.error(
+          'Geolocation error:',
+          locationError
+        );
+
+        setLocationError(
+          'Unable to access your location. Please allow location access.'
+        );
+      }
+    );
+  };
+
+  // Reset nearby mode
+  const showAllStations = () => {
+    setNearbyMode(false);
+    setLocationError(null);
+    setSelectedStation('all');
+
+    fetchWeatherData();
+  };
 
   // Status helpers
   const getStatusColor = (status) => {
@@ -139,6 +227,9 @@ const RailwayWeather = () => {
 
   const refreshData = () => {
     fetchWeatherData();
+    setNearbyMode(false);
+    setLocationError(null);
+    setSelectedStation('all');
   };
 
   const toggleExpand = (id) => {
@@ -146,6 +237,15 @@ const RailwayWeather = () => {
       expandedCard === id ? null : id
     );
   };
+
+  // Data displayed on the page
+  const displayData = nearbyMode
+    ? filteredData.filter(
+        station =>
+          station.distance !== undefined &&
+          station.distance <= 100
+      )
+    : filteredData;
 
   return (
     <div className="min-h-screen bg-ink-50/50 p-3 sm:p-4 md:p-6">
@@ -215,6 +315,17 @@ const RailwayWeather = () => {
         </div>
       )}
 
+      {/* Location Error */}
+      {locationError && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
+          <MapPin className="w-5 h-5 text-yellow-600 shrink-0" />
+
+          <p className="text-sm text-yellow-700">
+            {locationError}
+          </p>
+        </div>
+      )}
+
       {/* Critical Alert Banner */}
       {hasCriticalAlerts && showAlert && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex flex-wrap justify-between items-center gap-3">
@@ -248,7 +359,10 @@ const RailwayWeather = () => {
 
         <select
           value={selectedStation}
-          onChange={(e) => setSelectedStation(e.target.value)}
+          onChange={(e) => {
+            setSelectedStation(e.target.value);
+            setNearbyMode(false);
+          }}
           className="w-full sm:w-auto px-4 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-700 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent text-sm"
         >
           <option value="all">
@@ -267,15 +381,35 @@ const RailwayWeather = () => {
 
         <div className="flex gap-2 w-full sm:w-auto">
 
-          <button
-            className="w-full sm:w-auto px-4 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-600 hover:bg-ink-50 transition-colors text-sm flex items-center justify-center gap-2"
-          >
-            <MapPin className="w-4 h-4" />
-            Nearby Stations
-          </button>
+          {!nearbyMode ? (
+            <button
+              onClick={findNearbyStations}
+              className="w-full sm:w-auto px-4 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-600 hover:bg-ink-50 transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <MapPin className="w-4 h-4" />
+              Nearby Stations
+            </button>
+          ) : (
+            <button
+              onClick={showAllStations}
+              className="w-full sm:w-auto px-4 py-2.5 bg-sky-100 border border-sky-200 rounded-lg text-sky-700 hover:bg-sky-200 transition-colors text-sm flex items-center justify-center gap-2"
+            >
+              <MapPin className="w-4 h-4" />
+              Show All Stations
+            </button>
+          )}
 
         </div>
       </div>
+
+      {/* Nearby information */}
+      {nearbyMode && (
+        <div className="mb-6 p-3 bg-sky-50 border border-sky-100 rounded-xl text-sm text-sky-700 flex items-center gap-2">
+          <MapPin className="w-4 h-4 shrink-0" />
+
+          Showing stations within 100 km of your current location.
+        </div>
+      )}
 
       {/* Loading State */}
       {loading && weatherData.length === 0 && (
@@ -300,11 +434,11 @@ const RailwayWeather = () => {
 
           <div className="bg-white rounded-xl p-4 shadow-card">
             <p className="text-sm text-ink-400">
-              Total Stations
+              {nearbyMode ? 'Nearby Stations' : 'Total Stations'}
             </p>
 
             <p className="text-2xl font-bold text-ink-900">
-              {weatherData.length}
+              {displayData.length}
             </p>
           </div>
 
@@ -358,7 +492,7 @@ const RailwayWeather = () => {
       {!loading && weatherData.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
 
-          {filteredData.map((station) => (
+          {displayData.map((station) => (
 
             <div
               key={station.id}
@@ -379,6 +513,12 @@ const RailwayWeather = () => {
                   <p className="text-sm text-ink-400">
                     {station.stationCode}
                   </p>
+
+                  {station.distance !== undefined && (
+                    <p className="text-xs text-sky-600 mt-1">
+                      {station.distance.toFixed(1)} km away
+                    </p>
+                  )}
 
                 </div>
 
@@ -556,6 +696,20 @@ const RailwayWeather = () => {
 
                   </div>
 
+                  {station.distance !== undefined && (
+                    <div className="flex justify-between gap-3">
+
+                      <span className="text-ink-400">
+                        Distance
+                      </span>
+
+                      <span className="text-ink-700 font-medium">
+                        {station.distance.toFixed(1)} km
+                      </span>
+
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
 
                     <span className="text-ink-400">
@@ -594,9 +748,37 @@ const RailwayWeather = () => {
         </div>
       )}
 
+      {/* Nearby Empty State */}
+      {!loading &&
+        nearbyMode &&
+        weatherData.length > 0 &&
+        displayData.length === 0 && (
+          <div className="text-center py-16 bg-white rounded-xl shadow-card">
+
+            <MapPin className="w-16 h-16 text-ink-300 mx-auto mb-4" />
+
+            <p className="text-ink-500 text-lg font-medium">
+              No nearby stations found
+            </p>
+
+            <p className="text-ink-400 text-sm mt-1">
+              None of the currently available stations are within 100 km.
+            </p>
+
+            <button
+              onClick={showAllStations}
+              className="mt-4 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm hover:bg-sky-600 transition-colors"
+            >
+              Show All Stations
+            </button>
+
+          </div>
+        )}
+
       {/* Empty State */}
       {!loading &&
         weatherData.length > 0 &&
+        !nearbyMode &&
         filteredData.length === 0 && (
           <div className="text-center py-16 bg-white rounded-xl shadow-card">
 

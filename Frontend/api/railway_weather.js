@@ -5,6 +5,8 @@ const STATIONS = [
         code: "BCT",
         zone: "Western",
         city: "Mumbai",
+        latitude: 18.9696,
+        longitude: 72.8194,
     },
     {
         id: "2",
@@ -12,6 +14,8 @@ const STATIONS = [
         code: "DLI",
         zone: "Northern",
         city: "Delhi",
+        latitude: 28.6448,
+        longitude: 77.2167,
     },
     {
         id: "3",
@@ -19,6 +23,8 @@ const STATIONS = [
         code: "HWH",
         zone: "Eastern",
         city: "Kolkata",
+        latitude: 22.5839,
+        longitude: 88.3426,
     },
     {
         id: "4",
@@ -26,6 +32,8 @@ const STATIONS = [
         code: "MAS",
         zone: "Southern",
         city: "Chennai",
+        latitude: 13.0827,
+        longitude: 80.2707,
     },
     {
         id: "5",
@@ -33,6 +41,8 @@ const STATIONS = [
         code: "ST",
         zone: "Western",
         city: "Surat",
+        latitude: 21.2049,
+        longitude: 72.8401,
     },
     {
         id: "6",
@@ -40,6 +50,8 @@ const STATIONS = [
         code: "PNBE",
         zone: "East Central",
         city: "Patna",
+        latitude: 25.5941,
+        longitude: 85.1376,
     },
     {
         id: "7",
@@ -47,6 +59,8 @@ const STATIONS = [
         code: "LKO",
         zone: "Northern",
         city: "Lucknow",
+        latitude: 26.8320,
+        longitude: 80.9215,
     },
 ];
 
@@ -100,7 +114,8 @@ export async function GET() {
                     data.main?.temp ?? 0
                 );
 
-                const humidity = data.main?.humidity ?? 0;
+                const humidity =
+                    data.main?.humidity ?? 0;
 
                 const weatherStatus = getWeatherStatus(
                     rainfall,
@@ -112,9 +127,14 @@ export async function GET() {
                     stationName: station.name,
                     stationCode: station.code,
                     zone: station.zone,
+                    city: station.city,
 
+                    // Station coordinates for nearby-station filtering
+                    latitude: station.latitude,
+                    longitude: station.longitude,
+
+                    // Live weather data
                     weatherStatus,
-
                     temperature,
                     humidity,
                     rainfall,
@@ -122,7 +142,8 @@ export async function GET() {
 
                     lastUpdated: new Date().toISOString(),
 
-                    // Railway operational data will be added later.
+                    // Railway operational data
+                    // Will be connected to real railway sources later.
                     waterLevel: null,
                     trainDelays: null,
                     routeStatus: "Unknown",
@@ -141,7 +162,10 @@ export async function GET() {
 
         return Response.json(results);
     } catch (error) {
-        console.error("Railway weather API error:", error);
+        console.error(
+            "Railway weather API error:",
+            error
+        );
 
         return Response.json(
             {
