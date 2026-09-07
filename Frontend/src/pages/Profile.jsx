@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -38,13 +37,18 @@ export default function Profile() {
   async function handleSignOut() {
     try {
       await signOut(auth);
+
       console.log("Signed out successfully");
 
       // App.jsx will detect user === null
       // and automatically show Login.jsx
     } catch (error) {
       console.error("Sign out error:", error);
-      pushToast("Failed to sign out. Please try again.", "error");
+
+      pushToast(
+        "Failed to sign out. Please try again.",
+        "error"
+      );
     }
   }
 
@@ -109,6 +113,7 @@ export default function Profile() {
           </h1>
 
           {/* Dark Mode Button - currently disabled */}
+
           {/*
           <button
             onClick={toggleDarkMode}
@@ -131,17 +136,20 @@ export default function Profile() {
         <div className="rounded-xl3 bg-hero-gradient text-white p-5 flex items-center gap-4 shadow-pop">
 
           {/* Avatar */}
+
           <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-sm font-display font-bold text-xl flex items-center justify-center shrink-0">
             {initials}
           </div>
 
           {/* User Information */}
+
           <div className="min-w-0">
             <h1 className="text-2xl font-display font-extrabold truncate">
               {user?.name || "User"}
             </h1>
 
             {/* Location */}
+
             <p className="text-sky-100 text-2xs flex items-center gap-1 mt-1">
               <MapPin size={11} />
               {locationText}
@@ -156,9 +164,14 @@ export default function Profile() {
         <div className="grid grid-cols-2 gap-3">
 
           {/* Friends */}
-          <div
+
+          <button
+            type="button"
+            onClick={() => navigate("/friends")}
             className={`rounded-xl2 shadow-card p-4 text-center transition-colors ${
-              darkMode ? "bg-slate-900" : "bg-white"
+              darkMode
+                ? "bg-slate-900 hover:bg-slate-800"
+                : "bg-white hover:bg-sky-50"
             }`}
           >
             <p
@@ -171,15 +184,19 @@ export default function Profile() {
 
             <p
               className={`text-xs ${
-                darkMode ? "text-slate-400" : "text-ink-400"
+                darkMode
+                  ? "text-slate-400"
+                  : "text-ink-400"
               }`}
             >
               Friends
             </p>
-          </div>
+          </button>
 
           {/* Blocked */}
+
           <button
+            type="button"
             onClick={() => navigate("/blocked")}
             className={`rounded-xl2 shadow-card p-4 text-center transition-colors ${
               darkMode
@@ -197,7 +214,9 @@ export default function Profile() {
 
             <p
               className={`text-xs ${
-                darkMode ? "text-slate-400" : "text-ink-400"
+                darkMode
+                  ? "text-slate-400"
+                  : "text-ink-400"
               }`}
             >
               Blocked
@@ -222,6 +241,7 @@ export default function Profile() {
         ======================================== */}
 
         <button
+          type="button"
           onClick={() => navigate("/settings")}
           className={`rounded-xl2 shadow-card p-4 flex items-center gap-3 transition-colors ${
             darkMode
@@ -241,7 +261,9 @@ export default function Profile() {
 
           <span
             className={`flex-1 text-left text-sm font-medium ${
-              darkMode ? "text-slate-200" : "text-ink-700"
+              darkMode
+                ? "text-slate-200"
+                : "text-ink-700"
             }`}
           >
             Settings
@@ -249,7 +271,11 @@ export default function Profile() {
 
           <ChevronRight
             size={16}
-            className={darkMode ? "text-slate-500" : "text-ink-400"}
+            className={
+              darkMode
+                ? "text-slate-500"
+                : "text-ink-400"
+            }
           />
         </button>
 
@@ -258,6 +284,7 @@ export default function Profile() {
         ======================================== */}
 
         <button
+          type="button"
           onClick={() => navigate("/blocked")}
           className={`rounded-xl2 shadow-card p-4 flex items-center gap-3 transition-colors ${
             darkMode
@@ -277,7 +304,9 @@ export default function Profile() {
 
           <span
             className={`flex-1 text-left text-sm font-medium ${
-              darkMode ? "text-slate-200" : "text-ink-700"
+              darkMode
+                ? "text-slate-200"
+                : "text-ink-700"
             }`}
           >
             Blocked Users
@@ -285,7 +314,11 @@ export default function Profile() {
 
           <ChevronRight
             size={16}
-            className={darkMode ? "text-slate-500" : "text-ink-400"}
+            className={
+              darkMode
+                ? "text-slate-500"
+                : "text-ink-400"
+            }
           />
         </button>
 
@@ -294,6 +327,7 @@ export default function Profile() {
         ======================================== */}
 
         <button
+          type="button"
           onClick={handleSignOut}
           className={`rounded-xl2 shadow-card p-4 flex items-center gap-3 transition-colors ${
             darkMode
@@ -309,9 +343,7 @@ export default function Profile() {
             Sign Out
           </span>
         </button>
-
       </div>
     </div>
   );
 }
-
