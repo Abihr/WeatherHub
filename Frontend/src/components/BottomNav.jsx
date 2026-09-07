@@ -12,6 +12,7 @@ import {
     User,
     Bot,
     // Inbox,
+    Sprout,
     Bell,
     Settings,
     X,
@@ -30,7 +31,7 @@ const moreLinks = [
     // { to: "/requests", label: "Requests", icon: Inbox },
     // { to: "/alerts", label: "Alerts", icon: Bell },
     { to: "/profile", label: "Profile", icon: User },
-    
+   { to: "/farmer", label: "Agriculture", icon: Sprout }, 
 ];
 
 
