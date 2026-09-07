@@ -160,7 +160,7 @@ const FarmerDashboard = () => {
       <section className="mb-6 rounded-xl bg-gradient-to-r from-sky-100 via-white to-green-50 p-5 shadow-card border border-sky-100">
         <p className="text-sm text-ink-500">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
         <h2 className="mt-1 text-2xl font-display font-bold text-ink-900">{currentGreeting}, Farmer</h2>
-        <p className="mt-1 text-sm text-ink-500">Here is your farm plan and weather outlook for today.</p>
+        <p className="mt-1 text-sm text-ink-500">Here is your farm plan and weather outlook.</p>
       </section>
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center mb-6">
