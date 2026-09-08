@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+
 import {
   MoreVertical,
   Lock,
@@ -7,8 +8,64 @@ import {
   UserMinus,
   ShieldOff,
 } from "lucide-react";
+
 import { weatherIcon } from "../data/mockData";
 import { useApp } from "../context/AppContext";
+
+// ================================================================
+// FORMAT WEATHER UPDATED TIME
+// ================================================================
+
+function formatWeatherUpdatedAt(timestamp) {
+  if (!timestamp) return null;
+
+  try {
+    const date = timestamp?.toDate
+      ? timestamp.toDate()
+      : new Date(timestamp);
+
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    const diffMinutes = Math.floor(
+      (Date.now() - date.getTime()) / 60000
+    );
+
+    if (diffMinutes < 1) {
+      return "Updated just now";
+    }
+
+    if (diffMinutes < 60) {
+      return `Updated ${diffMinutes} ${
+        diffMinutes === 1 ? "minute" : "minutes"
+      } ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+
+    if (diffHours < 24) {
+      return `Updated ${diffHours} ${
+        diffHours === 1 ? "hour" : "hours"
+      } ago`;
+    }
+
+    return `Updated ${date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+    })}, ${date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    })}`;
+  } catch {
+    return null;
+  }
+}
+
+// ================================================================
+// FRIEND CARD
+// ================================================================
 
 export default function FriendCard({
   friend,
@@ -16,6 +73,7 @@ export default function FriendCard({
   onBlock,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+
   const menuRef = useRef(null);
 
   const { removeFriend } = useApp();
@@ -42,7 +100,7 @@ export default function FriendCard({
   }, []);
 
   // ============================================================
-  // CHECK IF USER IS UNAVAILABLE
+  // UNAVAILABLE USER
   // ============================================================
 
   const isUnavailable =
@@ -50,7 +108,7 @@ export default function FriendCard({
     friend?.isBlocked === true;
 
   // ============================================================
-  // USER INITIALS
+  // INITIALS
   // ============================================================
 
   const initials = (friend?.name || "User")
@@ -72,6 +130,9 @@ export default function FriendCard({
     !!weather &&
     !isUnavailable;
 
+  const temperature =
+    weather?.temperature ?? weather?.temp;
+
   // ============================================================
   // LOCATION
   // ============================================================
@@ -84,82 +145,106 @@ export default function FriendCard({
         "";
 
   // ============================================================
-  // TEMPERATURE
+  // UPDATED TIME
   // ============================================================
 
-  const temperature =
-    weather?.temperature ?? weather?.temp;
+  const weatherUpdatedText =
+    formatWeatherUpdatedAt(
+      friend?.weatherUpdatedAt
+    );
 
   // ============================================================
   // RENDER
   // ============================================================
 
   return (
-    <div className="rounded-xl2 bg-white shadow-card p-5 flex flex-col gap-4 animate-enter">
+    <div
+      className="
+        bg-white
+        rounded-2xl
+        border border-slate-100
+        shadow-[0_4px_20px_rgba(15,23,42,0.06)]
+        p-4
+        flex flex-col
+        gap-4
+        transition-all
+        duration-200
+        hover:shadow-[0_8px_28px_rgba(15,23,42,0.09)]
+        hover:-translate-y-0.5
+      "
+    >
 
-      {/* ========================================================
+      {/* ======================================================
           HEADER
-      ======================================================== */}
+      ====================================================== */}
 
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
 
-        {/* ======================================================
-            AVATAR
-        ====================================================== */}
+        {/* AVATAR */}
 
-        <div className="h-11 w-11 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+        <div
+          className="
+            h-11
+            w-11
+            rounded-full
+            bg-sky-100
+            text-sky-600
+            flex
+            items-center
+            justify-center
+            shrink-0
+            ring-4
+            ring-sky-50
+          "
+        >
           {isUnavailable ? (
             <Lock
-              size={18}
-              className="text-ink-400"
+              size={17}
+              className="text-slate-400"
             />
           ) : (
-            <span className="font-display font-semibold text-sm">
+            <span className="font-semibold text-sm">
               {initials}
             </span>
           )}
         </div>
 
-        {/* ======================================================
-            USER INFORMATION
-        ====================================================== */}
+        {/* USER INFO */}
 
         <div className="flex-1 min-w-0">
 
-          {/* NAME */}
-
-          <p className="font-semibold text-ink-800 truncate">
+          <p className="font-semibold text-[15px] text-slate-800 truncate leading-tight">
             {isUnavailable
               ? "User unavailable"
               : friend?.name || "User"}
           </p>
 
-          {/* USERNAME
-              Hidden when unavailable
-          */}
+          {/* USERNAME */}
 
-          {!isUnavailable && (
-            <p className="text-xs text-ink-400">
-              @{friend?.username || "username"}
-            </p>
-          )}
+          <p className="text-xs text-slate-400 mt-0.5">
+            @{friend?.username || "username"}
+          </p>
 
-          {/* LOCATION
-              Hidden when unavailable
-          */}
+          {/* LOCATION */}
 
           {!isUnavailable && locationText && (
-            <p className="text-xs text-ink-400 flex items-center gap-1 mt-0.5">
-              <MapPin size={11} />
-              {locationText}
-            </p>
+            <div className="flex items-center gap-1 mt-1">
+
+              <MapPin
+                size={11}
+                className="text-slate-400 shrink-0"
+              />
+
+              <p className="text-[11px] text-slate-400 truncate">
+                {locationText}
+              </p>
+
+            </div>
           )}
+
         </div>
 
-        {/* ======================================================
-            THREE DOT MENU
-            COMPLETELY HIDDEN FOR UNAVAILABLE USERS
-        ====================================================== */}
+        {/* THREE DOT MENU */}
 
         {!isUnavailable && (
           <div
@@ -171,15 +256,41 @@ export default function FriendCard({
               onClick={() =>
                 setMenuOpen((value) => !value)
               }
-              className="h-8 w-8 rounded-full flex items-center justify-center text-ink-400 hover:bg-sky-50 hover:text-ink-700 transition-colors"
+              className="
+                h-8
+                w-8
+                rounded-full
+                flex
+                items-center
+                justify-center
+                text-slate-400
+                hover:bg-slate-50
+                hover:text-slate-600
+                transition-colors
+              "
             >
-              <MoreVertical size={16} />
+              <MoreVertical size={17} />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-9 z-20 w-48 bg-white rounded-xl2 shadow-pop border border-sky-100 py-1.5 animate-enter">
+              <div
+                className="
+                  absolute
+                  right-0
+                  top-9
+                  z-30
+                  w-48
+                  bg-white
+                  rounded-xl
+                  border
+                  border-slate-100
+                  shadow-xl
+                  py-1.5
+                  overflow-hidden
+                "
+              >
 
-                {/* COMPARE WEATHER */}
+                {/* COMPARE */}
 
                 <MenuItem
                   icon={RefreshCw}
@@ -190,7 +301,7 @@ export default function FriendCard({
                   }}
                 />
 
-                {/* REMOVE FRIEND */}
+                {/* REMOVE */}
 
                 <MenuItem
                   icon={UserMinus}
@@ -201,7 +312,7 @@ export default function FriendCard({
                   }}
                 />
 
-                {/* BLOCK USER */}
+                {/* BLOCK */}
 
                 <MenuItem
                   icon={ShieldOff}
@@ -217,97 +328,198 @@ export default function FriendCard({
             )}
           </div>
         )}
+
       </div>
 
-      {/* ========================================================
-          WEATHER SECTION
-      ======================================================== */}
+      {/* ======================================================
+          WEATHER CARD
+      ====================================================== */}
 
       {weatherShared ? (
-        <div className="rounded-xl2 bg-sky-50 px-4 py-3 flex items-center gap-3">
+
+        <div
+          className="
+            rounded-2xl
+            bg-gradient-to-br
+            from-sky-50
+            to-blue-50
+            border
+            border-sky-100
+            px-4
+            py-3.5
+            flex
+            items-center
+            gap-3
+          "
+        >
 
           {/* WEATHER ICON */}
 
-          <span className="text-2xl leading-none">
-            {weatherIcon?.[weather.icon] || "🌤️"}
-          </span>
+          <div
+            className="
+              h-11
+              w-11
+              rounded-full
+              bg-white
+              flex
+              items-center
+              justify-center
+              shadow-sm
+              shrink-0
+            "
+          >
+            <span className="text-2xl">
+              {weatherIcon?.[weather.icon] || "🌤️"}
+            </span>
+          </div>
 
-          {/* WEATHER INFORMATION */}
+          {/* WEATHER INFO */}
 
           <div className="flex-1 min-w-0">
 
-            <p className="text-sm font-semibold text-ink-800">
+            <p
+              className="
+                text-sm
+                font-semibold
+                text-slate-700
+                capitalize
+                truncate
+              "
+            >
               {weather.condition || "Current Weather"}
             </p>
 
+            {/* HUMIDITY */}
+
             {weather.humidity !== undefined &&
               weather.humidity !== null && (
-                <p className="text-xs text-ink-400">
+                <p className="text-[11px] text-slate-400 mt-0.5">
                   Humidity {weather.humidity}%
                 </p>
               )}
 
+            {/* LOCATION */}
+
             {locationText && (
-              <p className="text-xs text-ink-400 truncate">
+              <p className="text-[11px] text-slate-400 truncate">
                 {locationText}
               </p>
             )}
+
+            {/* UPDATED */}
+
+            {weatherUpdatedText && (
+              <p className="text-[10px] text-slate-400 mt-1">
+                {weatherUpdatedText}
+              </p>
+            )}
+
           </div>
 
           {/* TEMPERATURE */}
 
-          <p className="text-xl font-display font-bold text-ink-900">
-            {temperature !== undefined &&
-            temperature !== null
-              ? `${temperature}°`
-              : "--"}
-          </p>
+          <div className="shrink-0 text-right">
+
+            <p
+              className="
+                text-2xl
+                font-bold
+                tracking-tight
+                text-slate-800
+              "
+            >
+              {temperature !== undefined &&
+              temperature !== null
+                ? `${temperature}°`
+                : "--"}
+            </p>
+
+          </div>
+
         </div>
+
       ) : (
-        /* ======================================================
-           WEATHER NOT SHARED / USER UNAVAILABLE
-        ====================================================== */
 
-        <div className="rounded-xl2 bg-ink-50 px-4 py-3.5 flex items-center gap-2.5 text-ink-400">
+        /* ====================================================
+           WEATHER NOT SHARED
+        ==================================================== */
 
-          <Lock size={14} />
+        <div
+          className="
+            rounded-2xl
+            bg-slate-50
+            border
+            border-slate-100
+            px-4
+            py-3.5
+            flex
+            items-center
+            gap-3
+          "
+        >
+
+          <div
+            className="
+              h-9
+              w-9
+              rounded-full
+              bg-white
+              flex
+              items-center
+              justify-center
+              shrink-0
+            "
+          >
+            <Lock
+              size={14}
+              className="text-slate-400"
+            />
+          </div>
 
           <div>
-            <p className="text-sm font-medium text-ink-500">
+
+            <p className="text-sm font-medium text-slate-600">
               Weather Not Shared
             </p>
 
-            <p className="text-xs">
+            <p className="text-[11px] text-slate-400 mt-0.5">
               {isUnavailable
                 ? "User hasn't shared weather data yet."
                 : `${
-                    (
-                      friend?.name ||
-                      "This user"
-                    ).split(" ")[0]
+                    friend?.name || "This user"
                   } hasn't shared weather data yet.`}
             </p>
+
           </div>
+
         </div>
       )}
 
-      {/* ========================================================
+      {/* ======================================================
           COMPARE BUTTON
-          HIDDEN FOR UNAVAILABLE USERS
-      ======================================================== */}
+      ====================================================== */}
 
       {!isUnavailable && (
-        <div className="flex gap-2">
-
-          <button
-            type="button"
-            onClick={() => onCompare?.(friend)}
-            className="flex-1 text-sm font-medium py-2 rounded-xl2 bg-sky-500 text-white hover:bg-sky-600 transition-colors"
-          >
-            Compare
-          </button>
-
-        </div>
+        <button
+          type="button"
+          onClick={() => onCompare?.(friend)}
+          className="
+            w-full
+            text-sm
+            font-semibold
+            py-2.5
+            rounded-full
+            bg-sky-500
+            text-white
+            shadow-sm
+            hover:bg-sky-600
+            hover:shadow-md
+            active:scale-[0.98]
+            transition-all
+          "
+        >
+          Compare
+        </button>
       )}
 
     </div>
@@ -315,7 +527,7 @@ export default function FriendCard({
 }
 
 // ================================================================
-// MENU ITEM COMPONENT
+// MENU ITEM
 // ================================================================
 
 function MenuItem({
@@ -328,11 +540,21 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-sm hover:bg-sky-50 transition-colors ${
-        tone === "danger"
-          ? "text-red-500 hover:bg-red-50"
-          : "text-ink-700"
-      }`}
+      className={`
+        w-full
+        flex
+        items-center
+        gap-2.5
+        px-3.5
+        py-2.5
+        text-sm
+        transition-colors
+        ${
+          tone === "danger"
+            ? "text-red-500 hover:bg-red-50"
+            : "text-slate-600 hover:bg-slate-50"
+        }
+      `}
     >
       <Icon size={15} />
       {label}
