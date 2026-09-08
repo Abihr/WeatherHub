@@ -21,6 +21,8 @@ const groq = new Groq({
 
 
 
+
+
 // ============================================================
 // LANGUAGE DETECTION
 // ============================================================
@@ -72,6 +74,8 @@ function detectUserLanguage(message) {
 
     return "English";
 }
+
+
 
 
 
@@ -139,6 +143,8 @@ function cleanChatResponse(text) {
 
 
 
+
+
 // ============================================================
 // LANGUAGE INSTRUCTION
 // ============================================================
@@ -169,6 +175,8 @@ IMPORTANT:
 - Do not use Markdown links.
 `;
 }
+
+
 
 
 
@@ -222,6 +230,8 @@ async function getWeather(location) {
         );
     }
 }
+
+
 
 
 
@@ -281,6 +291,8 @@ async function getWeatherByCoordinates(latitude, longitude) {
 
 
 
+
+
 // ============================================================
 // CURRENT LOCATION QUERY DETECTION
 // ============================================================
@@ -319,6 +331,8 @@ function isCurrentLocationQuery(message) {
 
 
 
+
+
     // Hindi
     const hindiPatterns = [
         /मैं कहाँ हूँ/,
@@ -342,6 +356,8 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
+
 
 
 
@@ -371,6 +387,8 @@ function isCurrentLocationQuery(message) {
 
 
 
+
+
     // Gujarati
     const gujaratiPatterns = [
         /હું ક્યાં છું/,
@@ -391,6 +409,8 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
+
 
 
 
@@ -415,6 +435,8 @@ function isCurrentLocationQuery(message) {
 
 
 
+
+
     // Telugu
     const teluguPatterns = [
         /నేను ఎక్కడ ఉన్నాను/,
@@ -432,6 +454,8 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
+
 
 
 
@@ -455,6 +479,8 @@ function isCurrentLocationQuery(message) {
 
 
 
+
+
     // Malayalam
     const malayalamPatterns = [
         /ഞാൻ എവിടെയാണ്/,
@@ -472,6 +498,8 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
+
 
 
 
@@ -495,8 +523,12 @@ function isCurrentLocationQuery(message) {
 
 
 
+
+
     return false;
 }
+
+
 
 
 
@@ -525,6 +557,8 @@ app.get("/api/weather", async (req, res) => {
         });
     }
 });
+
+
 
 
 
@@ -571,6 +605,8 @@ app.post("/api/chat", async (req, res) => {
 
 
 
+
+
         const userLanguage = detectUserLanguage(message);
 
         console.log(
@@ -580,8 +616,12 @@ app.post("/api/chat", async (req, res) => {
 
 
 
+
+
         const languageInstruction =
             getLanguageInstruction(userLanguage);
+
+
 
 
 
@@ -609,6 +649,8 @@ app.post("/api/chat", async (req, res) => {
                     latitude,
                     longitude
                 );
+
+
 
 
 
@@ -653,6 +695,8 @@ Answer using only the supplied weather information.
 
 
 
+
+
             const completion =
                 await groq.chat.completions.create({
                     model: "openai/gpt-oss-20b",
@@ -662,9 +706,13 @@ Answer using only the supplied weather information.
 
 
 
+
+
             const rawReply =
                 completion.choices?.[0]?.message?.content ||
                 "Unable to generate a response.";
+
+
 
 
 
@@ -673,10 +721,14 @@ Answer using only the supplied weather information.
 
 
 
+
+
             return res.json({
                 reply,
             });
         }
+
+
 
 
 
@@ -716,6 +768,8 @@ ${languageInstruction}
 
 
 
+
+
         const tools = [
             {
                 type: "function",
@@ -740,6 +794,8 @@ ${languageInstruction}
 
 
 
+
+
         const firstCompletion =
             await groq.chat.completions.create({
                 model: "openai/gpt-oss-20b",
@@ -751,8 +807,12 @@ ${languageInstruction}
 
 
 
+
+
         const assistantMessage =
             firstCompletion.choices?.[0]?.message;
+
+
 
 
 
@@ -778,11 +838,15 @@ ${languageInstruction}
 
 
 
+
+
         // ========================================================
         // PROCESS TOOL CALL
         // ========================================================
 
         messages.push(assistantMessage);
+
+
 
 
 
@@ -793,6 +857,8 @@ ${languageInstruction}
             ) {
                 continue;
             }
+
+
 
 
 
@@ -813,7 +879,11 @@ ${languageInstruction}
 
 
 
+
+
             const location = args.location;
+
+
 
 
 
@@ -832,9 +902,13 @@ ${languageInstruction}
 
 
 
+
+
             try {
                 const weather =
                     await getWeather(location);
+
+
 
 
 
@@ -851,6 +925,8 @@ ${languageInstruction}
 
 
 
+
+
                 messages.push({
                     role: "tool",
                     tool_call_id: toolCall.id,
@@ -860,6 +936,8 @@ ${languageInstruction}
                 });
             }
         }
+
+
 
 
 
@@ -884,6 +962,8 @@ Return only the final answer.
 
 
 
+
+
         const finalCompletion =
             await groq.chat.completions.create({
                 model: "openai/gpt-oss-20b",
@@ -893,14 +973,20 @@ Return only the final answer.
 
 
 
+
+
         const rawReply =
             finalCompletion.choices?.[0]?.message?.content ||
             "Sorry, I couldn't generate a response.";
 
 
 
+
+
         const reply =
             cleanChatResponse(rawReply);
+
+
 
 
 
@@ -923,6 +1009,137 @@ Return only the final answer.
 
 
 
+
+
+// ============================================================
+// SARVAM TEXT-TO-SPEECH ENDPOINT
+// ============================================================
+
+app.post("/api/tts", async (req, res) => {
+    try {
+        const { text, language } = req.body;
+
+        if (!text || typeof text !== "string") {
+            return res.status(400).json({
+                error: "Text is required",
+            });
+        }
+
+        if (!language || typeof language !== "string") {
+            return res.status(400).json({
+                error: "Language is required",
+            });
+        }
+
+        const apiKey = process.env.SARVAM_API_KEY;
+
+        if (!apiKey) {
+            return res.status(500).json({
+                error: "SARVAM_API_KEY is not configured",
+            });
+        }
+
+        // Sarvam Bulbul V3 supported languages
+        const supportedLanguages = [
+            "en-IN",
+            "hi-IN",
+            "bn-IN",
+            "ta-IN",
+            "te-IN",
+            "mr-IN",
+            "gu-IN",
+            "kn-IN",
+            "ml-IN",
+            "pa-IN",
+            "od-IN",
+        ];
+
+        if (!supportedLanguages.includes(language)) {
+            return res.status(400).json({
+                error: `Unsupported language: ${language}`,
+            });
+        }
+
+        // Bulbul V3 REST limit
+        if (text.length > 2500) {
+            return res.status(400).json({
+                error:
+                    "Text is too long for a single TTS request.",
+            });
+        }
+
+        console.log(
+            `Sarvam TTS request: ${language}`
+        );
+
+        const response = await fetch(
+            "https://api.sarvam.ai/text-to-speech",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "api-subscription-key": apiKey,
+                },
+                body: JSON.stringify({
+                    text,
+                    language_code: language,
+                    model: "bulbul:v3",
+                    speaker: "shubh",
+                    output_audio_codec: "wav",
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+
+            console.error(
+                "Sarvam TTS error:",
+                response.status,
+                errorText
+            );
+
+            return res.status(response.status).json({
+                error:
+                    "Sarvam TTS request failed",
+            });
+        }
+
+        const data = await response.json();
+
+        if (
+            !data.audios ||
+            !Array.isArray(data.audios) ||
+            !data.audios[0]
+        ) {
+            return res.status(500).json({
+                error:
+                    "Sarvam TTS returned no audio",
+            });
+        }
+
+        return res.json({
+            audio: data.audios[0],
+            language,
+        });
+    } catch (error) {
+        console.error(
+            "/api/tts error:",
+            error
+        );
+
+        return res.status(500).json({
+            error:
+                error.message ||
+                "Something went wrong while generating speech.",
+        });
+    }
+});
+
+
+
+
+
 // ============================================================
 // TEST ENDPOINT
 // ============================================================
@@ -935,6 +1152,8 @@ app.get("/api/test", (req, res) => {
 
 
 
+
+
 // ============================================================
 // ROOT ENDPOINT
 // ============================================================
@@ -944,6 +1163,8 @@ app.get("/", (req, res) => {
         message: "WeatherGPT backend is running.",
     });
 });
+
+
 
 
 
