@@ -4,7 +4,7 @@ import {
   Droplets,
   Thermometer,
   Wind,
-  Calendar,
+Calendar,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -1024,9 +1024,11 @@ const FarmerDashboard = () => {
             font-bold
             text-ink-800
             mt-1
-          "
-          >
-            {Math.round(farmerData.weatherForecast.today.temp)} °C
+          ">
+
+           {Math.round(farmerData.weatherForecast.today.temp)}
+            °C
+
           </h3>
 
           <p
