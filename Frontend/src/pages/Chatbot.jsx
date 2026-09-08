@@ -75,6 +75,281 @@ export default function Chatbot() {
 
     const recognitionRef = useRef(null);
 
+    // --------------------------------------------------------
+    // SPEECH SYNTHESIS VOICES
+    // --------------------------------------------------------
+
+    const [availableVoices, setAvailableVoices] =
+        useState([]);
+
+    // ========================================================
+    // LOAD BROWSER VOICES
+    // ========================================================
+
+    useEffect(() => {
+        if (!("speechSynthesis" in window)) {
+            return;
+        }
+
+        function loadVoices() {
+            const voices =
+                window.speechSynthesis.getVoices();
+
+            setAvailableVoices(voices);
+
+            console.log(
+                "Available speech voices:",
+                voices.map((voice) => ({
+                    name: voice.name,
+                    lang: voice.lang,
+                }))
+            );
+        }
+
+        loadVoices();
+
+        window.speechSynthesis.onvoiceschanged =
+            loadVoices;
+
+        return () => {
+            window.speechSynthesis.onvoiceschanged =
+                null;
+        };
+    }, []);
+
+    // ========================================================
+    // CLEAN TEXT FOR SPEECH
+    // ========================================================
+
+    function cleanTextForSpeech(text) {
+        if (!text || typeof text !== "string") {
+            return "";
+        }
+
+        let cleaned = text;
+
+        // ----------------------------------------------------
+        // Remove Markdown links
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /\[([^\]]+)\]\([^)]+\)/g,
+            "$1"
+        );
+
+        // ----------------------------------------------------
+        // Remove Markdown headings
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /^#{1,6}\s*/gm,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove bold / italic markers
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /\*\*(.*?)\*\*/g,
+            "$1"
+        );
+
+        cleaned = cleaned.replace(
+            /__(.*?)__/g,
+            "$1"
+        );
+
+        cleaned = cleaned.replace(
+            /\*(.*?)\*/g,
+            "$1"
+        );
+
+        cleaned = cleaned.replace(
+            /_(.*?)_/g,
+            "$1"
+        );
+
+        // ----------------------------------------------------
+        // Remove strikethrough
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /~~(.*?)~~/g,
+            "$1"
+        );
+
+        // ----------------------------------------------------
+        // Remove bullet markers
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /^\s*[-*+]\s+/gm,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove numbered-list markers
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /^\s*\d+\.\s+/gm,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove Markdown table pipes
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /\|/g,
+            " "
+        );
+
+        // ----------------------------------------------------
+        // Remove Markdown table separator characters
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /^\s*:?-+:?\s*$/gm,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove backticks
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /`/g,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove common Markdown formatting characters
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /[~*_#]/g,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove URLs
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /https?:\/\/\S+/gi,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove emojis
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /[\u{1F300}-\u{1FAFF}]/gu,
+            ""
+        );
+
+        cleaned = cleaned.replace(
+            /[\u{2600}-\u{27BF}]/gu,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove variation selectors
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /[\uFE0E\uFE0F]/g,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Remove zero-width characters
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /[\u200B-\u200D\u2060]/g,
+            ""
+        );
+
+        // ----------------------------------------------------
+        // Normalize whitespace
+        // ----------------------------------------------------
+
+        cleaned = cleaned.replace(
+            /[ \t]{2,}/g,
+            " "
+        );
+
+        cleaned = cleaned.replace(
+            /\n{3,}/g,
+            "\n\n"
+        );
+
+        return cleaned.trim();
+    }
+
+    // ========================================================
+    // FIND VOICE FOR SELECTED LANGUAGE
+    // ========================================================
+
+    function getBestVoice(languageCode) {
+        if (!availableVoices.length) {
+            return null;
+        }
+
+        const baseLanguage =
+            languageCode
+                .split("-")[0]
+                .toLowerCase();
+
+        // ----------------------------------------------------
+        // First: exact Indian locale
+        // Example: gu-IN
+        // ----------------------------------------------------
+
+        const exactIndianVoice =
+            availableVoices.find(
+                (voice) =>
+                    voice.lang?.toLowerCase() ===
+                    languageCode.toLowerCase()
+            );
+
+        if (exactIndianVoice) {
+            return exactIndianVoice;
+        }
+
+        // ----------------------------------------------------
+        // Second: same language, any region
+        // Example: gu
+        // ----------------------------------------------------
+
+        const sameLanguageVoice =
+            availableVoices.find(
+                (voice) =>
+                    voice.lang
+                        ?.toLowerCase()
+                        .startsWith(
+                            `${baseLanguage}-`
+                        ) ||
+                    voice.lang
+                        ?.toLowerCase() ===
+                        baseLanguage
+            );
+
+        if (sameLanguageVoice) {
+            return sameLanguageVoice;
+        }
+
+        // ----------------------------------------------------
+        // No matching voice
+        // ----------------------------------------------------
+
+        return null;
+    }
+
     // ========================================================
     // CREATE SPEECH RECOGNITION INSTANCE
     // ========================================================
@@ -170,7 +445,12 @@ export default function Chatbot() {
         };
 
         return () => {
-            recognition.stop();
+            try {
+                recognition.stop();
+            } catch (error) {
+                // Recognition may already be stopped.
+            }
+
             recognitionRef.current = null;
         };
     }, []);
@@ -215,7 +495,8 @@ export default function Chatbot() {
             return;
         }
 
-        recognition.lang = selectedLanguage;
+        recognition.lang =
+            selectedLanguage;
 
         try {
             recognition.start();
@@ -239,27 +520,93 @@ export default function Chatbot() {
             return;
         }
 
+        const speechText =
+            cleanTextForSpeech(text);
+
+        if (!speechText) {
+            return;
+        }
+
+        // ----------------------------------------------------
+        // Stop previous speech
+        // ----------------------------------------------------
+
         window.speechSynthesis.cancel();
 
         const utterance =
-            new SpeechSynthesisUtterance(text);
+            new SpeechSynthesisUtterance(
+                speechText
+            );
 
-        utterance.lang = selectedLanguage;
+        // ----------------------------------------------------
+        // Set requested language
+        // ----------------------------------------------------
+
+        utterance.lang =
+            selectedLanguage;
+
         utterance.rate = 1;
         utterance.pitch = 1;
         utterance.volume = 1;
+
+        // ----------------------------------------------------
+        // Select matching browser voice
+        // ----------------------------------------------------
+
+        const selectedVoice =
+            getBestVoice(selectedLanguage);
+
+        if (selectedVoice) {
+            utterance.voice =
+                selectedVoice;
+
+            console.log(
+                "Using speech voice:",
+                selectedVoice.name,
+                selectedVoice.lang
+            );
+        } else {
+            console.warn(
+                `No installed speech voice found for ${selectedLanguage}. Browser may use a fallback voice.`
+            );
+
+            setVoiceError(
+                `Your browser does not have a ${selectedLanguage} voice installed. Speech may use an English fallback.`
+            );
+        }
+
+        // ----------------------------------------------------
+        // Speech started
+        // ----------------------------------------------------
 
         utterance.onstart = () => {
             setIsSpeaking(true);
         };
 
+        // ----------------------------------------------------
+        // Speech ended
+        // ----------------------------------------------------
+
         utterance.onend = () => {
             setIsSpeaking(false);
         };
 
-        utterance.onerror = () => {
+        // ----------------------------------------------------
+        // Speech error
+        // ----------------------------------------------------
+
+        utterance.onerror = (event) => {
+            console.error(
+                "Speech synthesis error:",
+                event
+            );
+
             setIsSpeaking(false);
         };
+
+        // ----------------------------------------------------
+        // Speak
+        // ----------------------------------------------------
 
         window.speechSynthesis.speak(
             utterance
@@ -290,7 +637,10 @@ export default function Chatbot() {
         }
 
         // Stop recording if active
-        if (isListening && recognitionRef.current) {
+        if (
+            isListening &&
+            recognitionRef.current
+        ) {
             recognitionRef.current.stop();
         }
 
