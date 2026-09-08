@@ -1,28 +1,22 @@
+
 import { weatherIcon } from "../data/mockData";
 
 /*
  * Get a human-readable location name.
  *
  * Priority:
- *
  * 1. weather.locationName
  * 2. locationText
  * 3. location.name
  * 4. location.city
  * 5. string location
- *
- * IMPORTANT:
- * Latitude and longitude are intentionally
- * NOT displayed here.
  */
 function getLocationText(friend) {
   if (!friend) {
     return "Unknown location";
   }
 
-  /*
-   * 1. Weather location name
-   */
+  // 1. Weather location name
   if (
     typeof friend.weather?.locationName === "string" &&
     friend.weather.locationName.trim()
@@ -30,9 +24,7 @@ function getLocationText(friend) {
     return friend.weather.locationName.trim();
   }
 
-  /*
-   * 2. Firebase locationText
-   */
+  // 2. Firebase locationText
   if (
     typeof friend.locationText === "string" &&
     friend.locationText.trim()
@@ -40,9 +32,7 @@ function getLocationText(friend) {
     return friend.locationText.trim();
   }
 
-  /*
-   * 3. location.name
-   */
+  // 3. location.name
   if (
     typeof friend.location?.name === "string" &&
     friend.location.name.trim()
@@ -50,9 +40,7 @@ function getLocationText(friend) {
     return friend.location.name.trim();
   }
 
-  /*
-   * 4. location.city
-   */
+  // 4. location.city
   if (
     typeof friend.location?.city === "string" &&
     friend.location.city.trim()
@@ -60,9 +48,7 @@ function getLocationText(friend) {
     return friend.location.city.trim();
   }
 
-  /*
-   * 5. If location itself is already a string.
-   */
+  // 5. location itself is already a string
   if (typeof friend.location === "string") {
     return friend.location;
   }
@@ -74,10 +60,10 @@ function getLocationText(friend) {
  * Format Firestore weatherUpdatedAt timestamp.
  *
  * Examples:
- * "Updated just now"
- * "Updated 5 minutes ago"
- * "Updated 2 hours ago"
- * "Updated 08 Sep, 07:30 PM"
+ * "just now"
+ * "5 minutes ago"
+ * "2 hours ago"
+ * "08 Sep, 07:30 PM"
  */
 function formatWeatherUpdatedAt(timestamp) {
   if (!timestamp) {
@@ -131,6 +117,11 @@ function formatWeatherUpdatedAt(timestamp) {
 
 /*
  * Comparison row.
+ *
+ * Displays:
+ * +8°C  -> 8°C higher
+ * -19%  -> 19% lower
+ * 0     -> Same
  */
 function Delta({
   label,
@@ -138,13 +129,32 @@ function Delta({
   you,
   friend,
   unit,
+  higherLabel = "higher",
+  lowerLabel = "lower",
 }) {
   const youValue = Number(you) || 0;
   const friendValue = Number(friend) || 0;
 
   const diff = friendValue - youValue;
-  const positive = diff >= 0;
+  const absoluteDiff = Math.round(Math.abs(diff));
 
+  let differenceText;
+  let differenceClass;
+
+  if (diff === 0) {
+    differenceText = "Same";
+    differenceClass = "text-ink-500";
+  } else if (diff > 0) {
+    differenceText = `${absoluteDiff}${unit} ${higherLabel}`;
+    differenceClass = "text-sky-600";
+  } else {
+    differenceText = `${absoluteDiff}${unit} ${lowerLabel}`;
+    differenceClass = "text-ink-400";
+  }
+
+  /*
+   * Bar widths.
+   */
   const max = Math.max(
     Math.abs(youValue),
     Math.abs(friendValue),
@@ -171,15 +181,9 @@ function Delta({
         </span>
 
         <span
-          className={`text-sm font-semibold ${
-            positive
-              ? "text-sky-600"
-              : "text-ink-400"
-          }`}
+          className={`text-sm font-semibold ${differenceClass}`}
         >
-          {positive ? "+" : ""}
-          {diff}
-          {unit}
+          {differenceText}
         </span>
       </div>
 
@@ -223,7 +227,6 @@ export default function WeatherComparison({
 
   /*
    * Friend weather is available only when:
-   *
    * 1. Friend enabled weather sharing.
    * 2. Friend has weather data.
    */
@@ -248,6 +251,10 @@ export default function WeatherComparison({
   const tempDiff =
     friendTemperature - yourTemperature;
 
+  const roundedTempDiff = Math.round(
+    Math.abs(tempDiff)
+  );
+
   const warmer =
     !weatherShared || tempDiff === 0
       ? null
@@ -266,9 +273,7 @@ export default function WeatherComparison({
    * Location names.
    */
   const yourLocation = getLocationText(you);
-
-  const friendLocation =
-    getLocationText(friend);
+  const friendLocation = getLocationText(friend);
 
   /*
    * Friend weather update time.
@@ -287,14 +292,12 @@ export default function WeatherComparison({
 
       {/* Weather Cards */}
       <div className="grid grid-cols-2 gap-3 mb-2">
-
         {/* YOU */}
         <div className="rounded-xl2 bg-sky-50 p-4 text-center">
           <p className="text-xs font-semibold text-ink-500 uppercase tracking-wide mb-1">
             {youLabel}
           </p>
 
-          {/* Actual place name */}
           <p className="text-xs text-ink-400 mb-2 truncate">
             📍 {yourLocation}
           </p>
@@ -304,7 +307,7 @@ export default function WeatherComparison({
           </p>
 
           <p className="text-2xl font-display font-bold text-ink-900">
-            {yourTemperature}°C
+            {Math.round(yourTemperature)}°C
           </p>
         </div>
 
@@ -315,7 +318,6 @@ export default function WeatherComparison({
               {friendLabel}
             </p>
 
-            {/* Actual friend place name */}
             <p className="text-xs text-sky-100 mb-2 truncate">
               📍 {friendLocation}
             </p>
@@ -325,7 +327,7 @@ export default function WeatherComparison({
             </p>
 
             <p className="text-2xl font-display font-bold">
-              {friendTemperature}°C
+              {Math.round(friendTemperature)}°C
             </p>
 
             {/* Weather update time */}
@@ -346,8 +348,7 @@ export default function WeatherComparison({
             </p>
 
             <p className="text-xs text-ink-400 mt-1">
-              {friendLabel} hasn't shared
-              weather data.
+              {friendLabel} hasn't shared weather data.
             </p>
           </div>
         )}
@@ -358,7 +359,7 @@ export default function WeatherComparison({
         <p className="text-center text-sm text-ink-500 my-4">
           {friendLabel}'s area is{" "}
           <span className="font-semibold text-ink-800">
-            {Math.abs(tempDiff)}°C{" "}
+            {roundedTempDiff}°C{" "}
             {warmer ? "warmer" : "cooler"}
           </span>
         </p>
@@ -385,7 +386,6 @@ export default function WeatherComparison({
       {/* Comparison Rows */}
       {weatherShared ? (
         <div className="divide-y divide-sky-50">
-
           {/* Temperature */}
           <Delta
             label="Temperature"
@@ -393,6 +393,8 @@ export default function WeatherComparison({
             you={yourTemperature}
             friend={friendTemperature}
             unit="°C"
+            higherLabel="warmer"
+            lowerLabel="cooler"
           />
 
           {/* Humidity */}
@@ -402,6 +404,8 @@ export default function WeatherComparison({
             you={yourWeather.humidity}
             friend={friendWeather.humidity}
             unit="%"
+            higherLabel="higher"
+            lowerLabel="lower"
           />
 
           {/* Wind */}
@@ -411,15 +415,19 @@ export default function WeatherComparison({
             you={yourWeather.wind}
             friend={friendWeather.wind}
             unit=" km/h"
+            higherLabel="faster"
+            lowerLabel="slower"
           />
 
-          {/* Rain */}
+          {/* Rain Probability */}
           <Delta
             label="Rain Probability"
             icon="🌧️"
-            you={yourWeather.rain}
-            friend={friendWeather.rain}
+            you={yourWeather.rainProbability}
+            friend={friendWeather.rainProbability}
             unit="%"
+            higherLabel="higher"
+            lowerLabel="lower"
           />
         </div>
       ) : (
@@ -429,11 +437,11 @@ export default function WeatherComparison({
           </p>
 
           <p className="text-xs text-ink-400 mt-1">
-            {friendLabel} has turned off
-            weather sharing.
+            {friendLabel} has turned off weather sharing.
           </p>
         </div>
       )}
     </div>
   );
 }
+
