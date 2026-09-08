@@ -22,6 +22,7 @@ app.use(
 app.use(express.json());
 
 
+
 // ============================================================
 // GROQ
 // ============================================================
@@ -29,6 +30,7 @@ app.use(express.json());
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
 });
+
 
 
 // ============================================================
@@ -74,6 +76,7 @@ async function getWeather(location) {
 }
 
 
+
 async function getWeatherByCoordinates(
     latitude,
     longitude
@@ -115,6 +118,7 @@ async function getWeatherByCoordinates(
             0,
     };
 }
+
 
 
 // ============================================================
@@ -178,6 +182,7 @@ app.get("/api/weather", async (req, res) => {
 });
 
 
+
 // ============================================================
 // CURRENT LOCATION QUERY DETECTION
 // ============================================================
@@ -219,6 +224,7 @@ function isCurrentLocationQuery(message) {
 }
 
 
+
 // ============================================================
 // CHATBOT API
 // ============================================================
@@ -248,6 +254,7 @@ app.post("/api/chat", async (req, res) => {
             "📍 CURRENT LOCATION:",
             currentLocation
         );
+
 
 
         // ====================================================
@@ -286,6 +293,7 @@ app.post("/api/chat", async (req, res) => {
             );
 
 
+
             const weatherCompletion =
                 await groq.chat.completions.create({
                     model:
@@ -302,6 +310,13 @@ Answer the user's question using the supplied current-location weather data.
 Do not invent weather information.
 
 Keep the response natural, concise, and conversational.
+
+Respond in the same language as the user's message.
+
+Do not use Markdown formatting.
+Do not use bullet points, numbered lists, asterisks, underscores, tildes, pipes, headings, tables, or special formatting characters.
+
+Return plain text only.
 
 If the user asks about the weather, temperature, humidity, wind, rain, or conditions, use the supplied data.
 
@@ -339,6 +354,7 @@ Do not claim to know anything that is not contained in the supplied weather data
         }
 
 
+
         // ====================================================
         // NORMAL GROQ CHAT + CITY WEATHER TOOL
         // ====================================================
@@ -359,6 +375,13 @@ When weather data is supplied by the tool, use that data to answer the user.
 
 Keep responses natural and conversational.
 
+Respond in the same language as the user's message.
+
+Do not use Markdown formatting.
+Do not use bullet points, numbered lists, asterisks, underscores, tildes, pipes, headings, tables, or special formatting characters.
+
+Return plain text only.
+
 For unrelated questions, answer normally.
 
 Do not mention internal tools, APIs, function calls, or implementation details.
@@ -370,6 +393,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
                 content: message.trim(),
             },
         ];
+
 
 
         // ====================================================
@@ -407,6 +431,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
         ];
 
 
+
         // ====================================================
         // FIRST GROQ REQUEST
         // ====================================================
@@ -424,8 +449,10 @@ Do not mention internal tools, APIs, function calls, or implementation details.
             });
 
 
+
         const assistantMessage =
             completion.choices[0]?.message;
+
 
 
         // ====================================================
@@ -445,6 +472,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
         }
 
 
+
         // ====================================================
         // TOOL CALL
         // ====================================================
@@ -452,6 +480,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
         messages.push(
             assistantMessage
         );
+
 
 
         for (
@@ -481,7 +510,9 @@ Do not mention internal tools, APIs, function calls, or implementation details.
             }
 
 
+
             let toolResult;
+
 
 
             if (
@@ -515,6 +546,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
             }
 
 
+
             messages.push({
                 role: "tool",
 
@@ -527,6 +559,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
                     ),
             });
         }
+
 
 
         // ====================================================
@@ -542,11 +575,13 @@ Do not mention internal tools, APIs, function calls, or implementation details.
             });
 
 
+
         const finalMessage =
             finalCompletion
                 .choices[0]
                 ?.message
                 ?.content;
+
 
 
         return res.json({
@@ -568,6 +603,7 @@ Do not mention internal tools, APIs, function calls, or implementation details.
 });
 
 
+
 // ============================================================
 // TEST ENDPOINT
 // ============================================================
@@ -578,6 +614,7 @@ app.get("/api/test", (req, res) => {
             "Backend is working!",
     });
 });
+
 
 
 // ============================================================
@@ -594,6 +631,7 @@ app.get("/", (req, res) => {
         },
     });
 });
+
 
 
 // ============================================================
