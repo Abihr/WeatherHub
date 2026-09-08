@@ -20,6 +20,7 @@ const groq = new Groq({
 });
 
 
+
 // ============================================================
 // LANGUAGE DETECTION
 // ============================================================
@@ -71,6 +72,7 @@ function detectUserLanguage(message) {
 
     return "English";
 }
+
 
 
 // ============================================================
@@ -136,6 +138,7 @@ function cleanChatResponse(text) {
 }
 
 
+
 // ============================================================
 // LANGUAGE INSTRUCTION
 // ============================================================
@@ -166,6 +169,7 @@ IMPORTANT:
 - Do not use Markdown links.
 `;
 }
+
 
 
 // ============================================================
@@ -218,6 +222,7 @@ async function getWeather(location) {
         );
     }
 }
+
 
 
 // ============================================================
@@ -275,6 +280,7 @@ async function getWeatherByCoordinates(latitude, longitude) {
 }
 
 
+
 // ============================================================
 // CURRENT LOCATION QUERY DETECTION
 // ============================================================
@@ -312,6 +318,7 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     // Hindi
     const hindiPatterns = [
         /मैं कहाँ हूँ/,
@@ -335,6 +342,7 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
 
 
     // Bengali
@@ -362,6 +370,7 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     // Gujarati
     const gujaratiPatterns = [
         /હું ક્યાં છું/,
@@ -384,6 +393,7 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     // Tamil
     const tamilPatterns = [
         /நான் எங்கே இருக்கிறேன்/,
@@ -402,6 +412,7 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
 
 
     // Telugu
@@ -423,6 +434,7 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     // Kannada
     const kannadaPatterns = [
         /ನಾನು ಎಲ್ಲಿದ್ದೇನೆ/,
@@ -440,6 +452,7 @@ function isCurrentLocationQuery(message) {
     ) {
         return true;
     }
+
 
 
     // Malayalam
@@ -461,6 +474,7 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     // Punjabi
     const punjabiPatterns = [
         /ਮੈਂ ਕਿੱਥੇ ਹਾਂ/,
@@ -480,8 +494,10 @@ function isCurrentLocationQuery(message) {
     }
 
 
+
     return false;
 }
+
 
 
 // ============================================================
@@ -511,6 +527,7 @@ app.get("/api/weather", async (req, res) => {
 });
 
 
+
 // ============================================================
 // CHAT ENDPOINT
 // ============================================================
@@ -519,10 +536,20 @@ app.post("/api/chat", async (req, res) => {
     try {
         const {
             message,
-            latitude,
-            longitude,
+            currentLocation,
             conversationHistory = [],
         } = req.body;
+
+        // IMPORTANT:
+        // Frontend sends the coordinates inside currentLocation.
+        // Extract them here so the current-location weather
+        // feature receives the coordinates correctly.
+
+        const latitude =
+            currentLocation?.latitude ?? null;
+
+        const longitude =
+            currentLocation?.longitude ?? null;
 
         if (
             !message ||
@@ -543,6 +570,7 @@ app.post("/api/chat", async (req, res) => {
         );
 
 
+
         const userLanguage = detectUserLanguage(message);
 
         console.log(
@@ -551,8 +579,10 @@ app.post("/api/chat", async (req, res) => {
         );
 
 
+
         const languageInstruction =
             getLanguageInstruction(userLanguage);
+
 
 
         // ========================================================
@@ -565,8 +595,6 @@ app.post("/api/chat", async (req, res) => {
             );
 
             if (
-                latitude === undefined ||
-                longitude === undefined ||
                 latitude === null ||
                 longitude === null
             ) {
@@ -581,6 +609,7 @@ app.post("/api/chat", async (req, res) => {
                     latitude,
                     longitude
                 );
+
 
 
             const messages = [
@@ -623,6 +652,7 @@ Answer using only the supplied weather information.
             ];
 
 
+
             const completion =
                 await groq.chat.completions.create({
                     model: "openai/gpt-oss-20b",
@@ -631,19 +661,23 @@ Answer using only the supplied weather information.
                 });
 
 
+
             const rawReply =
                 completion.choices?.[0]?.message?.content ||
                 "Unable to generate a response.";
+
 
 
             const reply =
                 cleanChatResponse(rawReply);
 
 
+
             return res.json({
                 reply,
             });
         }
+
 
 
         // ========================================================
@@ -681,6 +715,7 @@ ${languageInstruction}
         ];
 
 
+
         const tools = [
             {
                 type: "function",
@@ -704,6 +739,7 @@ ${languageInstruction}
         ];
 
 
+
         const firstCompletion =
             await groq.chat.completions.create({
                 model: "openai/gpt-oss-20b",
@@ -714,8 +750,10 @@ ${languageInstruction}
             });
 
 
+
         const assistantMessage =
             firstCompletion.choices?.[0]?.message;
+
 
 
         // ========================================================
@@ -739,11 +777,13 @@ ${languageInstruction}
         }
 
 
+
         // ========================================================
         // PROCESS TOOL CALL
         // ========================================================
 
         messages.push(assistantMessage);
+
 
 
         for (const toolCall of assistantMessage.tool_calls) {
@@ -753,6 +793,7 @@ ${languageInstruction}
             ) {
                 continue;
             }
+
 
 
             let args;
@@ -771,7 +812,9 @@ ${languageInstruction}
             }
 
 
+
             const location = args.location;
+
 
 
             if (!location) {
@@ -788,9 +831,11 @@ ${languageInstruction}
             }
 
 
+
             try {
                 const weather =
                     await getWeather(location);
+
 
 
                 messages.push({
@@ -805,6 +850,7 @@ ${languageInstruction}
                 );
 
 
+
                 messages.push({
                     role: "tool",
                     tool_call_id: toolCall.id,
@@ -814,6 +860,7 @@ ${languageInstruction}
                 });
             }
         }
+
 
 
         // ========================================================
@@ -836,6 +883,7 @@ Return only the final answer.
         });
 
 
+
         const finalCompletion =
             await groq.chat.completions.create({
                 model: "openai/gpt-oss-20b",
@@ -844,13 +892,16 @@ Return only the final answer.
             });
 
 
+
         const rawReply =
             finalCompletion.choices?.[0]?.message?.content ||
             "Sorry, I couldn't generate a response.";
 
 
+
         const reply =
             cleanChatResponse(rawReply);
+
 
 
         return res.json({
@@ -871,6 +922,7 @@ Return only the final answer.
 });
 
 
+
 // ============================================================
 // TEST ENDPOINT
 // ============================================================
@@ -882,6 +934,7 @@ app.get("/api/test", (req, res) => {
 });
 
 
+
 // ============================================================
 // ROOT ENDPOINT
 // ============================================================
@@ -891,6 +944,7 @@ app.get("/", (req, res) => {
         message: "WeatherGPT backend is running.",
     });
 });
+
 
 
 // ============================================================
