@@ -22,8 +22,8 @@ export function getCurrentPosition() {
         reject(error);
       },
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
+        enableHighAccuracy: false,
+        timeout: 15000,
         maximumAge: 60000,
       }
     );
@@ -36,7 +36,6 @@ export function getCurrentPosition() {
  */
 export function distanceKm(lat1, lon1, lat2, lon2) {
   const toRad = (value) => (value * Math.PI) / 180;
-
   const R = 6371;
 
   const dLat = toRad(lat2 - lat1);

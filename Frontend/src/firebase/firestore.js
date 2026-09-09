@@ -9,6 +9,8 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
+  limit,
   serverTimestamp,
   onSnapshot,
 } from "firebase/firestore";
@@ -88,9 +90,7 @@ export async function sendFriendRequest(senderId, receiverId) {
   }
 
   if (senderId === receiverId) {
-    throw new Error(
-      "You cannot send a friend request to yourself"
-    );
+    throw new Error("You cannot send a friend request to yourself");
   }
 
   const requestsRef = collection(db, "friendRequests");
@@ -99,7 +99,7 @@ export async function sendFriendRequest(senderId, receiverId) {
     requestsRef,
     where("senderId", "==", senderId),
     where("receiverId", "==", receiverId),
-    where("status", "==", "pending")
+    where("status", "==", "pending"),
   );
 
   const existingSnapshot = await getDocs(existingQuery);
@@ -136,7 +136,7 @@ export async function getReceivedRequests(userId) {
     const q = query(
       requestsRef,
       where("receiverId", "==", userId),
-      where("status", "==", "pending")
+      where("status", "==", "pending"),
     );
 
     const snapshot = await getDocs(q);
@@ -167,22 +167,16 @@ export async function getReceivedRequests(userId) {
 
           weather: sender?.weather || null,
 
-          weatherSharing:
-            sender?.weatherSharing ?? false,
+          weatherSharing: sender?.weatherSharing ?? false,
 
-          locationSharing:
-            sender?.locationSharing ?? "off",
+          locationSharing: sender?.locationSharing ?? "off",
         };
-      })
+      }),
     );
 
     return requests;
   } catch (error) {
-    console.error(
-      "getReceivedRequests error:",
-      error
-    );
-
+    console.error("getReceivedRequests error:", error);
     return [];
   }
 }
@@ -200,7 +194,7 @@ export async function getSentRequests(userId) {
     const q = query(
       requestsRef,
       where("senderId", "==", userId),
-      where("status", "==", "pending")
+      where("status", "==", "pending"),
     );
 
     const snapshot = await getDocs(q);
@@ -209,9 +203,7 @@ export async function getSentRequests(userId) {
       snapshot.docs.map(async (requestDoc) => {
         const data = requestDoc.data();
 
-        const receiver = await getUser(
-          data.receiverId
-        );
+        const receiver = await getUser(data.receiverId);
 
         return {
           requestId: requestDoc.id,
@@ -227,34 +219,23 @@ export async function getSentRequests(userId) {
           photoURL: receiver?.photoURL || "",
 
           location: receiver?.location || null,
-          locationText:
-            receiver?.locationText || "",
+          locationText: receiver?.locationText || "",
 
-          latitude:
-            receiver?.latitude ?? null,
+          latitude: receiver?.latitude ?? null,
+          longitude: receiver?.longitude ?? null,
 
-          longitude:
-            receiver?.longitude ?? null,
+          weather: receiver?.weather || null,
 
-          weather:
-            receiver?.weather || null,
+          weatherSharing: receiver?.weatherSharing ?? false,
 
-          weatherSharing:
-            receiver?.weatherSharing ?? false,
-
-          locationSharing:
-            receiver?.locationSharing ?? "off",
+          locationSharing: receiver?.locationSharing ?? "off",
         };
-      })
+      }),
     );
 
     return requests;
   } catch (error) {
-    console.error(
-      "getSentRequests error:",
-      error
-    );
-
+    console.error("getSentRequests error:", error);
     return [];
   }
 }
@@ -263,71 +244,34 @@ export async function getSentRequests(userId) {
    ACCEPT FRIEND REQUEST
 ========================================================= */
 
-export async function acceptFriendRequest(
-  requestId,
-  user1,
-  user2
-) {
+export async function acceptFriendRequest(requestId, user1, user2) {
   if (!requestId || !user1 || !user2) {
-    throw new Error(
-      "Invalid friend request data"
-    );
+    throw new Error("Invalid friend request data");
   }
 
   if (user1 === user2) {
-    throw new Error(
-      "A user cannot be friends with themselves"
-    );
+    throw new Error("A user cannot be friends with themselves");
   }
 
-  const requestRef = doc(
-    db,
-    "friendRequests",
-    requestId
-  );
+  const requestRef = doc(db, "friendRequests", requestId);
 
   await updateDoc(requestRef, {
     status: "accepted",
   });
 
-  /* Add user2 to user1's friends */
+  await setDoc(doc(db, "users", user1, "friends", user2), {
+    userId: user2,
+    createdAt: serverTimestamp(),
+  });
 
-  await setDoc(
-    doc(
-      db,
-      "users",
-      user1,
-      "friends",
-      user2
-    ),
-    {
-      userId: user2,
-      createdAt: serverTimestamp(),
-    }
-  );
-
-  /* Add user1 to user2's friends */
-
-  await setDoc(
-    doc(
-      db,
-      "users",
-      user2,
-      "friends",
-      user1
-    ),
-    {
-      userId: user1,
-      createdAt: serverTimestamp(),
-    }
-  );
+  await setDoc(doc(db, "users", user2, "friends", user1), {
+    userId: user1,
+    createdAt: serverTimestamp(),
+  });
 
   const friend = await getUser(user2);
 
-  console.log(
-    "FRIEND ACCEPTED:",
-    friend
-  );
+  console.log("FRIEND ACCEPTED:", friend);
 
   return {
     success: true,
@@ -339,20 +283,12 @@ export async function acceptFriendRequest(
    REJECT FRIEND REQUEST
 ========================================================= */
 
-export async function rejectFriendRequest(
-  requestId
-) {
+export async function rejectFriendRequest(requestId) {
   if (!requestId) {
-    throw new Error(
-      "Request ID is required"
-    );
+    throw new Error("Request ID is required");
   }
 
-  const requestRef = doc(
-    db,
-    "friendRequests",
-    requestId
-  );
+  const requestRef = doc(db, "friendRequests", requestId);
 
   await updateDoc(requestRef, {
     status: "rejected",
@@ -365,20 +301,12 @@ export async function rejectFriendRequest(
    CANCEL FRIEND REQUEST
 ========================================================= */
 
-export async function cancelFriendRequest(
-  requestId
-) {
+export async function cancelFriendRequest(requestId) {
   if (!requestId) {
-    throw new Error(
-      "Request ID is required"
-    );
+    throw new Error("Request ID is required");
   }
 
-  const requestRef = doc(
-    db,
-    "friendRequests",
-    requestId
-  );
+  const requestRef = doc(db, "friendRequests", requestId);
 
   await deleteDoc(requestRef);
 
@@ -393,47 +321,32 @@ export async function getFriends(userId) {
   if (!userId) return [];
 
   try {
-    const friendsRef = collection(
-      db,
-      "users",
-      userId,
-      "friends"
-    );
+    const friendsRef = collection(db, "users", userId, "friends");
 
-    const snapshot = await getDocs(
-      friendsRef
-    );
+    const snapshot = await getDocs(friendsRef);
 
     console.log(
       "Friend documents found:",
-      snapshot.docs.length
+      snapshot.docs.length,
     );
 
     if (snapshot.empty) {
       console.log(
         "No accepted friends found for:",
-        userId
+        userId,
       );
 
       return [];
     }
 
-    /* Users current user has blocked */
-
     const myBlockedQuery = query(
       collection(db, "blockedUsers"),
-      where("blockerId", "==", userId)
+      where("blockerId", "==", userId),
     );
-
-    /* Users who blocked current user */
 
     const blockedMeQuery = query(
       collection(db, "blockedUsers"),
-      where(
-        "blockedUserId",
-        "==",
-        userId
-      )
+      where("blockedUserId", "==", userId),
     );
 
     const [
@@ -447,71 +360,60 @@ export async function getFriends(userId) {
     const blockedUserIds = new Set(
       myBlockedSnapshot.docs.map(
         (blockDoc) =>
-          blockDoc.data().blockedUserId
-      )
+          blockDoc.data().blockedUserId,
+      ),
     );
 
     const blockedByIds = new Set(
       blockedMeSnapshot.docs.map(
         (blockDoc) =>
-          blockDoc.data().blockerId
-      )
+          blockDoc.data().blockerId,
+      ),
     );
 
     const friends = await Promise.all(
       snapshot.docs.map(async (friendDoc) => {
         const friendId = friendDoc.id;
 
-        /* ==========================================
-           YOU BLOCKED THIS PERSON
-           HIDE COMPLETELY
-        ========================================== */
-
         if (blockedUserIds.has(friendId)) {
           return null;
         }
 
-        const friend = await getUser(
-          friendId
-        );
+        const friend = await getUser(friendId);
 
         if (!friend) {
           console.warn(
             "Friend user document missing:",
-            friendId
+            friendId,
           );
 
           return null;
         }
 
-        /* ==========================================
-           THEY BLOCKED YOU
-           SHOW UNAVAILABLE CARD
-        ========================================== */
-
         if (blockedByIds.has(friendId)) {
-          console.log("FRIEND BLOCKED ME:", friendId);
+          console.log(
+            "FRIEND BLOCKED ME:",
+            friendId,
+          );
 
           return {
             id: friendId,
             friendId,
 
-            // Hide identity
             name: "User unavailable",
             username: "",
             email: "",
             photoURL: "",
 
-            // Hide location
             location: null,
             locationText: "",
             latitude: null,
             longitude: null,
 
-            // Hide weather
             weather: null,
             weatherSharing: false,
             locationSharing: "off",
+
             weatherUpdatedAt: null,
             locationUpdatedAt: null,
 
@@ -520,90 +422,63 @@ export async function getFriends(userId) {
             blockedByMe: false,
 
             friendshipId: friendDoc.id,
+
             friendshipCreatedAt:
               friendDoc.data()?.createdAt || null,
           };
         }
 
-        /* ==========================================
-           NORMAL FRIEND
-        ========================================== */
-
         return {
           id: friendId,
           friendId,
 
-          name:
-            friend.name || "User",
+          name: friend.name || "User",
+          username: friend.username || "",
+          email: friend.email || "",
+          photoURL: friend.photoURL || "",
 
-          username:
-            friend.username || "",
+          location: friend.location || null,
+          locationText: friend.locationText || "",
 
-          email:
-            friend.email || "",
+          latitude: friend.latitude ?? null,
+          longitude: friend.longitude ?? null,
 
-          photoURL:
-            friend.photoURL || "",
-
-          location:
-            friend.location || null,
-
-          locationText:
-            friend.locationText || "",
-
-          latitude:
-            friend.latitude ?? null,
-
-          longitude:
-            friend.longitude ?? null,
-
-          weather:
-            friend.weather || null,
+          weather: friend.weather || null,
 
           weatherSharing:
             friend.weatherSharing === true,
 
           locationSharing:
-            friend.locationSharing ||
-            "off",
+            friend.locationSharing || "off",
 
           weatherUpdatedAt:
-            friend.weatherUpdatedAt ||
-            null,
+            friend.weatherUpdatedAt || null,
 
           locationUpdatedAt:
-            friend.locationUpdatedAt ||
-            null,
+            friend.locationUpdatedAt || null,
 
           isBlocked: false,
           blockedMe: false,
           blockedByMe: false,
 
-          friendshipId:
-            friendDoc.id,
-
-          // Keep friendship internally
           friendshipId: friendDoc.id,
+
           friendshipCreatedAt:
             friendDoc.data()?.createdAt || null,
         };
-      })
+      }),
     );
 
-    const validFriends =
-      friends.filter(Boolean);
+    const validFriends = friends.filter(Boolean);
 
     console.log(
       "COMPLETE FIREBASE FRIENDS:",
-      validFriends
+      validFriends,
     );
 
     return validFriends;
   } catch (error) {
-    console.error(
-      "getFriends error:",
-      error
-    );
+    console.error("getFriends error:", error);
 
     return [];
   }
@@ -613,13 +488,10 @@ export async function getFriends(userId) {
    REMOVE FRIEND
 ========================================================= */
 
-export async function removeFriend(
-  userId,
-  friendId
-) {
+export async function removeFriend(userId, friendId) {
   if (!userId || !friendId) {
     throw new Error(
-      "User ID and Friend ID are required"
+      "User ID and Friend ID are required",
     );
   }
 
@@ -629,8 +501,8 @@ export async function removeFriend(
       "users",
       userId,
       "friends",
-      friendId
-    )
+      friendId,
+    ),
   );
 
   await deleteDoc(
@@ -639,8 +511,8 @@ export async function removeFriend(
       "users",
       friendId,
       "friends",
-      userId
-    )
+      userId,
+    ),
   );
 
   return true;
@@ -652,23 +524,21 @@ export async function removeFriend(
 
 export async function blockUser(
   blockerId,
-  blockedUserId
+  blockedUserId,
 ) {
   if (!blockerId || !blockedUserId) {
-    throw new Error(
-      "Invalid block data"
-    );
+    throw new Error("Invalid block data");
   }
 
   if (blockerId === blockedUserId) {
     throw new Error(
-      "You cannot block yourself"
+      "You cannot block yourself",
     );
   }
 
   const blockedRef = collection(
     db,
-    "blockedUsers"
+    "blockedUsers",
   );
 
   const existingQuery = query(
@@ -676,13 +546,13 @@ export async function blockUser(
     where(
       "blockerId",
       "==",
-      blockerId
+      blockerId,
     ),
     where(
       "blockedUserId",
       "==",
-      blockedUserId
-    )
+      blockedUserId,
+    ),
   );
 
   const existingSnapshot =
@@ -695,11 +565,6 @@ export async function blockUser(
     };
   }
 
-  /*
-    IMPORTANT:
-    DO NOT DELETE FRIENDSHIP.
-  */
-
   const blockRef = await addDoc(
     blockedRef,
     {
@@ -707,7 +572,7 @@ export async function blockUser(
       blockedUserId,
       createdAt:
         serverTimestamp(),
-    }
+    },
   );
 
   console.log(
@@ -716,7 +581,7 @@ export async function blockUser(
       blockerId,
       blockedUserId,
       blockId: blockRef.id,
-    }
+    },
   );
 
   return {
@@ -728,27 +593,24 @@ export async function blockUser(
    GET BLOCKED USERS
 ========================================================= */
 
-export async function getBlockedUsers(
-  userId
-) {
+export async function getBlockedUsers(userId) {
   if (!userId) return [];
 
   try {
-    const blockedRef = collection(
-      db,
-      "blockedUsers"
-    );
+    const blockedRef =
+      collection(db, "blockedUsers");
 
     const q = query(
       blockedRef,
       where(
         "blockerId",
         "==",
-        userId
-      )
+        userId,
+      ),
     );
 
-    const snapshot = await getDocs(q);
+    const snapshot =
+      await getDocs(q);
 
     const blockedUsers =
       await Promise.all(
@@ -759,7 +621,7 @@ export async function getBlockedUsers(
 
             const blockedUser =
               await getUser(
-                data.blockedUserId
+                data.blockedUserId,
               );
 
             if (!blockedUser) {
@@ -793,15 +655,15 @@ export async function getBlockedUsers(
                 data.createdAt ||
                 null,
             };
-          }
-        )
+          },
+        ),
       );
 
     return blockedUsers.filter(Boolean);
   } catch (error) {
     console.error(
       "getBlockedUsers error:",
-      error
+      error,
     );
 
     return [];
@@ -812,20 +674,19 @@ export async function getBlockedUsers(
    UNBLOCK USER
 ========================================================= */
 
-export async function unblockUser(
-  blockId
-) {
+export async function unblockUser(blockId) {
   if (!blockId) {
     throw new Error(
-      "Block ID is required"
+      "Block ID is required",
     );
   }
 
-  const blockRef = doc(
-    db,
-    "blockedUsers",
-    blockId
-  );
+  const blockRef =
+    doc(
+      db,
+      "blockedUsers",
+      blockId,
+    );
 
   await deleteDoc(blockRef);
 
@@ -838,19 +699,20 @@ export async function unblockUser(
 
 export async function updateWeatherSharing(
   userId,
-  enabled
+  enabled,
 ) {
   if (!userId) {
     throw new Error(
-      "User ID is required"
+      "User ID is required",
     );
   }
 
-  const userRef = doc(
-    db,
-    "users",
-    userId
-  );
+  const userRef =
+    doc(
+      db,
+      "users",
+      userId,
+    );
 
   const sharingEnabled =
     Boolean(enabled);
@@ -866,7 +728,7 @@ export async function updateWeatherSharing(
       userId,
       weatherSharing:
         sharingEnabled,
-    }
+    },
   );
 
   return true;
@@ -878,28 +740,30 @@ export async function updateWeatherSharing(
 
 export async function updateLocationSharing(
   userId,
-  mode
+  mode,
 ) {
   if (!userId) {
     throw new Error(
-      "User ID is required"
+      "User ID is required",
     );
   }
 
-  const userRef = doc(
-    db,
-    "users",
-    userId
-  );
+  const userRef =
+    doc(
+      db,
+      "users",
+      userId,
+    );
 
   await setDoc(
     userRef,
     {
-      locationSharing: mode,
+      locationSharing:
+        mode,
     },
     {
       merge: true,
-    }
+    },
   );
 
   return true;
@@ -914,19 +778,20 @@ export async function updateUserLocation(
   latitude,
   longitude,
   locationName = "",
-  country = ""
+  country = "",
 ) {
   if (!userId) {
     throw new Error(
-      "User ID is required"
+      "User ID is required",
     );
   }
 
-  const userRef = doc(
-    db,
-    "users",
-    userId
-  );
+  const userRef =
+    doc(
+      db,
+      "users",
+      userId,
+    );
 
   await setDoc(
     userRef,
@@ -945,10 +810,11 @@ export async function updateUserLocation(
       },
 
       locationText: locationName
-        ? `${locationName}${country
-          ? `, ${country}`
-          : ""
-        }`
+        ? `${locationName}${
+            country
+              ? `, ${country}`
+              : ""
+          }`
         : "",
 
       locationUpdatedAt:
@@ -956,7 +822,7 @@ export async function updateUserLocation(
     },
     {
       merge: true,
-    }
+    },
   );
 
   return true;
@@ -968,19 +834,20 @@ export async function updateUserLocation(
 
 export async function updateUserWeather(
   userId,
-  weather
+  weather,
 ) {
   if (!userId) {
     throw new Error(
-      "User ID is required"
+      "User ID is required",
     );
   }
 
-  const userRef = doc(
-    db,
-    "users",
-    userId
-  );
+  const userRef =
+    doc(
+      db,
+      "users",
+      userId,
+    );
 
   await setDoc(
     userRef,
@@ -994,28 +861,36 @@ export async function updateUserWeather(
           null,
 
         condition:
-          weather?.condition ?? "",
+          weather?.condition ??
+          "",
 
         feelsLike:
-          weather?.feelsLike ?? null,
+          weather?.feelsLike ??
+          null,
 
         humidity:
-          weather?.humidity ?? null,
+          weather?.humidity ??
+          null,
 
         wind:
-          weather?.wind ?? null,
+          weather?.wind ??
+          null,
 
         rain:
-          weather?.rain ?? 0,
+          weather?.rain ??
+          0,
 
         icon:
-          weather?.icon ?? "",
+          weather?.icon ??
+          "",
 
         locationName:
-          weather?.locationName ?? "",
+          weather?.locationName ??
+          "",
 
         country:
-          weather?.country ?? "",
+          weather?.country ??
+          "",
       },
 
       weatherUpdatedAt:
@@ -1023,7 +898,7 @@ export async function updateUserWeather(
     },
     {
       merge: true,
-    }
+    },
   );
 
   return true;
@@ -1035,24 +910,27 @@ export async function updateUserWeather(
 
 export function subscribeToFriends(
   userId,
-  callback
+  callback,
 ) {
   if (!userId) {
     callback([]);
-    return () => { };
+
+    return () => {};
   }
 
-  const friendsRef = collection(
-    db,
-    "users",
-    userId,
-    "friends"
-  );
+  const friendsRef =
+    collection(
+      db,
+      "users",
+      userId,
+      "friends",
+    );
 
-  const blockedRef = collection(
-    db,
-    "blockedUsers"
-  );
+  const blockedRef =
+    collection(
+      db,
+      "blockedUsers",
+    );
 
   let unsubscribeFriends = null;
   let unsubscribeBlocked = null;
@@ -1060,40 +938,24 @@ export function subscribeToFriends(
 
   let friendDocs = [];
 
-  let blockedByIds = new Set();
-  let blockedUserIds = new Set();
+  let blockedByIds =
+    new Set();
 
-  /*
-    IMPORTANT:
-    Wait until all three listeners have
-    received their first snapshot.
-
-    This prevents a blocked friend from
-    temporarily appearing before the
-    blockedUsers snapshot loads.
-  */
+  let blockedUserIds =
+    new Set();
 
   let friendsLoaded = false;
   let blockedByLoaded = false;
   let myBlockedLoaded = false;
 
-  /* =========================================================
-     BUILD FRIEND LIST
-  ========================================================= */
-
   async function rebuildFriends() {
-    /*
-      Don't build anything until all Firestore
-      listeners have initialized.
-    */
-
     if (
       !friendsLoaded ||
       !blockedByLoaded ||
       !myBlockedLoaded
     ) {
       console.log(
-        "Waiting for friend/block snapshots..."
+        "Waiting for friend/block snapshots...",
       );
 
       return;
@@ -1101,6 +963,7 @@ export function subscribeToFriends(
 
     if (!friendDocs.length) {
       callback([]);
+
       return;
     }
 
@@ -1114,35 +977,26 @@ export function subscribeToFriends(
             const friendId =
               friendDoc.id;
 
-            /* ==========================================
-               YOU BLOCKED THEM
-               HIDE COMPLETELY
-            ========================================== */
-
             if (
               blockedUserIds.has(
-                friendId
+                friendId,
               )
             ) {
               console.log(
                 "HIDING BLOCKED FRIEND:",
-                friendId
+                friendId,
               );
 
               return null;
             }
-
-            /* ==========================================
-               GET FRIEND PROFILE
-            ========================================== */
 
             const friendSnapshot =
               await getDoc(
                 doc(
                   db,
                   "users",
-                  friendId
-                )
+                  friendId,
+                ),
               );
 
             if (
@@ -1154,19 +1008,14 @@ export function subscribeToFriends(
             const data =
               friendSnapshot.data();
 
-            /* ==========================================
-               THEY BLOCKED YOU
-               KEEP CARD BUT HIDE DATA
-            ========================================== */
-
             if (
               blockedByIds.has(
-                friendId
+                friendId,
               )
             ) {
               console.log(
                 "FRIEND BLOCKED ME:",
-                friendId
+                friendId,
               );
 
               return {
@@ -1177,7 +1026,6 @@ export function subscribeToFriends(
                   "User unavailable",
 
                 username: "",
-
                 email: "",
                 photoURL: "",
 
@@ -1213,10 +1061,6 @@ export function subscribeToFriends(
                   null,
               };
             }
-
-            /* ==========================================
-               NORMAL FRIEND
-            ========================================== */
 
             return {
               id: friendId,
@@ -1287,8 +1131,8 @@ export function subscribeToFriends(
                   ?.createdAt ||
                 null,
             };
-          }
-        )
+          },
+        ),
       );
 
     const validFriends =
@@ -1296,15 +1140,11 @@ export function subscribeToFriends(
 
     console.log(
       "REAL-TIME FRIENDS:",
-      validFriends
+      validFriends,
     );
 
     callback(validFriends);
   }
-
-  /* =========================================================
-     FRIENDSHIP LISTENER
-  ========================================================= */
 
   unsubscribeFriends =
     onSnapshot(
@@ -1317,7 +1157,7 @@ export function subscribeToFriends(
 
         console.log(
           "FRIENDSHIP CHANGED:",
-          friendDocs.length
+          friendDocs.length,
         );
 
         await rebuildFriends();
@@ -1325,16 +1165,12 @@ export function subscribeToFriends(
       (error) => {
         console.error(
           "Friends listener error:",
-          error
+          error,
         );
 
         callback([]);
-      }
+      },
     );
-
-  /* =========================================================
-     PEOPLE WHO BLOCKED CURRENT USER
-  ========================================================= */
 
   unsubscribeBlocked =
     onSnapshot(
@@ -1343,26 +1179,28 @@ export function subscribeToFriends(
         where(
           "blockedUserId",
           "==",
-          userId
-        )
+          userId,
+        ),
       ),
       async (snapshot) => {
         blockedByIds =
           new Set(
             snapshot.docs.map(
               (blockDoc) =>
-                blockDoc.data()
-                  .blockerId
-            )
+                blockDoc
+                  .data()
+                  .blockerId,
+            ),
           );
 
-        blockedByLoaded = true;
+        blockedByLoaded =
+          true;
 
         console.log(
           "PEOPLE WHO BLOCKED ME:",
           Array.from(
-            blockedByIds
-          )
+            blockedByIds,
+          ),
         );
 
         await rebuildFriends();
@@ -1370,14 +1208,10 @@ export function subscribeToFriends(
       (error) => {
         console.error(
           "Blocked-by listener error:",
-          error
+          error,
         );
-      }
+      },
     );
-
-  /* =========================================================
-     PEOPLE CURRENT USER BLOCKED
-  ========================================================= */
 
   unsubscribeMyBlocked =
     onSnapshot(
@@ -1386,26 +1220,28 @@ export function subscribeToFriends(
         where(
           "blockerId",
           "==",
-          userId
-        )
+          userId,
+        ),
       ),
       async (snapshot) => {
         blockedUserIds =
           new Set(
             snapshot.docs.map(
               (blockDoc) =>
-                blockDoc.data()
-                  .blockedUserId
-            )
+                blockDoc
+                  .data()
+                  .blockedUserId,
+            ),
           );
 
-        myBlockedLoaded = true;
+        myBlockedLoaded =
+          true;
 
         console.log(
           "MY BLOCKED USERS:",
           Array.from(
-            blockedUserIds
-          )
+            blockedUserIds,
+          ),
         );
 
         await rebuildFriends();
@@ -1413,14 +1249,10 @@ export function subscribeToFriends(
       (error) => {
         console.error(
           "My blocked listener error:",
-          error
+          error,
         );
-      }
+      },
     );
-
-  /* =========================================================
-     CLEANUP
-  ========================================================= */
 
   return () => {
     if (unsubscribeFriends) {
@@ -1444,4 +1276,573 @@ export function subscribeToFriends(
     blockedByLoaded = false;
     myBlockedLoaded = false;
   };
+}
+
+/* =========================================================
+   DISASTER ALERTS
+========================================================= */
+
+function calculateDistanceKm(
+  lat1,
+  lon1,
+  lat2,
+  lon2,
+) {
+  const earthRadiusKm = 6371;
+
+  const dLat =
+    ((lat2 - lat1) * Math.PI) /
+    180;
+
+  const dLon =
+    ((lon2 - lon1) * Math.PI) /
+    180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(
+      (lat1 * Math.PI) / 180,
+    ) *
+      Math.cos(
+        (lat2 * Math.PI) / 180,
+      ) *
+      Math.sin(dLon / 2) ** 2;
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a),
+    );
+
+  return (
+    earthRadiusKm * c
+  );
+}
+
+/* =========================================================
+   CREATE DISASTER ALERT
+========================================================= */
+
+export async function createDisasterAlert(
+  alert,
+) {
+  if (!alert?.title) {
+    throw new Error(
+      "Alert title is required",
+    );
+  }
+
+  if (
+    typeof alert.latitude !==
+      "number" ||
+    typeof alert.longitude !==
+      "number"
+  ) {
+    throw new Error(
+      "Alert latitude and longitude are required",
+    );
+  }
+
+  const alertData = {
+    title:
+      alert.title,
+
+    message:
+      alert.message || "",
+
+    type:
+      alert.type ||
+      "severe_weather",
+
+    severity:
+      alert.severity ||
+      "warning",
+
+    locationName:
+      alert.locationName ||
+      "",
+
+    latitude:
+      alert.latitude,
+
+    longitude:
+      alert.longitude,
+
+    radiusKm:
+      Number(alert.radiusKm) ||
+      25,
+
+    source:
+      alert.source ||
+      "WeatherHub",
+
+    createdAt:
+      serverTimestamp(),
+
+    expiresAt:
+      alert.expiresAt ||
+      null,
+
+    active: true,
+  };
+
+  const alertRef =
+    await addDoc(
+      collection(
+        db,
+        "disasterAlerts",
+      ),
+      alertData,
+    );
+
+  console.log(
+    "DISASTER ALERT CREATED:",
+    alertRef.id,
+  );
+
+  const usersSnapshot =
+    await getDocs(
+      collection(
+        db,
+        "users",
+      ),
+    );
+
+  const notificationPromises =
+    [];
+
+  usersSnapshot.forEach(
+    (userDoc) => {
+      const userData =
+        userDoc.data();
+
+      const userLatitude =
+        userData.latitude;
+
+      const userLongitude =
+        userData.longitude;
+
+      if (
+        typeof userLatitude !==
+          "number" ||
+        typeof userLongitude !==
+          "number"
+      ) {
+        return;
+      }
+
+      const distance =
+        calculateDistanceKm(
+          alert.latitude,
+          alert.longitude,
+          userLatitude,
+          userLongitude,
+        );
+
+      if (
+        distance <=
+        alertData.radiusKm
+      ) {
+        notificationPromises.push(
+          addDoc(
+            collection(
+              db,
+              "users",
+              userDoc.id,
+              "notifications",
+            ),
+            {
+              alertId:
+                alertRef.id,
+
+              title:
+                alertData.title,
+
+              message:
+                alertData.message,
+
+              type:
+                alertData.type,
+
+              severity:
+                alertData.severity,
+
+              locationName:
+                alertData.locationName,
+
+              distanceKm:
+                Number(
+                  distance.toFixed(2),
+                ),
+
+              source:
+                alertData.source,
+
+              read: false,
+
+              createdAt:
+                serverTimestamp(),
+
+              expiresAt:
+                alertData.expiresAt ||
+                null,
+            },
+          ),
+        );
+      }
+    },
+  );
+
+  await Promise.all(
+    notificationPromises,
+  );
+
+  console.log(
+    "TARGETED NOTIFICATIONS SENT:",
+    notificationPromises.length,
+  );
+
+  return {
+    alertId:
+      alertRef.id,
+
+    affectedUsers:
+      notificationPromises.length,
+  };
+}
+
+/* =========================================================
+   DELETE DISASTER ALERT + GENERATED NOTIFICATIONS
+========================================================= */
+
+/*
+  Deletes one disaster alert and all notifications
+  that were generated from that alert.
+
+  Intended mainly for development/testing cleanup.
+
+  IMPORTANT:
+  It only deletes notifications whose alertId
+  exactly matches the supplied alertId.
+*/
+
+export async function deleteDisasterAlert(
+  alertId,
+) {
+  if (!alertId) {
+    throw new Error(
+      "Alert ID is required",
+    );
+  }
+
+  /* ---------------------------------------------------------
+     DELETE THE ALERT DOCUMENT
+  --------------------------------------------------------- */
+
+  const alertRef =
+    doc(
+      db,
+      "disasterAlerts",
+      alertId,
+    );
+
+  const alertSnapshot =
+    await getDoc(alertRef);
+
+  if (alertSnapshot.exists()) {
+    await deleteDoc(alertRef);
+
+    console.log(
+      "DISASTER ALERT DELETED:",
+      alertId,
+    );
+  } else {
+    console.warn(
+      "Disaster alert document not found:",
+      alertId,
+    );
+  }
+
+  /* ---------------------------------------------------------
+     FIND ALL USERS
+  --------------------------------------------------------- */
+
+  const usersSnapshot =
+    await getDocs(
+      collection(
+        db,
+        "users",
+      ),
+    );
+
+  let deletedNotifications = 0;
+
+  /* ---------------------------------------------------------
+     SEARCH EACH USER'S NOTIFICATIONS
+  --------------------------------------------------------- */
+
+  const cleanupPromises =
+    usersSnapshot.docs.map(
+      async (userDoc) => {
+        const notificationsRef =
+          collection(
+            db,
+            "users",
+            userDoc.id,
+            "notifications",
+          );
+
+        const notificationsSnapshot =
+          await getDocs(
+            notificationsRef,
+          );
+
+        const matchingNotifications =
+          notificationsSnapshot.docs.filter(
+            (notificationDoc) =>
+              notificationDoc.data()
+                .alertId === alertId,
+          );
+
+        await Promise.all(
+          matchingNotifications.map(
+            (notificationDoc) =>
+              deleteDoc(
+                notificationDoc.ref,
+              ),
+          ),
+        );
+
+        deletedNotifications +=
+          matchingNotifications.length;
+      },
+    );
+
+  await Promise.all(
+    cleanupPromises,
+  );
+
+  console.log(
+    "DISASTER NOTIFICATIONS DELETED:",
+    deletedNotifications,
+  );
+
+  return {
+    success: true,
+    alertId,
+    deletedNotifications,
+  };
+}
+
+/* =========================================================
+   GET USER NOTIFICATIONS
+========================================================= */
+
+export async function getUserNotifications(
+  userId,
+) {
+  if (!userId) {
+    return [];
+  }
+
+  try {
+    const notificationsRef =
+      collection(
+        db,
+        "users",
+        userId,
+        "notifications",
+      );
+
+    const q =
+      query(
+        notificationsRef,
+        orderBy(
+          "createdAt",
+          "desc",
+        ),
+        limit(50),
+      );
+
+    const snapshot =
+      await getDocs(q);
+
+    return snapshot.docs.map(
+      (notificationDoc) => ({
+        id:
+          notificationDoc.id,
+
+        ...notificationDoc.data(),
+      }),
+    );
+  } catch (error) {
+    console.error(
+      "getUserNotifications error:",
+      error,
+    );
+
+    return [];
+  }
+}
+
+/* =========================================================
+   REAL-TIME USER NOTIFICATIONS
+========================================================= */
+
+export function subscribeToNotifications(
+  userId,
+  callback,
+) {
+  if (!userId) {
+    callback([]);
+
+    return () => {};
+  }
+
+  const notificationsRef =
+    collection(
+      db,
+      "users",
+      userId,
+      "notifications",
+    );
+
+  const q =
+    query(
+      notificationsRef,
+      orderBy(
+        "createdAt",
+        "desc",
+      ),
+      limit(50),
+    );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const notifications =
+        snapshot.docs.map(
+          (notificationDoc) => ({
+            id:
+              notificationDoc.id,
+
+            ...notificationDoc.data(),
+          }),
+        );
+
+      callback(
+        notifications,
+      );
+    },
+    (error) => {
+      console.error(
+        "Notification listener error:",
+        error,
+      );
+
+      callback([]);
+    },
+  );
+}
+
+/* =========================================================
+   MARK NOTIFICATION AS READ
+========================================================= */
+
+export async function markNotificationRead(
+  userId,
+  notificationId,
+) {
+  if (
+    !userId ||
+    !notificationId
+  ) {
+    throw new Error(
+      "User ID and notification ID are required",
+    );
+  }
+
+  await updateDoc(
+    doc(
+      db,
+      "users",
+      userId,
+      "notifications",
+      notificationId,
+    ),
+    {
+      read: true,
+    },
+  );
+
+  return true;
+}
+
+/* =========================================================
+   DELETE NOTIFICATION
+========================================================= */
+
+export async function deleteNotification(
+  userId,
+  notificationId,
+) {
+  if (
+    !userId ||
+    !notificationId
+  ) {
+    throw new Error(
+      "User ID and notification ID are required",
+    );
+  }
+
+  await deleteDoc(
+    doc(
+      db,
+      "users",
+      userId,
+      "notifications",
+      notificationId,
+    ),
+  );
+
+  return true;
+}
+
+/* =========================================================
+   CLEAR ALL NOTIFICATIONS
+========================================================= */
+
+export async function clearUserNotifications(
+  userId,
+) {
+  if (!userId) {
+    throw new Error(
+      "User ID is required",
+    );
+  }
+
+  const notificationsRef =
+    collection(
+      db,
+      "users",
+      userId,
+      "notifications",
+    );
+
+  const snapshot =
+    await getDocs(
+      notificationsRef,
+    );
+
+  await Promise.all(
+    snapshot.docs.map(
+      (notificationDoc) =>
+        deleteDoc(
+          notificationDoc.ref,
+        ),
+    ),
+  );
+
+  return true;
 }
