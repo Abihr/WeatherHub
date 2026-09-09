@@ -5,6 +5,7 @@ import WeatherCard from "../components/WeatherCard";
 import { weatherIcon } from "../data/mockData";
 import EmptyState from "../components/EmptyState";
 import { getGreeting } from "../utils/greeting";
+import ForecastUI from "../components/ForecastUI";
 
 function getLocationText(friend) {
   if (!friend) return "Unknown location";
@@ -71,6 +72,7 @@ export default function Home() {
   // Show Firebase friends directly.
   // No distanceKm / nearby calculation.
   const friends = friendsList.slice(0, 4);
+  console.log("🏠 HOME FORECAST:", user?.forecast);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10 flex flex-col gap-6">
@@ -150,6 +152,13 @@ export default function Home() {
           locating={locating}
         />
       </div>
+
+      {/* ------------------------------------------------ */}
+      {/* 7 days forecast */}
+      {/* ------------------------------------------------ */}
+
+      <ForecastUI weatherData={user?.forecast} 
+      />
 
       {/* ------------------------------------------------ */}
       {/* MY FRIENDS */}

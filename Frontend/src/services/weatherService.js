@@ -1,4 +1,4 @@
-function mapWeatherIcon(weatherMain) {
+function mapWeatherIcon(weatherMain = "") {
     const condition = weatherMain.toLowerCase();
 
     if (condition.includes("thunderstorm")) return "storm";
@@ -21,60 +21,106 @@ function mapWeatherIcon(weatherMain) {
 }
 
 export async function getCurrentWeather(latitude, longitude) {
-    const response = await fetch(
-        `/api/weather?lat=${latitude}&lon=${longitude}`
-    );
-
-    if (!response.ok) {
-        const errorData = await response.json();
-
-        throw new Error(
-            errorData.error ||
-            "Failed to fetch weather"
+    try {
+        const response = await fetch(
+            `http://localhost:5001/api/weather?lat=${encodeURIComponent(
+                latitude
+            )}&lon=${encodeURIComponent(longitude)}`
         );
+
+        // Read response as text first
+        const text = await response.text();
+
+        let data = {};
+
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (error) {
+            console.error(
+                "❌ Invalid JSON from weather server:",
+                text
+            );
+
+            throw new Error(
+                "Weather server returned an invalid response"
+            );
+        }
+
+        // Handle HTTP errors
+        if (!response.ok) {
+            throw new Error(
+                data?.error ||
+                    `Weather server returned status ${response.status}`
+            );
+        }
+
+        console.log("🌍 WEATHER DATA:", data);
+
+        // Return data in the format your frontend expects
+        return {
+            icon: mapWeatherIcon(data.weatherMain),
+
+            condition:
+                data.condition || "Unknown",
+
+            temp:
+                Number.isFinite(Number(data.temperature))
+                    ? Math.round(Number(data.temperature))
+                    : null,
+
+            // Keep both temperature and temp
+            temperature:
+                Number.isFinite(Number(data.temperature))
+                    ? Math.round(Number(data.temperature))
+                    : null,
+
+            feelsLike:
+                Number.isFinite(Number(data.feelsLike))
+                    ? Math.round(Number(data.feelsLike))
+                    : null,
+
+            humidity:
+                data.humidity ?? null,
+
+            // OpenWeather wind speed is m/s
+            // Convert to km/h
+            wind:
+                Number.isFinite(Number(data.windSpeed))
+                    ? Math.round(
+                          Number(data.windSpeed) * 3.6
+                      )
+                    : 0,
+
+            pressure:
+                data.pressure ?? null,
+
+            rain:
+                data.rainfall ?? 0,
+
+            locationName:
+                data.location || "Unknown",
+
+            country:
+                data.country || "",
+
+            latitude:
+                data.latitude ?? latitude,
+
+            longitude:
+                data.longitude ?? longitude,
+
+            visibility:
+                data.visibility ?? null,
+
+            windDirection:
+                data.windDirection ?? null,
+        };
+    } catch (error) {
+        console.error(
+            "❌ getCurrentWeather error:",
+            error
+        );
+
+        throw error;
     }
-
-    const data = await response.json();
-
-    console.log(
-        "🌍 RAW WEATHER DATA:",
-        data
-    );
-
-    return {
-        icon: mapWeatherIcon(
-            data.weather[0].main
-        ),
-
-        condition:
-            data.weather[0].description,
-
-        temp: Math.round(
-            data.main.temp
-        ),
-
-        feelsLike: Math.round(
-            data.main.feels_like
-        ),
-
-        humidity:
-            data.main.humidity,
-
-        wind: Math.round(
-            data.wind.speed * 3.6
-        ),
-
-        pressure:
-            data.main.pressure,
-
-        rain:
-            data.rain?.["1h"] ?? 0,
-
-        locationName:
-            data.name,
-
-        country:
-            data.sys.country,
-    };
 }
-
