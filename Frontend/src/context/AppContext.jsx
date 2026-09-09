@@ -1477,18 +1477,43 @@ export function AppProvider({
             "updateLocationSharing error:",
             error,
           );
-
-          pushToast(
-            error?.message ||
-              "Failed to update location sharing",
-            "error",
-          );
         }
       },
       [
         user?.id,
         pushToast,
       ],
+    );
+
+  // ==========================================================
+  // DISASTER ALERT CREATION
+  // ==========================================================
+
+  const createDisasterAlert =
+    useCallback(
+      async (alert) => {
+        try {
+          const result =
+            await fs.createDisasterAlert(
+              alert,
+            );
+
+          console.log(
+            "DISASTER ALERT CREATED:",
+            result,
+          );
+
+          return result;
+        } catch (error) {
+          console.error(
+            "createDisasterAlert error:",
+            error,
+          );
+
+          throw error;
+        }
+      },
+      [],
     );
 
   // ==========================================================
@@ -1759,6 +1784,7 @@ export function AppProvider({
 
     // NEW disaster notifications
     disasterNotifications,
+    createDisasterAlert,
     markDisasterNotificationRead,
     removeDisasterNotification,
     clearDisasterNotifications,
@@ -1815,3 +1841,4 @@ export function useApp() {
 }
 
 export default AppContext;
+
