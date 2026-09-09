@@ -1,3 +1,4 @@
+
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -85,7 +86,10 @@ async function getWeatherByCoordinates(latitude, longitude) {
             );
         }
 
-        // OpenWeather API error
+        // ==================================================
+        // OPENWEATHER API ERROR
+        // ==================================================
+
         if (!response.ok) {
             console.error(
                 "❌ OpenWeather error:",
@@ -274,7 +278,7 @@ app.get("/api/weather", async (req, res) => {
 });
 
 // ======================================================
-// TEST ROUTE
+// TEST WEATHER ROUTE
 // ======================================================
 
 app.get("/api/test-weather", (req, res) => {
@@ -297,7 +301,12 @@ app.get("/", (req, res) => {
     res.json({
         message:
             "Weather API server is running",
-        port: 5001,
+
+        port:
+            process.env.PORT || 5001,
+
+        environment:
+            process.env.NODE_ENV || "development",
     });
 });
 
@@ -305,10 +314,15 @@ app.get("/", (req, res) => {
 // START SERVER
 // ======================================================
 
-const PORT = 5001;
+// IMPORTANT:
+// Render provides the PORT through process.env.PORT.
+// Locally it will fall back to 5001.
 
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 5001;
+
+app.listen(PORT, "0.0.0.0", () => {
     console.log(
-        `🌤️ Weather server running on http://localhost:${PORT}`
+        `🌤️ Weather server running on port ${PORT}`
     );
 });
+
