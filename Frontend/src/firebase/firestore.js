@@ -222,7 +222,6 @@ export async function getSentRequests(userId) {
           locationText: receiver?.locationText || "",
 
           latitude: receiver?.latitude ?? null,
-
           longitude: receiver?.longitude ?? null,
 
           weather: receiver?.weather || null,
@@ -260,14 +259,10 @@ export async function acceptFriendRequest(requestId, user1, user2) {
     status: "accepted",
   });
 
-  /* Add user2 to user1's friends */
-
   await setDoc(doc(db, "users", user1, "friends", user2), {
     userId: user2,
     createdAt: serverTimestamp(),
   });
-
-  /* Add user1 to user2's friends */
 
   await setDoc(doc(db, "users", user2, "friends", user1), {
     userId: user1,
@@ -344,14 +339,10 @@ export async function getFriends(userId) {
       return [];
     }
 
-    /* Users current user has blocked */
-
     const myBlockedQuery = query(
       collection(db, "blockedUsers"),
       where("blockerId", "==", userId),
     );
-
-    /* Users who blocked current user */
 
     const blockedMeQuery = query(
       collection(db, "blockedUsers"),
@@ -384,11 +375,6 @@ export async function getFriends(userId) {
       snapshot.docs.map(async (friendDoc) => {
         const friendId = friendDoc.id;
 
-        /* ==========================================
-           YOU BLOCKED THIS PERSON
-           HIDE COMPLETELY
-        ========================================== */
-
         if (blockedUserIds.has(friendId)) {
           return null;
         }
@@ -403,11 +389,6 @@ export async function getFriends(userId) {
 
           return null;
         }
-
-        /* ==========================================
-           THEY BLOCKED YOU
-           SHOW UNAVAILABLE CARD
-        ========================================== */
 
         if (blockedByIds.has(friendId)) {
           console.log(
@@ -447,28 +428,19 @@ export async function getFriends(userId) {
           };
         }
 
-        /* ==========================================
-           NORMAL FRIEND
-        ========================================== */
-
         return {
           id: friendId,
           friendId,
 
           name: friend.name || "User",
-
           username: friend.username || "",
-
           email: friend.email || "",
-
           photoURL: friend.photoURL || "",
 
           location: friend.location || null,
-
           locationText: friend.locationText || "",
 
           latitude: friend.latitude ?? null,
-
           longitude: friend.longitude ?? null,
 
           weather: friend.weather || null,
@@ -972,18 +944,9 @@ export function subscribeToFriends(
   let blockedUserIds =
     new Set();
 
-  /*
-    Wait until all three listeners
-    receive their first snapshot.
-  */
-
   let friendsLoaded = false;
   let blockedByLoaded = false;
   let myBlockedLoaded = false;
-
-  /* =========================================================
-     BUILD FRIEND LIST
-  ========================================================= */
 
   async function rebuildFriends() {
     if (
@@ -1014,10 +977,6 @@ export function subscribeToFriends(
             const friendId =
               friendDoc.id;
 
-            /* ==========================================
-               YOU BLOCKED THEM
-            ========================================== */
-
             if (
               blockedUserIds.has(
                 friendId,
@@ -1030,10 +989,6 @@ export function subscribeToFriends(
 
               return null;
             }
-
-            /* ==========================================
-               GET FRIEND PROFILE
-            ========================================== */
 
             const friendSnapshot =
               await getDoc(
@@ -1052,10 +1007,6 @@ export function subscribeToFriends(
 
             const data =
               friendSnapshot.data();
-
-            /* ==========================================
-               THEY BLOCKED YOU
-            ========================================== */
 
             if (
               blockedByIds.has(
@@ -1110,10 +1061,6 @@ export function subscribeToFriends(
                   null,
               };
             }
-
-            /* ==========================================
-               NORMAL FRIEND
-            ========================================== */
 
             return {
               id: friendId,
@@ -1199,10 +1146,6 @@ export function subscribeToFriends(
     callback(validFriends);
   }
 
-  /* =========================================================
-     FRIENDSHIP LISTENER
-  ========================================================= */
-
   unsubscribeFriends =
     onSnapshot(
       friendsRef,
@@ -1228,10 +1171,6 @@ export function subscribeToFriends(
         callback([]);
       },
     );
-
-  /* =========================================================
-     PEOPLE WHO BLOCKED CURRENT USER
-  ========================================================= */
 
   unsubscribeBlocked =
     onSnapshot(
@@ -1274,10 +1213,6 @@ export function subscribeToFriends(
       },
     );
 
-  /* =========================================================
-     PEOPLE CURRENT USER BLOCKED
-  ========================================================== */
-
   unsubscribeMyBlocked =
     onSnapshot(
       query(
@@ -1319,10 +1254,6 @@ export function subscribeToFriends(
       },
     );
 
-  /* =========================================================
-     CLEANUP
-  ========================================================= */
-
   return () => {
     if (unsubscribeFriends) {
       unsubscribeFriends();
@@ -1350,13 +1281,6 @@ export function subscribeToFriends(
 /* =========================================================
    DISASTER ALERTS
 ========================================================= */
-
-/*
-  Calculate distance between two geographic
-  coordinates using the Haversine formula.
-
-  Returns distance in kilometers.
-*/
 
 function calculateDistanceKm(
   lat1,
@@ -1477,20 +1401,6 @@ export async function createDisasterAlert(
     alertRef.id,
   );
 
-  /*
-    ---------------------------------------------------------
-    GEO-TARGET USERS
-    ---------------------------------------------------------
-
-    Prototype implementation:
-    Read users with coordinates and
-    perform Haversine distance calculation.
-
-    Production implementation:
-    Move this to backend + geospatial
-    indexing / polygon matching.
-  */
-
   const usersSnapshot =
     await getDocs(
       collection(
@@ -1599,6 +1509,129 @@ export async function createDisasterAlert(
 
     affectedUsers:
       notificationPromises.length,
+  };
+}
+
+/* =========================================================
+   DELETE DISASTER ALERT + GENERATED NOTIFICATIONS
+========================================================= */
+
+/*
+  Deletes one disaster alert and all notifications
+  that were generated from that alert.
+
+  Intended mainly for development/testing cleanup.
+
+  IMPORTANT:
+  It only deletes notifications whose alertId
+  exactly matches the supplied alertId.
+*/
+
+export async function deleteDisasterAlert(
+  alertId,
+) {
+  if (!alertId) {
+    throw new Error(
+      "Alert ID is required",
+    );
+  }
+
+  /* ---------------------------------------------------------
+     DELETE THE ALERT DOCUMENT
+  --------------------------------------------------------- */
+
+  const alertRef =
+    doc(
+      db,
+      "disasterAlerts",
+      alertId,
+    );
+
+  const alertSnapshot =
+    await getDoc(alertRef);
+
+  if (alertSnapshot.exists()) {
+    await deleteDoc(alertRef);
+
+    console.log(
+      "DISASTER ALERT DELETED:",
+      alertId,
+    );
+  } else {
+    console.warn(
+      "Disaster alert document not found:",
+      alertId,
+    );
+  }
+
+  /* ---------------------------------------------------------
+     FIND ALL USERS
+  --------------------------------------------------------- */
+
+  const usersSnapshot =
+    await getDocs(
+      collection(
+        db,
+        "users",
+      ),
+    );
+
+  let deletedNotifications = 0;
+
+  /* ---------------------------------------------------------
+     SEARCH EACH USER'S NOTIFICATIONS
+  --------------------------------------------------------- */
+
+  const cleanupPromises =
+    usersSnapshot.docs.map(
+      async (userDoc) => {
+        const notificationsRef =
+          collection(
+            db,
+            "users",
+            userDoc.id,
+            "notifications",
+          );
+
+        const notificationsSnapshot =
+          await getDocs(
+            notificationsRef,
+          );
+
+        const matchingNotifications =
+          notificationsSnapshot.docs.filter(
+            (notificationDoc) =>
+              notificationDoc.data()
+                .alertId === alertId,
+          );
+
+        await Promise.all(
+          matchingNotifications.map(
+            (notificationDoc) =>
+              deleteDoc(
+                notificationDoc.ref,
+              ),
+          ),
+        );
+
+        deletedNotifications +=
+          matchingNotifications.length;
+      },
+    );
+
+  await Promise.all(
+    cleanupPromises,
+  );
+
+  console.log(
+    "DISASTER NOTIFICATIONS DELETED:",
+    deletedNotifications,
+  );
+
+  return {
+    success: true,
+    alertId,
+    deletedNotifications,
   };
 }
 

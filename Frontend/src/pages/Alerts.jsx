@@ -1,6 +1,10 @@
+
 import { Trash2 } from "lucide-react";
+
 import { useApp } from "../context/AppContext";
+
 import EmptyState from "../components/EmptyState";
+
 import AlertCard from "../components/AlertCard";
 
 export default function Alerts() {
@@ -8,8 +12,6 @@ export default function Alerts() {
     weatherAlerts,
     removeWeatherAlert,
     clearWeatherAlerts,
-    createDisasterAlert,
-    user,
   } = useApp();
 
   return (
@@ -20,34 +22,6 @@ export default function Alerts() {
         </h1>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                if (!user?.latitude || !user?.longitude) {
-                  console.error("User location not available");
-                  return;
-                }
-
-                const result = await createDisasterAlert({
-                  title: "Test Heavy Rain Alert",
-                  message: "Heavy rainfall expected in your area.",
-                  severity: "high",
-                  latitude: user.latitude,
-                  longitude: user.longitude,
-                  radiusKm: 10,
-                });
-
-                console.log("DISASTER ALERT CREATED:", result);
-              } catch (error) {
-                console.error("DISASTER ALERT ERROR:", error);
-              }
-            }}
-            className="px-3 py-2 bg-red-500 text-white rounded-xl text-xs font-medium hover:bg-red-600 transition-colors"
-          >
-            Test Alert
-          </button>
-
           {weatherAlerts.length > 0 && (
             <button
               type="button"
