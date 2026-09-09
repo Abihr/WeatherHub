@@ -1,9 +1,13 @@
+
 function mapWeatherIcon(weatherMain = "") {
     const condition = weatherMain.toLowerCase();
 
     if (condition.includes("thunderstorm")) return "storm";
+
     if (condition.includes("drizzle")) return "rain";
+
     if (condition.includes("rain")) return "rain";
+
     if (condition.includes("snow")) return "snow";
 
     if (
@@ -15,24 +19,50 @@ function mapWeatherIcon(weatherMain = "") {
     }
 
     if (condition.includes("cloud")) return "cloudy";
+
     if (condition.includes("clear")) return "sunny";
 
     return "cloudy";
 }
 
+
 export async function getCurrentWeather(latitude, longitude) {
     try {
-        const response = await fetch(
-            `http://localhost:5001/api/weather?lat=${encodeURIComponent(
-                latitude
-            )}&lon=${encodeURIComponent(longitude)}`
-        );
+        // Backend API URL from Vite environment variable
+        const API_URL = import.meta.env.VITE_WEATHER_API_URL;
+
+        // Check whether API URL is configured
+        if (!API_URL) {
+            throw new Error(
+                "VITE_WEATHER_API_URL is not configured"
+            );
+        }
+
+        // Remove trailing slash from API URL
+        const baseURL = API_URL.replace(/\/+$/, "");
+
+        // Create weather API URL
+        const weatherURL =
+            `${baseURL}/api/weather` +
+            `?lat=${encodeURIComponent(latitude)}` +
+            `&lon=${encodeURIComponent(longitude)}`;
+
+        console.log("🌐 WEATHER API:", weatherURL);
+
+        console.log("📍 Coordinates:", {
+            latitude,
+            longitude,
+        });
+
+        // Fetch weather from backend
+        const response = await fetch(weatherURL);
 
         // Read response as text first
         const text = await response.text();
 
         let data = {};
 
+        // Convert response to JSON
         try {
             data = text ? JSON.parse(text) : {};
         } catch (error) {
@@ -48,6 +78,12 @@ export async function getCurrentWeather(latitude, longitude) {
 
         // Handle HTTP errors
         if (!response.ok) {
+            console.error(
+                "❌ Weather server error:",
+                response.status,
+                data
+            );
+
             throw new Error(
                 data?.error ||
                     `Weather server returned status ${response.status}`
@@ -56,64 +92,72 @@ export async function getCurrentWeather(latitude, longitude) {
 
         console.log("🌍 WEATHER DATA:", data);
 
-        // Return data in the format your frontend expects
+        // Temperature
+        const temperature = Number(data.temperature);
+
+        const safeTemperature = Number.isFinite(temperature)
+            ? Math.round(temperature)
+            : null;
+
+        // Feels like temperature
+        const feelsLike = Number(data.feelsLike);
+
+        const safeFeelsLike = Number.isFinite(feelsLike)
+            ? Math.round(feelsLike)
+            : null;
+
+        // OpenWeather wind speed is m/s.
+        // Convert to km/h.
+        const windSpeed = Number(data.windSpeed);
+
+        const safeWind = Number.isFinite(windSpeed)
+            ? Math.round(windSpeed * 3.6)
+            : 0;
+
+        // Return data in WeatherHub frontend format
         return {
+            // Weather icon
             icon: mapWeatherIcon(data.weatherMain),
 
-            condition:
-                data.condition || "Unknown",
+            // Weather condition
+            condition: data.condition || "Unknown",
 
-            temp:
-                Number.isFinite(Number(data.temperature))
-                    ? Math.round(Number(data.temperature))
-                    : null,
+            // Main temperature
+            temp: safeTemperature,
 
-            // Keep both temperature and temp
-            temperature:
-                Number.isFinite(Number(data.temperature))
-                    ? Math.round(Number(data.temperature))
-                    : null,
+            // Keep temperature as well
+            temperature: safeTemperature,
 
-            feelsLike:
-                Number.isFinite(Number(data.feelsLike))
-                    ? Math.round(Number(data.feelsLike))
-                    : null,
+            // Feels-like temperature
+            feelsLike: safeFeelsLike,
 
-            humidity:
-                data.humidity ?? null,
+            // Humidity percentage
+            humidity: data.humidity ?? null,
 
-            // OpenWeather wind speed is m/s
-            // Convert to km/h
-            wind:
-                Number.isFinite(Number(data.windSpeed))
-                    ? Math.round(
-                          Number(data.windSpeed) * 3.6
-                      )
-                    : 0,
+            // Wind speed in km/h
+            wind: safeWind,
 
-            pressure:
-                data.pressure ?? null,
+            // Atmospheric pressure
+            pressure: data.pressure ?? null,
 
-            rain:
-                data.rainfall ?? 0,
+            // Rainfall
+            rain: data.rainfall ?? 0,
 
-            locationName:
-                data.location || "Unknown",
+            // Location
+            locationName: data.location || "Unknown",
 
-            country:
-                data.country || "",
+            // Country
+            country: data.country || "",
 
-            latitude:
-                data.latitude ?? latitude,
+            // Coordinates
+            latitude: data.latitude ?? latitude,
+            longitude: data.longitude ?? longitude,
 
-            longitude:
-                data.longitude ?? longitude,
+            // Visibility
+            visibility: data.visibility ?? null,
 
-            visibility:
-                data.visibility ?? null,
-
-            windDirection:
-                data.windDirection ?? null,
+            // Wind direction
+            windDirection: data.windDirection ?? null,
         };
     } catch (error) {
         console.error(
@@ -124,3 +168,4 @@ export async function getCurrentWeather(latitude, longitude) {
         throw error;
     }
 }
+
