@@ -74,9 +74,10 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      try {
-        setUser(currentUser);
+      setUser(currentUser);
+      setLoading(false);
 
+      try {
         if (currentUser) {
           // Firestore document:
           // users/{Firebase Authentication UID}
@@ -100,9 +101,11 @@ export default function App() {
         }
       } catch (error) {
         console.error("Error syncing user data:", error);
-      } finally {
-        setLoading(false);
       }
+    }, (error) => {
+      console.error("Firebase auth error:", error);
+      setUser(null);
+      setLoading(false);
     });
 
     return () => unsubscribe();

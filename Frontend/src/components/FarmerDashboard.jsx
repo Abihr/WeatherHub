@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Sprout,
   Droplets,
@@ -14,6 +14,7 @@ Calendar,
   Sun,
   Cloud,
   RefreshCw,
+  Bell,
 } from "lucide-react";
 
 import { getGreeting, getGreetingRefreshDelay } from "../utils/greeting";
@@ -168,7 +169,58 @@ const FarmerDashboard = () => {
 
   const [error, setError] = useState("");
 
+  const [notificationPermission, setNotificationPermission] = useState(
+    typeof Notification === "undefined"
+      ? "unsupported"
+      : Notification.permission,
+  );
+
+  const notificationPermissionRef = useRef(notificationPermission);
+  const notifiedAlerts = useRef(new Set());
+
   const [selectedCrop, setSelectedCrop] = useState("all");
+
+  const requestPhoneNotifications = async () => {
+    if (typeof Notification === "undefined") {
+      setNotificationPermission("unsupported");
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    notificationPermissionRef.current = permission;
+    setNotificationPermission(permission);
+
+    if (permission === "granted") {
+      new Notification("Farmer alerts enabled", {
+        body: "You will be notified about new high-priority crop risks.",
+      });
+    }
+  };
+
+  const notifyHighSeverityAlerts = (risks) => {
+    if (
+      notificationPermissionRef.current !== "granted" ||
+      typeof Notification === "undefined"
+    ) {
+      return;
+    }
+
+    risks
+      .filter((risk) => ["High", "Critical"].includes(risk.severity))
+      .forEach((risk) => {
+        const alertKey = `${risk.crop}:${risk.type}:${risk.message}`;
+
+        if (notifiedAlerts.current.has(alertKey)) {
+          return;
+        }
+
+        notifiedAlerts.current.add(alertKey);
+        new Notification(`${risk.severity} crop alert: ${risk.crop}`, {
+          body: `${risk.message} ${risk.action}`,
+          tag: alertKey,
+        });
+      });
+  };
 
   // ----------------------------------------------------------
   // Task planner
@@ -498,99 +550,26 @@ const FarmerDashboard = () => {
     setError("");
 
     try {
-      const crops = farmerData.farmDetails.crops;
-
-      // ------------------------------------------------------
-      // Fetch data for every crop
-      // ------------------------------------------------------
-
-      const responses = await Promise.all(
-        crops.map(async (crop) => {
-          const response = await fetch(
-            `/api/farmer?city=Pune&crop=${encodeURIComponent(crop)}`,
-          );
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || `Failed to fetch ${crop} data`);
-          }
-
-          return data;
-        }),
+      const crops = farmerData.farmDetails.crops.join(",");
+      const response = await fetch(
+        `/api/agriculture?city=Pune&crops=${encodeURIComponent(crops)}`,
       );
+      const data = await response.json();
 
-      // ------------------------------------------------------
-      // Use first crop's weather as current farm weather
-      // ------------------------------------------------------
-
-      if (responses.length > 0) {
-        const firstWeather = responses[0];
-
-        setFarmerWeather(firstWeather);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch agriculture data");
       }
 
-      // ------------------------------------------------------
-      // Combine risks from all crops
-      // ------------------------------------------------------
-
-      const combinedRisks = [];
-
-      responses.forEach((data) => {
-        if (!data.risks) {
-          return;
-        }
-
-        data.risks.forEach((risk) => {
-          combinedRisks.push({
-            ...risk,
-            crop: data.crop,
-          });
-        });
-      });
-
-      setCropRisks(combinedRisks);
-
-      // ------------------------------------------------------
-      // Generate crop recommendations
-      // from real backend weather data
-      // ------------------------------------------------------
-
-      const generatedRecommendations = responses
-        .map((data) => generateCropRecommendation(data, data.crop))
-        .filter(Boolean);
-
-      setCropRecommendations(generatedRecommendations);
-
-      // ------------------------------------------------------
-      // Update today's weather in farmerData
-      // ------------------------------------------------------
-
-      if (responses.length > 0) {
-        const weather = responses[0];
-
-        setFarmerData((previousData) => ({
-          ...previousData,
-
-          weatherForecast: {
-            ...previousData.weatherForecast,
-
-            today: {
-              ...previousData.weatherForecast.today,
-
-              temp: weather.temperature,
-
-              humidity: weather.humidity,
-
-              rainfall: weather.rainfall,
-
-              windSpeed: weather.windSpeed,
-
-              condition: weather.condition,
-            },
-          },
-        }));
-      }
+      setFarmerData((previousData) => ({
+        ...previousData,
+        farmDetails: data.farmDetails,
+        weatherForecast: data.weatherForecast,
+        yieldPrediction: data.yieldPrediction,
+      }));
+      setFarmerWeather(data.weatherForecast.today);
+      setCropRisks(data.cropRisks || []);
+      setCropRecommendations(data.cropRecommendations || []);
+      notifyHighSeverityAlerts(data.cropRisks || []);
     } catch (err) {
       console.error("Farmer dashboard error:", err);
 
@@ -677,6 +656,12 @@ const FarmerDashboard = () => {
 
   useEffect(() => {
     fetchFarmerData();
+  }, []);
+
+  useEffect(() => {
+    const intervalId = setInterval(fetchFarmerData, 5 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // ==========================================================
@@ -1146,6 +1131,42 @@ const FarmerDashboard = () => {
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="mb-8">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Bell size={20} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-ink-800">
+                  Phone alerts for crop risks
+                </h3>
+                <p className="text-sm text-ink-500 mt-1">
+                  Get notified when new high-priority farmer alerts are detected.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={requestPhoneNotifications}
+              disabled={notificationPermission === "unsupported"}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+            >
+              <Bell size={16} />
+              {notificationPermission === "granted"
+                ? "Alerts enabled"
+                : notificationPermission === "denied"
+                ? "Allow in browser settings"
+                : notificationPermission === "unsupported"
+                ? "Not supported"
+                : "Enable phone alerts"}
+            </button>
+          </div>
         </div>
       </section>
 
