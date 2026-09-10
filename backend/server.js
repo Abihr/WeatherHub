@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const Groq = require("groq-sdk");
+const {
+    getAgricultureData,
+} = require("./agricultureService");
 
 dotenv.config({
     path: __dirname + "/.env",
@@ -448,9 +451,403 @@ function isCurrentLocationQuery(message) {
     return false;
 }
 
+const railwayStations = [
+    {
+        id: "1",
+        name: "Mumbai Central",
+        code: "BCT",
+        zone: "Western",
+        city: "Mumbai",
+        latitude: 18.9696,
+        longitude: 72.8194,
+    },
+    {
+        id: "2",
+        name: "Delhi Junction",
+        code: "DLI",
+        zone: "Northern",
+        city: "Delhi",
+        latitude: 28.6448,
+        longitude: 77.2167,
+    },
+    {
+        id: "3",
+        name: "Kolkata Howrah",
+        code: "HWH",
+        zone: "Eastern",
+        city: "Kolkata",
+        latitude: 22.5839,
+        longitude: 88.3426,
+    },
+    {
+        id: "4",
+        name: "Chennai Central",
+        code: "MAS",
+        zone: "Southern",
+        city: "Chennai",
+        latitude: 13.0827,
+        longitude: 80.2707,
+    },
+    {
+        id: "5",
+        name: "Surat",
+        code: "ST",
+        zone: "Western",
+        city: "Surat",
+        latitude: 21.2049,
+        longitude: 72.8401,
+    },
+    {
+        id: "6",
+        name: "Patna Junction",
+        code: "PNBE",
+        zone: "East Central",
+        city: "Patna",
+        latitude: 25.5941,
+        longitude: 85.1376,
+    },
+    {
+        id: "7",
+        name: "Lucknow Charbagh",
+        code: "LKO",
+        zone: "Northern",
+        city: "Lucknow",
+        latitude: 26.832,
+        longitude: 80.9215,
+    },
+];
+
+function getRailwayWeatherStatus(rainfall, windSpeed) {
+    if (rainfall >= 50 || windSpeed >= 50) {
+        return "Critical";
+    }
+
+    if (rainfall >= 25 || windSpeed >= 35) {
+        return "Alert";
+    }
+
+    if (rainfall >= 10 || windSpeed >= 25) {
+        return "Caution";
+    }
+
+    return "Safe";
+}
+
+app.get("/api/railway_weather", async (req, res) => {
+    try {
+        const apiKey = process.env.WEATHER_API_KEY;
+
+        const results = await Promise.all(
+            railwayStations.map(async (station) => {
+                const response = apiKey
+                    ? await fetch(
+                          `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
+                              station.city
+                          )},IN&appid=${encodeURIComponent(
+                              apiKey
+                          )}&units=metric`
+                      )
+                    : await fetch(
+                          `https://api.open-meteo.com/v1/forecast?latitude=${station.latitude}&longitude=${station.longitude}&current=temperature_2m,relative_humidity_2m,rain,wind_speed_10m&wind_speed_unit=kmh`
+                      );
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        `${station.city}: ${
+                            data.message ||
+                            "Weather API request failed"
+                        }`
+                    );
+                }
+
+                const rainfall = apiKey
+                    ? data.rain?.["1h"] ??
+                      data.rain?.["3h"] ??
+                      0
+                    : data.current?.rain ?? 0;
+                const windSpeed = Math.round(
+                    apiKey
+                        ? (data.wind?.speed ?? 0) * 3.6
+                        : data.current?.wind_speed_10m ?? 0
+                );
+                const weatherStatus =
+                    getRailwayWeatherStatus(
+                        rainfall,
+                        windSpeed
+                    );
+
+                return {
+                    id: station.id,
+                    stationName: station.name,
+                    stationCode: station.code,
+                    zone: station.zone,
+                    city: station.city,
+                    latitude: station.latitude,
+                    longitude: station.longitude,
+                    weatherStatus,
+                    temperature: Math.round(
+                        apiKey
+                            ? data.main?.temp ?? 0
+                            : data.current?.temperature_2m ?? 0
+                    ),
+                    humidity: apiKey
+                        ? data.main?.humidity ?? 0
+                        : data.current?.relative_humidity_2m ?? 0,
+                    rainfall,
+                    windSpeed,
+                    lastUpdated: new Date().toISOString(),
+                    waterLevel: null,
+                    trainDelays: null,
+                    routeStatus: "Unknown",
+                    alertMessage:
+                        weatherStatus === "Critical"
+                            ? "Severe weather conditions detected. Immediate monitoring advised."
+                            : weatherStatus === "Alert"
+                            ? "Severe weather conditions detected. Track monitoring advised."
+                            : weatherStatus === "Caution"
+                            ? "Moderate weather conditions detected. Continue monitoring."
+                            : null,
+                };
+            })
+        );
+
+        return res.json(results);
+    } catch (error) {
+        console.error(
+            "/api/railway_weather error:",
+            error
+        );
+
+        return res.status(500).json({
+            error:
+                error.message ||
+                "Failed to fetch railway weather data",
+        });
+    }
+});
+
+app.get("/api/agriculture", async (req, res) => {
+    try {
+        const crops = String(req.query.crops || "")
+            .split(",")
+            .map((crop) => crop.trim())
+            .filter(Boolean);
+
+        const data = await getAgricultureData({
+            city: req.query.city || "Pune",
+            crops,
+            farmName: req.query.farmName || "Green Valley Farm",
+            area: req.query.area || "12 Acres",
+            soilType: req.query.soilType || "Black Soil",
+        });
+
+        return res.json(data);
+    } catch (error) {
+        console.error("/api/agriculture error:", error);
+
+        return res.status(500).json({
+            error:
+                error.message ||
+                "Failed to fetch agriculture data",
+        });
+    }
+});
+
+app.get("/api/farmer", async (req, res) => {
+    try {
+        const city = String(req.query.city || "").trim();
+        const crop = String(req.query.crop || "").trim();
+
+        if (!city || !crop) {
+            return res.status(400).json({
+                error: "City and crop are required",
+            });
+        }
+
+        const geocodingResponse = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+                city
+            )}&count=1&language=en&format=json`
+        );
+        const geocodingData = await geocodingResponse.json();
+        const location = geocodingData.results?.[0];
+
+        if (!location) {
+            return res.status(404).json({
+                error: `Location not found: ${city}`,
+            });
+        }
+
+        const weatherResponse = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,rain,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,rain_sum,precipitation_probability_max,weather_code&forecast_days=7&timezone=auto&wind_speed_unit=kmh`
+        );
+        const weatherData = await weatherResponse.json();
+
+        if (!weatherResponse.ok) {
+            throw new Error(
+                weatherData.reason ||
+                    "Weather service request failed"
+            );
+        }
+
+        const current = weatherData.current || {};
+        const temperature = current.temperature_2m ?? 0;
+        const humidity = current.relative_humidity_2m ?? 0;
+        const windSpeed = current.wind_speed_10m ?? 0;
+        const rainfall = current.rain ?? 0;
+        const risks = [];
+
+        if (humidity >= 80) {
+            risks.push({
+                type: "Disease Risk",
+                severity: "Medium",
+                message: `High humidity may increase disease risk in ${crop}.`,
+                action: "Inspect crops for fungal infection.",
+            });
+        }
+
+        if (rainfall >= 25) {
+            risks.push({
+                type: "Heavy Rain",
+                severity: "High",
+                message: "Heavy rainfall may affect field conditions.",
+                action: "Check drainage and avoid unnecessary irrigation.",
+            });
+        }
+
+        if (temperature >= 35) {
+            risks.push({
+                type: "Heat Stress",
+                severity: "High",
+                message: `High temperature may cause heat stress in ${crop}.`,
+                action: "Monitor soil moisture and irrigation requirements.",
+            });
+        }
+
+        if (windSpeed >= 35) {
+            risks.push({
+                type: "Strong Wind",
+                severity: "Medium",
+                message: "Strong winds may cause physical crop damage.",
+                action: "Inspect crops for lodging or physical damage.",
+            });
+        }
+
+        if (risks.length === 0) {
+            risks.push({
+                type: "Weather Status",
+                severity: "Low",
+                message: `Current weather conditions look favorable for ${crop}.`,
+                action: "Continue normal farm monitoring.",
+            });
+        }
+
+        const daily = weatherData.daily || {};
+        const forecast = (daily.time || []).map((date, index) => ({
+            date,
+            temperature: {
+                min: daily.temperature_2m_min?.[index] ?? 0,
+                max: daily.temperature_2m_max?.[index] ?? 0,
+            },
+            humidity,
+            rainfall: daily.rain_sum?.[index] ?? 0,
+            precipitationProbability:
+                daily.precipitation_probability_max?.[index] ?? 0,
+            windSpeed,
+            condition: "Weather",
+            description: "",
+        }));
+
+        return res.json({
+            location: location.name || city,
+            crop,
+            temperature,
+            feelsLike: temperature,
+            humidity,
+            windSpeed,
+            condition: "Current conditions",
+            rainfall,
+            forecast,
+            risks,
+        });
+    } catch (error) {
+        console.error("/api/farmer error:", error);
+
+        return res.status(500).json({
+            error:
+                error.message ||
+                "Failed to fetch farmer weather",
+        });
+    }
+});
+
 app.get("/api/weather", async (req, res) => {
     try {
-        const { location } = req.query;
+        const {
+            location,
+            lat,
+            lon,
+        } = req.query;
+
+        if (lat !== undefined || lon !== undefined) {
+            const latitude = Number(lat);
+            const longitude = Number(lon);
+
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude) ||
+                latitude < -90 ||
+                latitude > 90 ||
+                longitude < -180 ||
+                longitude > 180
+            ) {
+                return res.status(400).json({
+                    error: "Invalid latitude or longitude",
+                });
+            }
+
+            if (process.env.WEATHER_API_KEY) {
+                return res.json(
+                    await getWeatherByCoordinates(
+                        latitude,
+                        longitude
+                    )
+                );
+            }
+
+            const response = await fetch(
+                `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,rain,pressure_msl,wind_speed_10m,wind_direction_10m,weather_code&timezone=auto&wind_speed_unit=ms`
+            );
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.reason ||
+                        "Weather service request failed"
+                );
+            }
+
+            const current = data.current || {};
+
+            return res.json({
+                location: "Current location",
+                country: "",
+                latitude,
+                longitude,
+                temperature: current.temperature_2m,
+                feelsLike: current.temperature_2m,
+                humidity: current.relative_humidity_2m,
+                pressure: current.pressure_msl,
+                windSpeed: current.wind_speed_10m,
+                windDirection: current.wind_direction_10m,
+                rainfall: current.rain ?? 0,
+                condition: "Current conditions",
+                weatherMain: "Current",
+                visibility: null,
+            });
+        }
 
         if (!location) {
             return res.status(400).json({
@@ -955,8 +1352,11 @@ app.get("/", (req, res) => {
 const PORT =
     process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+const HOST =
+    process.env.HOST || "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
     console.log(
-        `WeatherGPT backend running on port ${PORT}`
+        `WeatherGPT backend running on ${HOST}:${PORT}`
     );
 });
