@@ -35,7 +35,7 @@ export default function Settings() {
       <div className="rounded-xl2 bg-white shadow-card p-5 flex flex-col gap-4">
 
         {/* Temperature units */}
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <span className="flex items-center gap-2.5 text-sm font-medium text-ink-700">
             <Thermometer size={16} className="text-sky-500" />
             Temperature Units
@@ -56,10 +56,10 @@ export default function Settings() {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Nearby radius */}
-        <div className="flex items-center justify-between pt-4 border-t border-sky-50">
+        {/* <div className="flex items-center justify-between pt-4 border-t border-sky-50">
           <span className="flex items-center gap-2.5 text-sm font-medium text-ink-700">
             <Radius size={16} className="text-sky-500" />
             Nearby Radius
@@ -68,16 +68,16 @@ export default function Settings() {
           <span className="text-sm text-ink-500">
             {radius} km
           </span>
-        </div>
+        </div> */}
 
-        <input
+        {/* <input
           type="range"
           min="1"
           max="50"
           value={radius}
           onChange={(e) => setRadius(Number(e.target.value))}
           className="accent-sky-500 -mt-2"
-        />
+        /> */}
 
         {/* Weather notifications */}
         <div className="flex items-center justify-between pt-4 border-t border-sky-50">
