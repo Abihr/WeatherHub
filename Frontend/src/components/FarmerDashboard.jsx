@@ -756,7 +756,7 @@ const FarmerDashboard = () => {
           ERROR
       ====================================================== */}
 
-      {error && (
+      {/* {error && (
         <div
           className="
           mb-6
@@ -779,7 +779,7 @@ const FarmerDashboard = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* =====================================================
           FARM OVERVIEW
