@@ -6,7 +6,7 @@ const DEFAULT_CROPS = [
 
 const {
     predictYield,
-} = require("./yieldModel");
+} = require("../../../backend/yieldModel");
 
 const CROP_YIELD_BASELINES = {
     wheat: {

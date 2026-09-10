@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 const Groq = require("groq-sdk");
 const {
     getAgricultureData,
-} = require("./agricultureService");
+} = require("../Frontend/src/services/agricultureService");
 
 dotenv.config({
     path: __dirname + "/.env",
