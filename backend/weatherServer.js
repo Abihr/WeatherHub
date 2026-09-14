@@ -215,6 +215,65 @@ app.get("/api/agriculture", async (req, res) => {
 });
 
 // ======================================================
+// RAILWAY WEATHER API
+// ======================================================
+
+app.get("/api/railway_weather", async (req, res) => {
+  try {
+    const latitude = Number(req.query.lat || 22.5726);
+    const longitude = Number(req.query.lon || 88.3639);
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return res.status(400).json({
+        error: "Invalid latitude or longitude",
+      });
+    }
+
+    const url =
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${encodeURIComponent(latitude)}` +
+      `&longitude=${encodeURIComponent(longitude)}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m` +
+      `&hourly=temperature_2m,precipitation_probability,precipitation,rain,weather_code,wind_speed_10m` +
+      `&timezone=Asia%2FKolkata` +
+      `&forecast_days=1`;
+
+    console.log(
+      "🚆 Railway weather request:",
+      latitude,
+      longitude
+    );
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Open-Meteo returned status ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    return res.json(data);
+  } catch (error) {
+    console.error(
+      "❌ /api/railway_weather error:",
+      error
+    );
+
+    return res.status(500).json({
+      error:
+        error.message ||
+        "Failed to fetch railway weather data",
+    });
+  }
+});
+
+
+// ======================================================
 // TEST WEATHER API
 // ======================================================
 

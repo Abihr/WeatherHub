@@ -1,5 +1,6 @@
-import React from 'react';
-import FarmerDashboard from '../components/FarmerDashboard';
+
+import React from "react";
+import FarmerDashboard from "../components/FarmerDashboard";
 
 const Farmer = () => {
   return (
@@ -10,3 +11,4 @@ const Farmer = () => {
 };
 
 export default Farmer;
+
