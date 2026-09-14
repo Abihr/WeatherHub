@@ -2,7 +2,8 @@ const API_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
 
 export async function sendChatMessage(
     message,
-    currentLocation
+    currentLocation,
+    conversationHistory
 ) {
     const response = await fetch(
         `${API_URL}/api/chat`,
@@ -16,6 +17,7 @@ export async function sendChatMessage(
             body: JSON.stringify({
                 message,
                 currentLocation,
+                conversationHistory,
             }),
         }
     );

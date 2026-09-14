@@ -51,6 +51,12 @@ export default function Chatbot() {
     const [loading, setLoading] = useState(false);
 
     // --------------------------------------------------------
+    // CHAT SCROLL REF
+    // --------------------------------------------------------
+
+    const messagesContainerRef = useRef(null);
+
+    // --------------------------------------------------------
     // VOICE STATE
     // --------------------------------------------------------
 
@@ -81,6 +87,25 @@ export default function Chatbot() {
 
     const [availableVoices, setAvailableVoices] =
         useState([]);
+
+    // ========================================================
+    // AUTO SCROLL CHAT
+    // ========================================================
+
+    useEffect(() => {
+        const container =
+            messagesContainerRef.current;
+
+        if (!container) {
+            return;
+        }
+
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+        });
+
+    }, [messages, loading]);
 
     // ========================================================
     // LOAD BROWSER VOICES
@@ -307,7 +332,6 @@ export default function Chatbot() {
 
         // ----------------------------------------------------
         // First: exact Indian locale
-        // Example: gu-IN
         // ----------------------------------------------------
 
         const exactIndianVoice =
@@ -323,7 +347,6 @@ export default function Chatbot() {
 
         // ----------------------------------------------------
         // Second: same language, any region
-        // Example: gu
         // ----------------------------------------------------
 
         const sameLanguageVoice =
@@ -342,10 +365,6 @@ export default function Chatbot() {
         if (sameLanguageVoice) {
             return sameLanguageVoice;
         }
-
-        // ----------------------------------------------------
-        // No matching voice
-        // ----------------------------------------------------
 
         return null;
     }
@@ -527,10 +546,6 @@ export default function Chatbot() {
             return;
         }
 
-        // ----------------------------------------------------
-        // Stop previous speech
-        // ----------------------------------------------------
-
         window.speechSynthesis.cancel();
 
         const utterance =
@@ -538,20 +553,12 @@ export default function Chatbot() {
                 speechText
             );
 
-        // ----------------------------------------------------
-        // Set requested language
-        // ----------------------------------------------------
-
         utterance.lang =
             selectedLanguage;
 
         utterance.rate = 1;
         utterance.pitch = 1;
         utterance.volume = 1;
-
-        // ----------------------------------------------------
-        // Select matching browser voice
-        // ----------------------------------------------------
 
         const selectedVoice =
             getBestVoice(selectedLanguage);
@@ -575,25 +582,13 @@ export default function Chatbot() {
             );
         }
 
-        // ----------------------------------------------------
-        // Speech started
-        // ----------------------------------------------------
-
         utterance.onstart = () => {
             setIsSpeaking(true);
         };
 
-        // ----------------------------------------------------
-        // Speech ended
-        // ----------------------------------------------------
-
         utterance.onend = () => {
             setIsSpeaking(false);
         };
-
-        // ----------------------------------------------------
-        // Speech error
-        // ----------------------------------------------------
 
         utterance.onerror = (event) => {
             console.error(
@@ -603,10 +598,6 @@ export default function Chatbot() {
 
             setIsSpeaking(false);
         };
-
-        // ----------------------------------------------------
-        // Speak
-        // ----------------------------------------------------
 
         window.speechSynthesis.speak(
             utterance
@@ -636,7 +627,10 @@ export default function Chatbot() {
             return;
         }
 
+        // ----------------------------------------------------
         // Stop recording if active
+        // ----------------------------------------------------
+
         if (
             isListening &&
             recognitionRef.current
@@ -644,14 +638,35 @@ export default function Chatbot() {
             recognitionRef.current.stop();
         }
 
+        // ----------------------------------------------------
         // Stop previous speech
+        // ----------------------------------------------------
+
         stopSpeaking();
+
+        // ----------------------------------------------------
+        // Create user message
+        // ----------------------------------------------------
 
         const userMessage = {
             id: Date.now(),
             role: "user",
             text,
         };
+
+        // ----------------------------------------------------
+        // IMPORTANT:
+        // Create the history BEFORE adding the new message.
+        //
+        // This means the backend receives the previous
+        // conversation plus the current message separately.
+        // ----------------------------------------------------
+
+        const conversationHistory =
+            messages.map((message) => ({
+                role: message.role,
+                content: message.text,
+            }));
 
         setMessages((previous) => [
             ...previous,
@@ -661,6 +676,10 @@ export default function Chatbot() {
         setInput("");
         setLoading(true);
         setVoiceError("");
+
+        // ----------------------------------------------------
+        // Current user location
+        // ----------------------------------------------------
 
         const currentLocation = {
             latitude:
@@ -679,11 +698,21 @@ export default function Chatbot() {
             currentLocation
         );
 
+        console.log(
+            "📤 CHATBOT SENDING HISTORY:",
+            conversationHistory
+        );
+
+        // ====================================================
+        // SEND TO BACKEND
+        // ====================================================
+
         try {
             const data =
                 await sendChatMessage(
                     text,
-                    currentLocation
+                    currentLocation,
+                    conversationHistory
                 );
 
             const reply =
@@ -744,6 +773,10 @@ export default function Chatbot() {
         }
     }
 
+    // ========================================================
+    // RENDER
+    // ========================================================
+
     return (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10">
 
@@ -751,7 +784,7 @@ export default function Chatbot() {
                 HEADER
             ------------------------------------------------- */}
 
-            <div className="mb-6">
+            <div className="mb-4">
 
                 <h1 className="text-xl md:text-2xl font-display font-extrabold text-ink-900">
                     WeatherGPT
@@ -773,9 +806,12 @@ export default function Chatbot() {
                     MESSAGES
                 ------------------------------------------------- */}
 
-                <div className="h-[520px] overflow-y-auto px-4 sm:px-7 py-6">
+                <div
+                    ref={messagesContainerRef}
+                    className="h-[400px] overflow-y-auto px-4 sm:px-6 py-4"
+                >
 
-                    <div className="space-y-7">
+                    <div className="space-y-5">
 
                         {messages.map((message) => {
 
@@ -795,8 +831,8 @@ export default function Chatbot() {
                                     {/* Assistant icon */}
 
                                     {!isUser && (
-                                        <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
-                                            <Bot size={18} />
+                                        <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
+                                            <Bot size={17} />
                                         </div>
                                     )}
 
@@ -807,14 +843,14 @@ export default function Chatbot() {
                                         <>
                                             <div className="max-w-[75%]">
 
-                                                <div className="px-4 py-3 rounded-2xl rounded-br-md bg-sky-500 text-white text-sm leading-6">
+                                                <div className="px-4 py-2.5 rounded-2xl rounded-br-md bg-sky-500 text-white text-sm leading-6">
                                                     {message.text}
                                                 </div>
 
                                             </div>
 
-                                            <div className="w-9 h-9 rounded-full bg-ink-100 text-ink-600 flex items-center justify-center shrink-0 mt-1">
-                                                <User size={18} />
+                                            <div className="w-8 h-8 rounded-full bg-ink-100 text-ink-600 flex items-center justify-center shrink-0 mt-1">
+                                                <User size={17} />
                                             </div>
                                         </>
 
@@ -828,7 +864,7 @@ export default function Chatbot() {
                                                 components={{
 
                                                     p: ({ children }) => (
-                                                        <p className="mb-4 last:mb-0">
+                                                        <p className="mb-3 last:mb-0">
                                                             {children}
                                                         </p>
                                                     ),
@@ -846,13 +882,13 @@ export default function Chatbot() {
                                                     ),
 
                                                     ol: ({ children }) => (
-                                                        <ol className="space-y-4 my-4 pl-6 list-decimal marker:font-semibold marker:text-sky-600">
+                                                        <ol className="space-y-3 my-3 pl-6 list-decimal marker:font-semibold marker:text-sky-600">
                                                             {children}
                                                         </ol>
                                                     ),
 
                                                     ul: ({ children }) => (
-                                                        <ul className="space-y-2 my-4 pl-6 list-disc marker:text-sky-500">
+                                                        <ul className="space-y-1.5 my-3 pl-6 list-disc marker:text-sky-500">
                                                             {children}
                                                         </ul>
                                                     ),
@@ -864,31 +900,31 @@ export default function Chatbot() {
                                                     ),
 
                                                     h1: ({ children }) => (
-                                                        <h1 className="text-xl font-bold text-ink-900 mt-5 mb-3">
+                                                        <h1 className="text-xl font-bold text-ink-900 mt-4 mb-2">
                                                             {children}
                                                         </h1>
                                                     ),
 
                                                     h2: ({ children }) => (
-                                                        <h2 className="text-lg font-bold text-ink-900 mt-5 mb-3">
+                                                        <h2 className="text-lg font-bold text-ink-900 mt-4 mb-2">
                                                             {children}
                                                         </h2>
                                                     ),
 
                                                     h3: ({ children }) => (
-                                                        <h3 className="text-base font-bold text-ink-900 mt-4 mb-2">
+                                                        <h3 className="text-base font-bold text-ink-900 mt-3 mb-2">
                                                             {children}
                                                         </h3>
                                                     ),
 
                                                     blockquote: ({ children }) => (
-                                                        <blockquote className="border-l-4 border-sky-300 pl-4 my-4 text-ink-500 italic">
+                                                        <blockquote className="border-l-4 border-sky-300 pl-4 my-3 text-ink-500 italic">
                                                             {children}
                                                         </blockquote>
                                                     ),
 
                                                     hr: () => (
-                                                        <hr className="my-5 border-ink-100" />
+                                                        <hr className="my-4 border-ink-100" />
                                                     ),
 
                                                     code: ({ children }) => (
@@ -925,7 +961,7 @@ export default function Chatbot() {
                                                                 message.text
                                                             )
                                                     }
-                                                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink-400 hover:text-sky-600 transition-colors"
+                                                    className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-400 hover:text-sky-600 transition-colors"
                                                 >
                                                     {isSpeaking ? (
                                                         <>
@@ -948,16 +984,18 @@ export default function Chatbot() {
                             );
                         })}
 
-                        {/* Loading */}
+                        {/* ------------------------------------------------
+                            LOADING
+                        ------------------------------------------------- */}
 
                         {loading && (
                             <div className="flex gap-3 justify-start">
 
-                                <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
-                                    <Bot size={18} />
+                                <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
+                                    <Bot size={17} />
                                 </div>
 
-                                <div className="flex items-center gap-1.5 pt-3">
+                                <div className="flex items-center gap-1.5 pt-2">
 
                                     <span className="w-2 h-2 rounded-full bg-ink-300 animate-bounce" />
 
@@ -986,13 +1024,12 @@ export default function Chatbot() {
 
                 </div>
 
-
                 {/* ------------------------------------------------
                     VOICE ERROR
                 ------------------------------------------------- */}
 
                 {voiceError && (
-                    <div className="px-4 sm:px-7 pb-2">
+                    <div className="px-4 sm:px-6 pb-2">
 
                         <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                             {voiceError}
@@ -1000,7 +1037,6 @@ export default function Chatbot() {
 
                     </div>
                 )}
-
 
                 {/* ------------------------------------------------
                     INPUT AREA
@@ -1049,7 +1085,6 @@ export default function Chatbot() {
 
                         </div>
 
-
                         {/* Voice status */}
 
                         {isListening && (
@@ -1063,7 +1098,6 @@ export default function Chatbot() {
                         )}
 
                     </div>
-
 
                     <div className="flex items-center gap-2">
 
@@ -1084,9 +1118,8 @@ export default function Chatbot() {
                                     : "Ask WeatherGPT..."
                             }
                             disabled={loading}
-                            className="flex-1 px-4 py-3 rounded-xl bg-sky-50 border border-sky-100 outline-none text-sm text-ink-800 placeholder:text-ink-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-100 outline-none text-sm text-ink-800 placeholder:text-ink-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
                         />
-
 
                         {/* Microphone */}
 
@@ -1104,7 +1137,7 @@ export default function Chatbot() {
                                     ? "Stop listening"
                                     : "Start voice input"
                             }
-                            className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                                 isListening
                                     ? "bg-red-500 text-white hover:bg-red-600"
                                     : "bg-sky-100 text-sky-600 hover:bg-sky-200"
@@ -1112,13 +1145,12 @@ export default function Chatbot() {
                         >
 
                             {isListening ? (
-                                <MicOff size={18} />
+                                <MicOff size={17} />
                             ) : (
-                                <Mic size={18} />
+                                <Mic size={17} />
                             )}
 
                         </button>
-
 
                         {/* Send */}
 
@@ -1128,10 +1160,10 @@ export default function Chatbot() {
                                 !input.trim() ||
                                 loading
                             }
-                            className="w-11 h-11 rounded-xl bg-sky-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-sky-600 transition-colors shrink-0"
+                            className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-sky-600 transition-colors shrink-0"
                         >
 
-                            <Send size={18} />
+                            <Send size={17} />
 
                         </button>
 
@@ -1143,3 +1175,4 @@ export default function Chatbot() {
         </div>
     );
 }
+
