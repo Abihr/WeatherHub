@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from "react";
+
 import {
   Train,
   AlertTriangle,
@@ -32,113 +34,94 @@ const RailwayWeather = () => {
   const [showAlert, setShowAlert] = useState(true);
   const [expandedCard, setExpandedCard] = useState(null);
 
-  // Nearby stations state
   const [nearbyMode, setNearbyMode] = useState(false);
   const [locationError, setLocationError] = useState(null);
 
-  // Fetch railway weather data from the Vercel API
+  // ======================================================
+  // FETCH RAILWAY WEATHER DATA
+  // ======================================================
 
   const fetchWeatherData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const API_URL = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+      const API_URL = (
+        import.meta.env.VITE_API_URL || ""
+      ).replace(/\/$/, "");
 
-      const response = await fetch(`${API_URL}/api/railway_weather`);
+      const response = await fetch(
+        `${API_URL}/api/railway_weather`
+      );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch railway weather data (${response.status})`,
+          `Failed to fetch railway weather data (${response.status})`
         );
       }
 
       const data = await response.json();
 
-      // Open-Meteo returns an object, not an array.
-      if (!data || !data.current || !data.hourly) {
-        throw new Error("Invalid railway weather data received");
+      // Backend returns an array of stations
+      if (!Array.isArray(data)) {
+        throw new Error(
+          "Invalid railway weather data received"
+        );
       }
 
-      const current = data.current;
-
-      // Convert Open-Meteo data into the structure
-      // expected by the Railway Weather UI.
-      const railwayWeather = [
-        {
-          id: "HWH",
-          stationName: "Kolkata Howrah",
-          stationCode: "HWH",
-          zone: "Eastern",
-
-          latitude: data.latitude,
-          longitude: data.longitude,
-
-          temperature: current.temperature_2m ?? null,
-
-          humidity: current.relative_humidity_2m ?? null,
-
-          rainfall: current.rain ?? 0,
-
-          windSpeed: current.wind_speed_10m ?? 0,
-
-          weatherCode: current.weather_code ?? null,
-
-          weatherStatus:
-            current.weather_code >= 95
-              ? "Critical"
-              : current.weather_code >= 80
-                ? "Alert"
-                : current.weather_code >= 61
-                  ? "Caution"
-                  : "Safe",
-
-          waterLevel: null,
-
-          routeStatus: current.weather_code >= 95 ? "Partially Closed" : "Open",
-
-          trainDelays:
-            current.weather_code >= 95 ? 3 : current.weather_code >= 80 ? 1 : 0,
-
-          alertMessage:
-            current.weather_code >= 95
-              ? "Severe weather conditions detected."
-              : current.weather_code >= 80
-                ? "Heavy rain may affect railway operations."
-                : current.weather_code >= 61
-                  ? "Rain conditions detected. Monitor updates."
-                  : null,
-
-          lastUpdated: current.time || new Date().toISOString(),
-        },
-      ];
-
-      setWeatherData(railwayWeather);
+      setWeatherData(data);
     } catch (error) {
-      console.error("Railway weather error:", error);
+      console.error(
+        "Railway weather error:",
+        error
+      );
 
-      setError(error.message || "Failed to load railway weather data");
+      setError(
+        error.message ||
+          "Failed to load railway weather data"
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch data when the page loads
+  // ======================================================
+  // LOAD DATA
+  // ======================================================
+
   useEffect(() => {
     fetchWeatherData();
   }, []);
 
+  // ======================================================
+  // FILTER
+  // ======================================================
+
   const filteredData =
     selectedStation === "all"
       ? weatherData
-      : weatherData.filter((w) => w.stationCode === selectedStation);
+      : weatherData.filter(
+          (w) =>
+            w.stationCode === selectedStation
+        );
 
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  // ======================================================
+  // HAVERSINE DISTANCE
+  // ======================================================
+
+  const calculateDistance = (
+    lat1,
+    lon1,
+    lat2,
+    lon2
+  ) => {
     const R = 6371;
 
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const dLat =
+      ((lat2 - lat1) * Math.PI) / 180;
+
+    const dLon =
+      ((lon2 - lon1) * Math.PI) / 180;
 
     const a =
       Math.sin(dLat / 2) ** 2 +
@@ -146,57 +129,86 @@ const RailwayWeather = () => {
         Math.cos((lat2 * Math.PI) / 180) *
         Math.sin(dLon / 2) ** 2;
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c =
+      2 *
+      Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
 
     return R * c;
   };
 
-  // Find stations nearest to the user's current location
+  // ======================================================
+  // NEARBY STATIONS
+  // ======================================================
+
   const findNearbyStations = () => {
     setLocationError(null);
 
     if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser.");
+      setLocationError(
+        "Geolocation is not supported by your browser."
+      );
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const userLatitude = position.coords.latitude;
-        const userLongitude = position.coords.longitude;
+        const userLatitude =
+          position.coords.latitude;
 
-        const stationsWithDistance = weatherData
-          .filter(
-            (station) =>
-              typeof station.latitude === "number" &&
-              typeof station.longitude === "number",
-          )
-          .map((station) => ({
-            ...station,
-            distance: calculateDistance(
-              userLatitude,
-              userLongitude,
-              station.latitude,
-              station.longitude,
-            ),
-          }))
-          .sort((a, b) => a.distance - b.distance);
+        const userLongitude =
+          position.coords.longitude;
 
-        setWeatherData(stationsWithDistance);
+        const stationsWithDistance =
+          weatherData
+            .filter(
+              (station) =>
+                typeof station.latitude ===
+                  "number" &&
+                typeof station.longitude ===
+                  "number"
+            )
+            .map((station) => ({
+              ...station,
+              distance:
+                calculateDistance(
+                  userLatitude,
+                  userLongitude,
+                  station.latitude,
+                  station.longitude
+                ),
+            }))
+            .sort(
+              (a, b) =>
+                a.distance - b.distance
+            );
+
+        setWeatherData(
+          stationsWithDistance
+        );
+
         setSelectedStation("all");
         setNearbyMode(true);
       },
       (locationError) => {
-        console.error("Geolocation error:", locationError);
+        console.error(
+          "Geolocation error:",
+          locationError
+        );
 
         setLocationError(
-          "Unable to access your location. Please allow location access.",
+          "Unable to access your location. Please allow location access."
         );
-      },
+      }
     );
   };
 
-  // Reset nearby mode
+  // ======================================================
+  // SHOW ALL STATIONS
+  // ======================================================
+
   const showAllStations = () => {
     setNearbyMode(false);
     setLocationError(null);
@@ -205,17 +217,24 @@ const RailwayWeather = () => {
     fetchWeatherData();
   };
 
-  // Status helpers
+  // ======================================================
+  // STATUS HELPERS
+  // ======================================================
+
   const getStatusColor = (status) => {
     switch (status) {
       case "Safe":
         return "border-green-500";
+
       case "Caution":
         return "border-yellow-500";
+
       case "Alert":
         return "border-orange-500";
+
       case "Critical":
         return "border-red-600";
+
       default:
         return "border-gray-500";
     }
@@ -225,12 +244,16 @@ const RailwayWeather = () => {
     switch (status) {
       case "Safe":
         return "bg-green-50 text-green-700";
+
       case "Caution":
         return "bg-yellow-50 text-yellow-700";
+
       case "Alert":
         return "bg-orange-50 text-orange-700";
+
       case "Critical":
         return "bg-red-50 text-red-700";
+
       default:
         return "bg-gray-50 text-gray-700";
     }
@@ -240,63 +263,114 @@ const RailwayWeather = () => {
     switch (status) {
       case "Open":
         return "bg-green-100 text-green-800";
+
       case "Partially Closed":
         return "bg-yellow-100 text-yellow-800";
+
       case "Closed":
         return "bg-red-100 text-red-800";
+
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
 
   const getWaterLevelColor = (level) => {
-    if (level === null || level === undefined) {
+    if (
+      level === null ||
+      level === undefined
+    ) {
       return "text-gray-500";
     }
 
-    if (level > 4) return "text-red-600";
-    if (level > 3) return "text-orange-500";
-    if (level > 2) return "text-yellow-500";
+    if (level > 4)
+      return "text-red-600";
+
+    if (level > 3)
+      return "text-orange-500";
+
+    if (level > 2)
+      return "text-yellow-500";
 
     return "text-green-600";
   };
 
-  const hasCriticalAlerts = weatherData.some(
-    (w) => w.weatherStatus === "Critical",
-  );
+  // ======================================================
+  // ALERTS
+  // ======================================================
 
-  const criticalCount = weatherData.filter(
-    (w) => w.weatherStatus === "Critical",
-  ).length;
+  const hasCriticalAlerts =
+    weatherData.some(
+      (w) =>
+        w.weatherStatus ===
+        "Critical"
+    );
+
+  const criticalCount =
+    weatherData.filter(
+      (w) =>
+        w.weatherStatus ===
+        "Critical"
+    ).length;
+
+  // ======================================================
+  // REFRESH
+  // ======================================================
 
   const refreshData = () => {
     fetchWeatherData();
+
     setNearbyMode(false);
     setLocationError(null);
     setSelectedStation("all");
   };
 
+  // ======================================================
+  // EXPAND CARD
+  // ======================================================
+
   const toggleExpand = (id) => {
-    setExpandedCard(expandedCard === id ? null : id);
+    setExpandedCard(
+      expandedCard === id
+        ? null
+        : id
+    );
   };
 
-  // Data displayed on the page
+  // ======================================================
+  // DISPLAY DATA
+  // ======================================================
+
   const displayData = nearbyMode
     ? filteredData.filter(
-        (station) => station.distance !== undefined && station.distance <= 100,
+        (station) =>
+          station.distance !==
+            undefined &&
+          station.distance <= 100
       )
     : filteredData;
 
+  // ======================================================
+  // UI
+  // ======================================================
+
   return (
     <div className="min-h-screen bg-ink-50/50 p-3 sm:p-4 md:p-6">
+
       {/* Header */}
+
       <div className="flex flex-wrap justify-between items-center mb-6">
+
         <div className="flex items-center gap-3 min-w-0">
+
           <div className="p-3 bg-sky-100 rounded-xl shrink-0">
+
             <Train className="w-6 h-6 text-sky-600" />
+
           </div>
 
           <div className="min-w-0">
+
             <h2 className="text-xl sm:text-2xl font-display font-bold text-ink-900">
               Railway Weather Updates
             </h2>
@@ -304,18 +378,23 @@ const RailwayWeather = () => {
             <p className="text-xs sm:text-sm text-ink-400">
               Real-time flood alerts & weather monitoring for railway stations
             </p>
+
           </div>
+
         </div>
 
         <div className="flex items-center gap-3 mt-3 sm:mt-0 w-full sm:w-auto">
+
           {criticalCount > 0 && (
             <div className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-full">
+
               <AlertCircle className="w-4 h-4" />
 
               <span className="text-sm font-medium">
                 {criticalCount} Critical Alert
                 {criticalCount > 1 ? "s" : ""}
               </span>
+
             </div>
           )}
 
@@ -324,364 +403,577 @@ const RailwayWeather = () => {
             disabled={loading}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium ml-auto"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+
+            <RefreshCw
+              className={`w-4 h-4 ${
+                loading
+                  ? "animate-spin"
+                  : ""
+              }`}
+            />
+
             Refresh
+
           </button>
+
         </div>
+
       </div>
 
-      {/* Error Message */}
+      {/* Error */}
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
+
           <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
 
           <div>
+
             <p className="text-red-600 font-medium">
               Failed to load railway weather
             </p>
 
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-red-500">
+              {error}
+            </p>
+
           </div>
+
         </div>
       )}
 
       {/* Location Error */}
+
       {locationError && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
+
           <MapPin className="w-5 h-5 text-yellow-600 shrink-0" />
 
-          <p className="text-sm text-yellow-700">{locationError}</p>
+          <p className="text-sm text-yellow-700">
+            {locationError}
+          </p>
+
         </div>
       )}
 
-      {/* Critical Alert Banner */}
-      {hasCriticalAlerts && showAlert && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex flex-wrap justify-between items-center gap-3">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-6 h-6 text-red-500 animate-pulse shrink-0" />
+      {/* Critical Alert */}
 
-            <div>
-              <p className="text-red-600 font-medium">
-                ⚠️ Critical Weather Alert
-              </p>
+      {hasCriticalAlerts &&
+        showAlert && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex flex-wrap justify-between items-center gap-3">
 
-              <p className="text-sm text-ink-500">
-                Multiple stations reporting severe weather conditions. Immediate
-                attention required.
-              </p>
+            <div className="flex items-center gap-3">
+
+              <AlertTriangle className="w-6 h-6 text-red-500 animate-pulse shrink-0" />
+
+              <div>
+
+                <p className="text-red-600 font-medium">
+                  ⚠️ Critical Weather Alert
+                </p>
+
+                <p className="text-sm text-ink-500">
+                  Multiple stations reporting severe weather conditions. Immediate attention required.
+                </p>
+
+              </div>
+
             </div>
-          </div>
 
-          <button
-            onClick={() => setShowAlert(false)}
-            className="text-ink-400 hover:text-ink-700 transition-colors"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+            <button
+              onClick={() =>
+                setShowAlert(false)
+              }
+              className="text-ink-400 hover:text-ink-700 transition-colors"
+            >
+              ✕
+            </button>
+
+          </div>
+        )}
 
       {/* Filters */}
+
       <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 mb-6">
+
         <select
           value={selectedStation}
           onChange={(e) => {
-            setSelectedStation(e.target.value);
+            setSelectedStation(
+              e.target.value
+            );
+
             setNearbyMode(false);
           }}
           className="w-full sm:w-auto px-4 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-700 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent text-sm"
         >
-          <option value="all">All Stations ({weatherData.length})</option>
 
-          {MOCK_STATIONS.map((station) => (
-            <option key={station.id} value={station.code}>
-              {station.name} ({station.code})
-            </option>
-          ))}
+          <option value="all">
+            All Stations ({weatherData.length})
+          </option>
+
+          {MOCK_STATIONS.map(
+            (station) => (
+              <option
+                key={station.id}
+                value={station.code}
+              >
+                {station.name} ({station.code})
+              </option>
+            )
+          )}
+
         </select>
 
         <div className="flex gap-2 w-full sm:w-auto">
+
           {!nearbyMode ? (
             <button
-              onClick={findNearbyStations}
+              onClick={
+                findNearbyStations
+              }
               className="w-full sm:w-auto px-4 py-2.5 bg-white border border-ink-200 rounded-lg text-ink-600 hover:bg-ink-50 transition-colors text-sm flex items-center justify-center gap-2"
             >
+
               <MapPin className="w-4 h-4" />
+
               Nearby Stations
+
             </button>
           ) : (
             <button
-              onClick={showAllStations}
+              onClick={
+                showAllStations
+              }
               className="w-full sm:w-auto px-4 py-2.5 bg-sky-100 border border-sky-200 rounded-lg text-sky-700 hover:bg-sky-200 transition-colors text-sm flex items-center justify-center gap-2"
             >
+
               <MapPin className="w-4 h-4" />
+
               Show All Stations
+
             </button>
           )}
+
         </div>
+
       </div>
 
-      {/* Nearby information */}
+      {/* Nearby Info */}
+
       {nearbyMode && (
         <div className="mb-6 p-3 bg-sky-50 border border-sky-100 rounded-xl text-sm text-sky-700 flex items-center gap-2">
+
           <MapPin className="w-4 h-4 shrink-0" />
+
           Showing stations within 100 km of your current location.
+
         </div>
       )}
 
-      {/* Loading State */}
-      {loading && weatherData.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl shadow-card">
-          <RefreshCw className="w-10 h-10 text-sky-500 mx-auto mb-4 animate-spin" />
+      {/* Loading */}
 
-          <p className="text-ink-500 text-lg font-medium">
-            Loading railway weather...
-          </p>
+      {loading &&
+        weatherData.length === 0 && (
+          <div className="text-center py-16 bg-white rounded-xl shadow-card">
 
-          <p className="text-ink-400 text-sm">
-            Fetching the latest station weather data
-          </p>
-        </div>
-      )}
+            <RefreshCw className="w-10 h-10 text-sky-500 mx-auto mb-4 animate-spin" />
 
-      {/* Stats Summary */}
-      {!loading && weatherData.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-card">
-            <p className="text-sm text-ink-400">
-              {nearbyMode ? "Nearby Stations" : "Total Stations"}
+            <p className="text-ink-500 text-lg font-medium">
+              Loading railway weather...
             </p>
 
-            <p className="text-2xl font-bold text-ink-900">
-              {displayData.length}
+            <p className="text-ink-400 text-sm">
+              Fetching the latest station weather data
             </p>
+
           </div>
+        )}
 
-          <div className="bg-white rounded-xl p-4 shadow-card">
-            <p className="text-sm text-ink-400">Critical Alerts</p>
+      {/* Stats */}
 
-            <p
-              className={`text-2xl font-bold ${
-                criticalCount > 0 ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {criticalCount}
-            </p>
+      {!loading &&
+        weatherData.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+
+            <div className="bg-white rounded-xl p-4 shadow-card">
+
+              <p className="text-sm text-ink-400">
+                {nearbyMode
+                  ? "Nearby Stations"
+                  : "Total Stations"}
+              </p>
+
+              <p className="text-2xl font-bold text-ink-900">
+                {displayData.length}
+              </p>
+
+            </div>
+
+            <div className="bg-white rounded-xl p-4 shadow-card">
+
+              <p className="text-sm text-ink-400">
+                Critical Alerts
+              </p>
+
+              <p
+                className={`text-2xl font-bold ${
+                  criticalCount > 0
+                    ? "text-red-600"
+                    : "text-green-600"
+                }`}
+              >
+                {criticalCount}
+              </p>
+
+            </div>
+
+            <div className="bg-white rounded-xl p-4 shadow-card">
+
+              <p className="text-sm text-ink-400">
+                Trains Delayed
+              </p>
+
+              <p className="text-2xl font-bold text-yellow-600">
+
+                {weatherData.reduce(
+                  (sum, w) =>
+                    sum +
+                    (w.trainDelays || 0),
+                  0
+                )}
+
+              </p>
+
+            </div>
+
+            <div className="bg-white rounded-xl p-4 shadow-card">
+
+              <p className="text-sm text-ink-400">
+                Routes Closed
+              </p>
+
+              <p className="text-2xl font-bold text-red-600">
+
+                {weatherData.filter(
+                  (w) =>
+                    w.routeStatus ===
+                    "Closed"
+                ).length}
+
+              </p>
+
+            </div>
+
           </div>
+        )}
 
-          <div className="bg-white rounded-xl p-4 shadow-card">
-            <p className="text-sm text-ink-400">Trains Delayed</p>
+      {/* Station Cards */}
 
-            <p className="text-2xl font-bold text-yellow-600">
-              {weatherData.reduce((sum, w) => sum + (w.trainDelays || 0), 0)}
-            </p>
-          </div>
+      {!loading &&
+        weatherData.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
 
-          <div className="bg-white rounded-xl p-4 shadow-card">
-            <p className="text-sm text-ink-400">Routes Closed</p>
-
-            <p className="text-2xl font-bold text-red-600">
-              {weatherData.filter((w) => w.routeStatus === "Closed").length}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Station Cards Grid */}
-      {!loading && weatherData.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
-          {displayData.map((station) => (
-            <div
-              key={station.id}
-              className={`bg-white rounded-xl p-4 sm:p-5 border-l-4 shadow-card hover:shadow-pop transition-all ${getStatusColor(
-                station.weatherStatus,
-              )}`}
-            >
-              {/* Header */}
-              <div className="flex justify-between items-start gap-2 mb-3">
-                <div className="min-w-0">
-                  <h3 className="font-display font-semibold text-ink-900 truncate">
-                    {station.stationName}
-                  </h3>
-
-                  <p className="text-sm text-ink-400">{station.stationCode}</p>
-
-                  {station.distance !== undefined && (
-                    <p className="text-xs text-sky-600 mt-1">
-                      {station.distance.toFixed(1)} km away
-                    </p>
-                  )}
-                </div>
-
-                <span
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${getStatusBg(
-                    station.weatherStatus,
+            {displayData.map(
+              (station) => (
+                <div
+                  key={station.id}
+                  className={`bg-white rounded-xl p-4 sm:p-5 border-l-4 shadow-card hover:shadow-pop transition-all ${getStatusColor(
+                    station.weatherStatus
                   )}`}
                 >
-                  {station.weatherStatus}
-                </span>
-              </div>
 
-              {/* Weather Details */}
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
-                  <Thermometer className="w-4 h-4 text-sky-500 shrink-0" />
+                  {/* Header */}
 
-                  <span className="truncate">{station.temperature}°C</span>
-                </div>
+                  <div className="flex justify-between items-start gap-2 mb-3">
 
-                <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
-                  <Droplets className="w-4 h-4 text-sky-500 shrink-0" />
+                    <div className="min-w-0">
 
-                  <span className="truncate">{station.humidity}%</span>
-                </div>
+                      <h3 className="font-display font-semibold text-ink-900 truncate">
+                        {station.stationName}
+                      </h3>
 
-                <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
-                  <CloudRain className="w-4 h-4 text-sky-500 shrink-0" />
+                      <p className="text-sm text-ink-400">
+                        {station.stationCode}
+                      </p>
 
-                  <span className="truncate">{station.rainfall} mm</span>
-                </div>
+                      {station.distance !==
+                        undefined && (
+                        <p className="text-xs text-sky-600 mt-1">
+                          {station.distance.toFixed(
+                            1
+                          )}{" "}
+                          km away
+                        </p>
+                      )}
 
-                <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
-                  <Wind className="w-4 h-4 text-sky-500 shrink-0" />
+                    </div>
 
-                  <span className="truncate">{station.windSpeed} km/h</span>
-                </div>
-              </div>
-
-              {/* Water Level & Route Status */}
-              <div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center p-3 bg-ink-50 rounded-lg mb-3">
-                <div>
-                  <p className="text-xs text-ink-400">Water Level</p>
-
-                  <p
-                    className={`text-sm font-semibold ${getWaterLevelColor(
-                      station.waterLevel,
-                    )}`}
-                  >
-                    {station.waterLevel !== null &&
-                    station.waterLevel !== undefined
-                      ? `${station.waterLevel} m`
-                      : "Unavailable"}
-                  </p>
-                </div>
-
-                <div className="sm:text-right">
-                  <p className="text-xs text-ink-400">Route Status</p>
-
-                  <span
-                    className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getRouteStatusColor(
-                      station.routeStatus,
-                    )}`}
-                  >
-                    {station.routeStatus || "Unknown"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Alert Message */}
-              {station.alertMessage && (
-                <div
-                  className={`p-2 rounded-lg text-sm mb-2 ${
-                    station.weatherStatus === "Critical"
-                      ? "bg-red-50 text-red-600"
-                      : station.weatherStatus === "Alert"
-                        ? "bg-orange-50 text-orange-600"
-                        : "bg-yellow-50 text-yellow-600"
-                  }`}
-                >
-                  {station.alertMessage}
-                </div>
-              )}
-
-              {/* Train Delays */}
-              {station.trainDelays !== null &&
-                station.trainDelays !== undefined &&
-                station.trainDelays > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded-lg">
-                    <Clock className="w-4 h-4 shrink-0" />
-
-                    <span>{station.trainDelays} trains delayed</span>
-                  </div>
-                )}
-
-              {/* Expandable Details */}
-              <button
-                onClick={() => toggleExpand(station.id)}
-                className="w-full mt-3 flex items-center justify-center gap-2 text-sm text-ink-400 hover:text-ink-600 transition-colors py-1"
-              >
-                {expandedCard === station.id ? (
-                  <>
-                    Hide Details
-                    <ChevronUp className="w-4 h-4" />
-                  </>
-                ) : (
-                  <>
-                    View Details
-                    <ChevronDown className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-
-              {expandedCard === station.id && (
-                <div className="mt-3 p-3 bg-ink-50 rounded-lg space-y-2 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-ink-400">Station Code</span>
-
-                    <span className="text-ink-700 font-medium">
-                      {station.stationCode}
+                    <span
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium ${getStatusBg(
+                        station.weatherStatus
+                      )}`}
+                    >
+                      {station.weatherStatus}
                     </span>
+
                   </div>
 
-                  <div className="flex justify-between gap-3">
-                    <span className="text-ink-400">Zone</span>
+                  {/* Weather */}
 
-                    <span className="text-ink-700 font-medium">
-                      {MOCK_STATIONS.find((s) => s.code === station.stationCode)
-                        ?.zone || "N/A"}
-                    </span>
-                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
 
-                  {station.distance !== undefined && (
-                    <div className="flex justify-between gap-3">
-                      <span className="text-ink-400">Distance</span>
+                    <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
 
-                      <span className="text-ink-700 font-medium">
-                        {station.distance.toFixed(1)} km
+                      <Thermometer className="w-4 h-4 text-sky-500 shrink-0" />
+
+                      <span className="truncate">
+                        {station.temperature ?? "N/A"}°C
                       </span>
+
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
+
+                      <Droplets className="w-4 h-4 text-sky-500 shrink-0" />
+
+                      <span className="truncate">
+                        {station.humidity ?? "N/A"}%
+                      </span>
+
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
+
+                      <CloudRain className="w-4 h-4 text-sky-500 shrink-0" />
+
+                      <span className="truncate">
+                        {station.rainfall ?? 0} mm
+                      </span>
+
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-ink-600 bg-ink-50 px-3 py-1.5 rounded-lg min-w-0">
+
+                      <Wind className="w-4 h-4 text-sky-500 shrink-0" />
+
+                      <span className="truncate">
+                        {station.windSpeed ?? 0} km/h
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* Water Level / Route */}
+
+                  <div className="flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center p-3 bg-ink-50 rounded-lg mb-3">
+
+                    <div>
+
+                      <p className="text-xs text-ink-400">
+                        Water Level
+                      </p>
+
+                      <p
+                        className={`text-sm font-semibold ${getWaterLevelColor(
+                          station.waterLevel
+                        )}`}
+                      >
+                        {station.waterLevel !==
+                          null &&
+                        station.waterLevel !==
+                          undefined
+                          ? `${station.waterLevel} m`
+                          : "Unavailable"}
+                      </p>
+
+                    </div>
+
+                    <div className="sm:text-right">
+
+                      <p className="text-xs text-ink-400">
+                        Route Status
+                      </p>
+
+                      <span
+                        className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getRouteStatusColor(
+                          station.routeStatus
+                        )}`}
+                      >
+                        {station.routeStatus ||
+                          "Unknown"}
+                      </span>
+
+                    </div>
+
+                  </div>
+
+                  {/* Alert */}
+
+                  {station.alertMessage && (
+                    <div
+                      className={`p-2 rounded-lg text-sm mb-2 ${
+                        station.weatherStatus ===
+                        "Critical"
+                          ? "bg-red-50 text-red-600"
+                          : station.weatherStatus ===
+                            "Alert"
+                          ? "bg-orange-50 text-orange-600"
+                          : "bg-yellow-50 text-yellow-600"
+                      }`}
+                    >
+                      {station.alertMessage}
                     </div>
                   )}
 
-                  <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                    <span className="text-ink-400">Last Updated</span>
+                  {/* Train Delays */}
 
-                    <span className="text-ink-700 font-medium sm:text-right">
-                      {station.lastUpdated
-                        ? new Date(station.lastUpdated).toLocaleString()
-                        : "Unavailable"}
-                    </span>
+                  {station.trainDelays !==
+                    null &&
+                    station.trainDelays !==
+                      undefined &&
+                    station.trainDelays > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded-lg">
+
+                        <Clock className="w-4 h-4 shrink-0" />
+
+                        <span>
+                          {station.trainDelays}{" "}
+                          trains delayed
+                        </span>
+
+                      </div>
+                    )}
+
+                  {/* Expand */}
+
+                  <button
+                    onClick={() =>
+                      toggleExpand(
+                        station.id
+                      )
+                    }
+                    className="w-full mt-3 flex items-center justify-center gap-2 text-sm text-ink-400 hover:text-ink-600 transition-colors py-1"
+                  >
+
+                    {expandedCard ===
+                    station.id ? (
+                      <>
+                        Hide Details
+                        <ChevronUp className="w-4 h-4" />
+                      </>
+                    ) : (
+                      <>
+                        View Details
+                        <ChevronDown className="w-4 h-4" />
+                      </>
+                    )}
+
+                  </button>
+
+                  {/* Details */}
+
+                  {expandedCard ===
+                    station.id && (
+                    <div className="mt-3 p-3 bg-ink-50 rounded-lg space-y-2 text-sm">
+
+                      <div className="flex justify-between gap-3">
+
+                        <span className="text-ink-400">
+                          Station Code
+                        </span>
+
+                        <span className="text-ink-700 font-medium">
+                          {station.stationCode}
+                        </span>
+
+                      </div>
+
+                      <div className="flex justify-between gap-3">
+
+                        <span className="text-ink-400">
+                          Zone
+                        </span>
+
+                        <span className="text-ink-700 font-medium">
+                          {MOCK_STATIONS.find(
+                            (s) =>
+                              s.code ===
+                              station.stationCode
+                          )?.zone || "N/A"}
+                        </span>
+
+                      </div>
+
+                      {station.distance !==
+                        undefined && (
+                        <div className="flex justify-between gap-3">
+
+                          <span className="text-ink-400">
+                            Distance
+                          </span>
+
+                          <span className="text-ink-700 font-medium">
+                            {station.distance.toFixed(
+                              1
+                            )}{" "}
+                            km
+                          </span>
+
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+
+                        <span className="text-ink-400">
+                          Last Updated
+                        </span>
+
+                        <span className="text-ink-700 font-medium sm:text-right">
+
+                          {station.lastUpdated
+                            ? new Date(
+                                station.lastUpdated
+                              ).toLocaleString()
+                            : "Unavailable"}
+
+                        </span>
+
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* Updated */}
+
+                  <div className="text-xs text-ink-400 mt-2">
+
+                    Updated:{" "}
+
+                    {station.lastUpdated
+                      ? new Date(
+                          station.lastUpdated
+                        ).toLocaleTimeString()
+                      : "Unavailable"}
+
                   </div>
+
                 </div>
-              )}
+              )
+            )}
 
-              {/* Last Updated */}
-              <div className="text-xs text-ink-400 mt-2">
-                Updated:{" "}
-                {station.lastUpdated
-                  ? new Date(station.lastUpdated).toLocaleTimeString()
-                  : "Unavailable"}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Nearby Empty State */}
+      {/* Nearby Empty */}
+
       {!loading &&
         nearbyMode &&
         weatherData.length > 0 &&
         displayData.length === 0 && (
           <div className="text-center py-16 bg-white rounded-xl shadow-card">
+
             <MapPin className="w-16 h-16 text-ink-300 mx-auto mb-4" />
 
             <p className="text-ink-500 text-lg font-medium">
@@ -693,20 +985,25 @@ const RailwayWeather = () => {
             </p>
 
             <button
-              onClick={showAllStations}
+              onClick={
+                showAllStations
+              }
               className="mt-4 px-4 py-2 bg-sky-500 text-white rounded-lg text-sm hover:bg-sky-600 transition-colors"
             >
               Show All Stations
             </button>
+
           </div>
         )}
 
-      {/* Empty State */}
+      {/* Empty */}
+
       {!loading &&
         weatherData.length > 0 &&
         !nearbyMode &&
         filteredData.length === 0 && (
           <div className="text-center py-16 bg-white rounded-xl shadow-card">
+
             <Train className="w-20 h-20 text-ink-300 mx-auto mb-4" />
 
             <p className="text-ink-500 text-lg font-medium">
@@ -716,52 +1013,62 @@ const RailwayWeather = () => {
             <p className="text-ink-400 text-sm">
               Try selecting a different station or refresh the page
             </p>
+
           </div>
         )}
 
       {/* Legend */}
+
       <div className="mt-8 p-4 bg-white rounded-xl shadow-card">
-        <h4 className="text-sm font-medium text-ink-500 mb-2">Status Legend</h4>
+
+        <h4 className="text-sm font-medium text-ink-500 mb-2">
+          Status Legend
+        </h4>
 
         <div className="flex flex-wrap gap-3 sm:gap-4">
+
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+            <span className="w-3 h-3 bg-green-500 rounded-full" />
             Safe
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+            <span className="w-3 h-3 bg-yellow-500 rounded-full" />
             Caution
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
+            <span className="w-3 h-3 bg-orange-500 rounded-full" />
             Alert
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-3 h-3 bg-red-600 rounded-full"></span>
+            <span className="w-3 h-3 bg-red-600 rounded-full" />
             Critical
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600 sm:ml-4">
-            <span className="w-8 h-0.5 bg-green-500"></span>
+            <span className="w-8 h-0.5 bg-green-500" />
             Route Open
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-8 h-0.5 bg-yellow-500"></span>
+            <span className="w-8 h-0.5 bg-yellow-500" />
             Partially Closed
           </div>
 
           <div className="flex items-center gap-2 text-sm text-ink-600">
-            <span className="w-8 h-0.5 bg-red-600"></span>
+            <span className="w-8 h-0.5 bg-red-600" />
             Route Closed
           </div>
+
         </div>
+
       </div>
+
     </div>
   );
 };
 
 export default RailwayWeather;
+
