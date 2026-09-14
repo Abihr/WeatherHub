@@ -11,4 +11,3 @@ const Farmer = () => {
 };
 
 export default Farmer;
-
