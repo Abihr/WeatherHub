@@ -2255,10 +2255,18 @@ const selectedSpeaker =
     "shubh";
         console.log(`Sarvam TTS request: ${language}`);
         console.log("========== TTS DEBUG ==========");
-        console.log("Language received:", language);
-        console.log("Speaker received:", speaker);
+        console.log("Language:", language);
         console.log("Selected speaker:", selectedSpeaker);
-        console.log("================================");
+
+        console.log("Sarvam payload:", {
+    text,
+    language_code: language,
+    model: "bulbul:v3",
+    speaker: selectedSpeaker,
+    output_audio_codec: "wav",
+});
+
+console.log("================================");
         
         
             const response =
