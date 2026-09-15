@@ -33,7 +33,7 @@ const VOICE_LANGUAGES = [
 ];
 
 export default function Chatbot() {
-    const { user } = useApp();
+    const { user, friendsList } = useApp();
 
     // --------------------------------------------------------
     // CHAT STATE
@@ -657,9 +657,6 @@ export default function Chatbot() {
         // ----------------------------------------------------
         // IMPORTANT:
         // Create the history BEFORE adding the new message.
-        //
-        // This means the backend receives the previous
-        // conversation plus the current message separately.
         // ----------------------------------------------------
 
         const conversationHistory =
@@ -667,6 +664,46 @@ export default function Chatbot() {
                 role: message.role,
                 content: message.text,
             }));
+
+        // ----------------------------------------------------
+        // FRIEND CONTEXT
+        //
+        // Only send information the chatbot is allowed to use.
+        //
+        // locationSharing:
+        //   "off"        -> location is null
+        //   "approximate" -> only locationText is sent
+        //
+        // IMPORTANT:
+        // Never send latitude / longitude for friends.
+        // ----------------------------------------------------
+
+        const friendContext =
+            (friendsList || [])
+                .filter(
+                    (friend) =>
+                        !friend?.isBlocked
+                )
+                .map((friend) => ({
+                    id: friend.id,
+                    name: friend.name,
+                    username: friend.username,
+
+                    location:
+                        friend.locationSharing !==
+                        "off"
+                            ? friend.locationText ||
+                              null
+                            : null,
+
+                    locationSharing:
+                        friend.locationSharing ||
+                        "off",
+
+                    weatherSharing:
+                        friend.weatherSharing ===
+                        true,
+                }));
 
         setMessages((previous) => [
             ...previous,
@@ -679,6 +716,9 @@ export default function Chatbot() {
 
         // ----------------------------------------------------
         // Current user location
+        //
+        // This is still sent as before because it is the
+        // CURRENT USER'S location, not a friend's location.
         // ----------------------------------------------------
 
         const currentLocation = {
@@ -703,6 +743,11 @@ export default function Chatbot() {
             conversationHistory
         );
 
+        console.log(
+            "👥 CHATBOT FRIEND CONTEXT:",
+            friendContext
+        );
+
         // ====================================================
         // SEND TO BACKEND
         // ====================================================
@@ -712,7 +757,8 @@ export default function Chatbot() {
                 await sendChatMessage(
                     text,
                     currentLocation,
-                    conversationHistory
+                    conversationHistory,
+                    friendContext
                 );
 
             const reply =
