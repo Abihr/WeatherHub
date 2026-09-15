@@ -2237,7 +2237,22 @@ app.post(
                         "Text is too long for a single TTS request.",
                 });
             }
+            const languageSpeakerMap = {
+            "en-IN": "ratan",
+            "hi-IN": "shubh",
+            "bn-IN": "rehan",
+            "ta-IN": "rohan",
+            "te-IN": "neha",
+            "mr-IN": "priya",
+            "gu-IN": "ritu",
+            "kn-IN": "ishita",
+            "ml-IN": "pooja",
+             "pa-IN": "mani",
+         };
 
+const selectedSpeaker =
+    languageSpeakerMap[language] ||
+    "shubh";
             console.log(
                 `Sarvam TTS request: ${language}`
             );
@@ -2267,7 +2282,8 @@ app.post(
                                 "bulbul:v3",
 
                             speaker:
-                                "shubh",
+                                selectedSpeaker,
+
 
                             output_audio_codec:
                                 "wav",
@@ -2314,6 +2330,8 @@ app.post(
                     data.audios[0],
 
                 language,
+                speaker:
+                    selectedSpeaker,
             });
         } catch (error) {
             console.error(
