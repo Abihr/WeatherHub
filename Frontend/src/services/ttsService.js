@@ -1,54 +1,55 @@
-const API_URL = import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
+const API_URL =
+    import.meta.env.VITE_API_URL?.replace(/\/+$/, "");
 
-// ------------------------------------------------------------
-// TTS SPEAKERS
-// ------------------------------------------------------------
+// ============================================================
+// LANGUAGE → SARVAM SPEAKER
+// ============================================================
 //
-// These are kept here so the frontend has one central place
-// for speaker configuration.
+// WeatherGPT automatically selects one dedicated voice
+// according to the language selected by the user.
 //
-// IMPORTANT:
-// The current backend still hardcodes "shubh".
-// Therefore changing the speaker here will NOT change the
-// actual voice until the backend accepts the speaker field.
-//
-// We will keep this structure ready for that future change.
-// ------------------------------------------------------------
+// All speaker IDs are lowercase because Sarvam requires
+// lowercase, case-sensitive speaker names.
+// ============================================================
 
-export const TTS_SPEAKERS = {
-    shubh: {
-        id: "shubh",
-        label: "Shubh",
-    },
-
-    // Future speakers can be added here once the backend
-    // supports dynamic speaker selection.
-
-    // speaker2: {
-    //     id: "speaker2",
-    //     label: "Speaker 2",
-    // },
-
-    // speaker3: {
-    //     id: "speaker3",
-    //     label: "Speaker 3",
-    // },
+export const TTS_VOICE_MAP = {
+    "en-IN": "ratan",
+    "hi-IN": "shubh",
+    "bn-IN": "rehan",
+    "ta-IN": "rohan",
+    "te-IN": "neha",
+    "mr-IN": "priya",
+    "gu-IN": "ritu",
+    "kn-IN": "ishita",
+    "ml-IN": "pooja",
+    "pa-IN": "mani",
 };
 
-// ------------------------------------------------------------
+// ============================================================
 // DEFAULT SPEAKER
-// ------------------------------------------------------------
+// ============================================================
 
 export const DEFAULT_TTS_SPEAKER = "shubh";
 
-// ------------------------------------------------------------
+// ============================================================
+// GET SPEAKER FOR LANGUAGE
+// ============================================================
+
+export function getSpeakerForLanguage(language) {
+    return (
+        TTS_VOICE_MAP[language] ||
+        DEFAULT_TTS_SPEAKER
+    );
+}
+
+// ============================================================
 // GENERATE SPEECH
-// ------------------------------------------------------------
+// ============================================================
 
 export async function generateSpeech(
     text,
     language,
-    speaker = DEFAULT_TTS_SPEAKER
+    speaker
 ) {
     if (!text || typeof text !== "string") {
         throw new Error("Text is required");
@@ -58,26 +59,35 @@ export async function generateSpeech(
         throw new Error("Language is required");
     }
 
+    // If a speaker was not explicitly supplied,
+    // automatically select the speaker for the language.
+    const selectedSpeaker =
+        speaker ||
+        getSpeakerForLanguage(language);
+
     const response = await fetch(
         `${API_URL}/api/tts`,
         {
             method: "POST",
 
             headers: {
-                "Content-Type": "application/json",
+                "Content-Type":
+                    "application/json",
             },
 
             body: JSON.stringify({
                 text,
                 language,
-                speaker,
+                speaker: selectedSpeaker,
             }),
         }
     );
 
     if (!response.ok) {
         const errorData =
-            await response.json().catch(() => ({}));
+            await response
+                .json()
+                .catch(() => ({}));
 
         throw new Error(
             errorData.error ||
