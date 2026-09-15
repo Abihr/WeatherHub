@@ -2253,10 +2253,14 @@ app.post(
 const selectedSpeaker =
     languageSpeakerMap[language] ||
     "shubh";
-            console.log(
-                `Sarvam TTS request: ${language}`
-            );
-
+        console.log(`Sarvam TTS request: ${language}`);
+        console.log("========== TTS DEBUG ==========");
+        console.log("Language received:", language);
+        console.log("Speaker received:", speaker);
+        console.log("Selected speaker:", selectedSpeaker);
+        console.log("================================");
+        
+        
             const response =
                 await fetch(
                     "https://api.sarvam.ai/text-to-speech",
