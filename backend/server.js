@@ -2168,6 +2168,7 @@ app.post(
             const {
                 text,
                 language,
+                speaker,
             } = req.body;
 
             if (
@@ -2250,8 +2251,8 @@ app.post(
              "pa-IN": "mani",
          };
 
-const selectedSpeaker =
-    languageSpeakerMap[language] ||
+           const selectedSpeaker =
+      languageSpeakerMap[language] ||
     "shubh";
         console.log(`Sarvam TTS request: ${language}`);
         console.log("========== TTS DEBUG ==========");
