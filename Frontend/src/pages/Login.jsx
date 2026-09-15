@@ -7,6 +7,7 @@ import {
   MapPin,
   Eye,
   EyeOff,
+  AtSign,
 } from "lucide-react";
 
 import logo from "../assets/logo_remove_bg.png";
@@ -17,15 +18,19 @@ import {
   updateProfile,
 } from "firebase/auth";
 
-import { doc, setDoc } from "firebase/firestore";
+import { auth } from "../firebase/firebase";
 
-import { auth, db } from "../firebase/firebase";
+import {
+  createUserProfile,
+  isUserIdAvailable,
+} from "../firebase/firestore";
 
 export default function Login() {
   const [mode, setMode] = useState("login");
 
   const [form, setForm] = useState({
     name: "",
+    userId: "",
     email: "",
     password: "",
   });
@@ -33,7 +38,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Password visibility
   const [showPassword, setShowPassword] = useState(false);
 
   // =========================
@@ -41,10 +45,42 @@ export default function Login() {
   // =========================
 
   function handleChange(e) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: name === "userId" ? value.toLowerCase() : value,
+    }));
+
+    if (error) {
+      setError("");
+    }
+  }
+
+  // =========================
+  // VALIDATE USER ID
+  // =========================
+
+  function validateUserId(userId) {
+    const normalizedUserId = userId.trim().toLowerCase();
+
+    if (!normalizedUserId) {
+      return "Please enter a User ID.";
+    }
+
+    if (normalizedUserId.length < 3) {
+      return "User ID must be at least 3 characters.";
+    }
+
+    if (normalizedUserId.length > 20) {
+      return "User ID must be maximum 20 characters.";
+    }
+
+    if (!/^[a-z0-9_]+$/.test(normalizedUserId)) {
+      return "User ID can only contain letters, numbers, and underscore.";
+    }
+
+    return "";
   }
 
   // =========================
@@ -58,29 +94,71 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // =========================
-      // SIGN UP
-      // =========================
+      // =====================================================
+      // REGISTER
+      // =====================================================
 
       if (mode === "register") {
+        // -------------------------
+        // NAME VALIDATION
+        // -------------------------
+
         if (!form.name.trim()) {
           setError("Please enter your full name.");
           return;
         }
+
+        // -------------------------
+        // USER ID VALIDATION
+        // -------------------------
+
+        const normalizedUserId = form.userId
+          .trim()
+          .toLowerCase();
+
+        const userIdError = validateUserId(normalizedUserId);
+
+        if (userIdError) {
+          setError(userIdError);
+          return;
+        }
+
+        // -------------------------
+        // EMAIL VALIDATION
+        // -------------------------
 
         if (!form.email.trim()) {
           setError("Please enter your email.");
           return;
         }
 
+        // -------------------------
+        // PASSWORD VALIDATION
+        // -------------------------
+
         if (form.password.length < 6) {
           setError("Password must be at least 6 characters.");
           return;
         }
 
-        // =========================
+        // =====================================================
+        // CHECK USER ID AVAILABILITY
+        // =====================================================
+
+        const available = await isUserIdAvailable(
+          normalizedUserId
+        );
+
+        if (!available) {
+          setError(
+            `User ID "${normalizedUserId}" is already taken.`
+          );
+          return;
+        }
+
+        // =====================================================
         // CREATE FIREBASE AUTH USER
-        // =========================
+        // =====================================================
 
         const userCredential =
           await createUserWithEmailAndPassword(
@@ -91,66 +169,24 @@ export default function Login() {
 
         const user = userCredential.user;
 
-        // =========================
+        // =====================================================
         // SAVE NAME TO FIREBASE AUTH
-        // =========================
+        // =====================================================
 
         await updateProfile(user, {
           displayName: form.name.trim(),
         });
 
-        // =========================
-        // CREATE FIRESTORE USER
-        // =========================
+        // =====================================================
+        // CREATE FIRESTORE USER PROFILE
+        // =====================================================
 
-        await setDoc(doc(db, "users", user.uid), {
+        await createUserProfile({
+          firebaseUid: user.uid,
+          userId: normalizedUserId,
           name: form.name.trim(),
-
-          // Simple username generated from name
-          username: form.name
-            .trim()
-            .toLowerCase()
-            .replace(/\s+/g, ""),
-
           email: form.email.trim(),
-
           photoURL: user.photoURL || "",
-
-          // =========================
-          // LOCATION
-          // =========================
-
-          latitude: null,
-          longitude: null,
-
-          location: {
-            city: "",
-            lat: null,
-            lng: null,
-          },
-
-          // =========================
-          // WEATHER
-          // =========================
-
-          weather: {
-            temperature: null,
-            condition: "",
-            feelsLike: null,
-            humidity: null,
-            wind: null,
-            rain: 0,
-            icon: "",
-            locationName: "",
-            country: "",
-          },
-
-          // =========================
-          // PRIVACY SETTINGS
-          // =========================
-
-          locationSharing: "friends",
-          weatherSharing: true,
         });
 
         console.log(
@@ -159,17 +195,16 @@ export default function Login() {
         );
 
         console.log(
-          "✅ Firestore user document created:",
-          user.uid
+          "✅ Public User ID:",
+          normalizedUserId
         );
 
-        // Firebase automatically signs the user in
         return;
       }
 
-      // =========================
+      // =====================================================
       // LOGIN
-      // =========================
+      // =====================================================
 
       if (!form.email.trim()) {
         setError("Please enter your email.");
@@ -248,13 +283,15 @@ export default function Login() {
     }
   }
 
+  // =====================================================
+  // UI
+  // =====================================================
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
 
-        {/* =========================
-            LOGO
-        ========================= */}
+        {/* LOGO */}
 
         <div className="flex flex-col items-center mb-8">
           <span
@@ -293,17 +330,14 @@ export default function Login() {
           </p>
         </div>
 
-        {/* =========================
-            CARD
-        ========================= */}
+        {/* CARD */}
 
         <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-6 sm:p-8">
 
-          {/* =========================
-              LOGIN / REGISTER TABS
-          ========================= */}
+          {/* LOGIN / REGISTER TABS */}
 
           <div className="flex bg-slate-100 rounded-xl p-1 mb-6">
+
             <button
               type="button"
               onClick={() => {
@@ -335,9 +369,7 @@ export default function Login() {
             </button>
           </div>
 
-          {/* =========================
-              HEADING
-          ========================= */}
+          {/* HEADING */}
 
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-800">
@@ -353,18 +385,14 @@ export default function Login() {
             </p>
           </div>
 
-          {/* =========================
-              FORM
-          ========================= */}
+          {/* FORM */}
 
           <form
             onSubmit={submit}
             className="space-y-4"
           >
 
-            {/* =========================
-                NAME
-            ========================= */}
+            {/* NAME */}
 
             {mode === "register" && (
               <Field
@@ -377,9 +405,26 @@ export default function Login() {
               />
             )}
 
-            {/* =========================
-                EMAIL
-            ========================= */}
+            {/* USER ID */}
+
+            {mode === "register" && (
+              <div>
+                <Field
+                  icon={<AtSign size={19} />}
+                  name="userId"
+                  type="text"
+                  placeholder="Choose a User ID"
+                  value={form.userId}
+                  onChange={handleChange}
+                />
+
+                <p className="text-xs text-slate-400 mt-1.5 ml-1">
+                  3–20 characters • letters, numbers and underscore only
+                </p>
+              </div>
+            )}
+
+            {/* EMAIL */}
 
             <Field
               icon={<Mail size={19} />}
@@ -390,19 +435,13 @@ export default function Login() {
               onChange={handleChange}
             />
 
-            {/* =========================
-                PASSWORD
-            ========================= */}
+            {/* PASSWORD */}
 
             <div className="relative">
-
-              {/* Lock Icon */}
 
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
                 <Lock size={19} />
               </div>
-
-              {/* Password Input */}
 
               <input
                 name="password"
@@ -432,8 +471,6 @@ export default function Login() {
                   focus:ring-sky-100
                 "
               />
-
-              {/* Eye Button */}
 
               <button
                 type="button"
@@ -468,9 +505,7 @@ export default function Login() {
               </button>
             </div>
 
-            {/* =========================
-                ERROR
-            ========================= */}
+            {/* ERROR */}
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">
@@ -478,9 +513,7 @@ export default function Login() {
               </div>
             )}
 
-            {/* =========================
-                SUBMIT BUTTON
-            ========================= */}
+            {/* SUBMIT */}
 
             <button
               type="submit"
@@ -509,12 +542,11 @@ export default function Login() {
             </button>
           </form>
 
-          {/* =========================
-              REGISTER INFORMATION
-          ========================= */}
+          {/* REGISTER INFORMATION */}
 
           {mode === "register" && (
             <div className="flex gap-3 mt-6 bg-sky-50 border border-sky-100 rounded-xl p-4">
+
               <MapPin
                 size={20}
                 className="text-sky-500 shrink-0 mt-0.5"
@@ -528,9 +560,7 @@ export default function Login() {
           )}
         </div>
 
-        {/* =========================
-            FOOTER
-        ========================= */}
+        {/* FOOTER */}
 
         <p className="text-center text-xs text-slate-400 mt-6">
           © 2026 WeatherHub
@@ -540,9 +570,9 @@ export default function Login() {
   );
 }
 
-// ========================================
+// =====================================================
 // REUSABLE INPUT FIELD
-// ========================================
+// =====================================================
 
 function Field({
   icon,
@@ -555,13 +585,9 @@ function Field({
   return (
     <div className="relative">
 
-      {/* Icon */}
-
       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
         {icon}
       </div>
-
-      {/* Input */}
 
       <input
         name={name}

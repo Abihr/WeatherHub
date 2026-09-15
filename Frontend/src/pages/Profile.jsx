@@ -19,14 +19,8 @@ import WeatherSharing from "../components/WeatherSharing";
 import LocationSharing from "../components/LocationSharing";
 
 export default function Profile() {
-  const {
-    user,
-    friendsList,
-    blocked,
-    pushToast,
-    darkMode,
-    toggleDarkMode,
-  } = useApp();
+  const { user, friendsList, blocked, pushToast, darkMode, toggleDarkMode } =
+    useApp();
 
   const navigate = useNavigate();
 
@@ -45,10 +39,7 @@ export default function Profile() {
     } catch (error) {
       console.error("Sign out error:", error);
 
-      pushToast(
-        "Failed to sign out. Please try again.",
-        "error"
-      );
+      pushToast("Failed to sign out. Please try again.", "error");
     }
   }
 
@@ -98,7 +89,6 @@ export default function Profile() {
       }`}
     >
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10 flex flex-col gap-5">
-
         {/* ========================================
             Header
         ======================================== */}
@@ -134,7 +124,6 @@ export default function Profile() {
         ======================================== */}
 
         <div className="rounded-xl3 bg-hero-gradient text-white p-5 flex items-center gap-4 shadow-pop">
-
           {/* Avatar */}
 
           <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-sm font-display font-bold text-xl flex items-center justify-center shrink-0">
@@ -148,6 +137,9 @@ export default function Profile() {
               {user?.name || "User"}
             </h1>
 
+            <p className="text-sky-100 text-2xs flex items-center gap-1 mt-1">
+              @{user?.userId || user?.username || "user"}
+            </p>
             {/* Location */}
 
             <p className="text-sky-100 text-2xs flex items-center gap-1 mt-1">
@@ -162,7 +154,6 @@ export default function Profile() {
         ======================================== */}
 
         <div className="grid grid-cols-2 gap-3">
-
           {/* Friends */}
 
           <button
@@ -184,9 +175,7 @@ export default function Profile() {
 
             <p
               className={`text-xs ${
-                darkMode
-                  ? "text-slate-400"
-                  : "text-ink-400"
+                darkMode ? "text-slate-400" : "text-ink-400"
               }`}
             >
               Friends
@@ -214,9 +203,7 @@ export default function Profile() {
 
             <p
               className={`text-xs ${
-                darkMode
-                  ? "text-slate-400"
-                  : "text-ink-400"
+                darkMode ? "text-slate-400" : "text-ink-400"
               }`}
             >
               Blocked
@@ -261,9 +248,7 @@ export default function Profile() {
 
           <span
             className={`flex-1 text-left text-sm font-medium ${
-              darkMode
-                ? "text-slate-200"
-                : "text-ink-700"
+              darkMode ? "text-slate-200" : "text-ink-700"
             }`}
           >
             Settings
@@ -271,11 +256,7 @@ export default function Profile() {
 
           <ChevronRight
             size={16}
-            className={
-              darkMode
-                ? "text-slate-500"
-                : "text-ink-400"
-            }
+            className={darkMode ? "text-slate-500" : "text-ink-400"}
           />
         </button>
 
@@ -304,9 +285,7 @@ export default function Profile() {
 
           <span
             className={`flex-1 text-left text-sm font-medium ${
-              darkMode
-                ? "text-slate-200"
-                : "text-ink-700"
+              darkMode ? "text-slate-200" : "text-ink-700"
             }`}
           >
             Blocked Users
@@ -314,11 +293,7 @@ export default function Profile() {
 
           <ChevronRight
             size={16}
-            className={
-              darkMode
-                ? "text-slate-500"
-                : "text-ink-400"
-            }
+            className={darkMode ? "text-slate-500" : "text-ink-400"}
           />
         </button>
 

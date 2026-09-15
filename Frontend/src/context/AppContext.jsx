@@ -1,4 +1,3 @@
-
 import {
     createContext,
     useCallback,
@@ -8,17 +7,17 @@ import {
 } from "react";
 
 import {
-  weatherAlerts as initialWeatherAlerts,
+    weatherAlerts as initialWeatherAlerts,
 } from "../data/mockData";
 
 import * as fs from "../firebase/firestore";
 
 import {
-  getCurrentWeather,
+    getCurrentWeather,
 } from "../services/weatherService";
 
 import {
-  getCurrentPosition,
+    getCurrentPosition,
 } from "../services/locationService";
 
 import { classifySevereWeather } from "../utilities/severeWeather";
@@ -31,73 +30,61 @@ let toastId = 0;
    REVERSE GEOCODING
 ================================================================ */
 
-async function getPlaceName(
-  latitude,
-  longitude,
-) {
-  try {
-    const url =
-      `https://nominatim.openstreetmap.org/reverse` +
-      `?format=jsonv2` +
-      `&lat=${latitude}` +
-      `&lon=${longitude}` +
-      `&zoom=10` +
-      `&addressdetails=1`;
+async function getPlaceName(latitude, longitude) {
+    try {
+        const url =
+            `https://nominatim.openstreetmap.org/reverse` +
+            `?format=jsonv2` +
+            `&lat=${latitude}` +
+            `&lon=${longitude}` +
+            `&zoom=10` +
+            `&addressdetails=1`;
 
-    const response =
-      await fetch(url, {
-        headers: {
-          Accept:
-            "application/json",
-        },
-      });
+        const response = await fetch(url, {
+            headers: {
+                Accept: "application/json",
+            },
+        });
 
-    if (!response.ok) {
-      throw new Error(
-        "Failed to get location name",
-      );
+        if (!response.ok) {
+            throw new Error(
+                "Failed to get location name"
+            );
+        }
+
+        const data = await response.json();
+
+        const address = data?.address || {};
+
+        const placeName =
+            address.city ||
+            address.town ||
+            address.village ||
+            address.municipality ||
+            address.suburb ||
+            address.county ||
+            "";
+
+        const country = address.country_code
+            ? address.country_code.toUpperCase()
+            : "";
+
+        return {
+            placeName,
+            country,
+        };
+    } catch (error) {
+        console.error(
+            "Reverse geocoding error:",
+            error
+        );
+
+        return {
+            placeName: "",
+            country: "",
+        };
     }
-
-    const data =
-      await response.json();
-
-    const address =
-      data?.address || {};
-
-    const placeName =
-      address.city ||
-      address.town ||
-      address.village ||
-      address.municipality ||
-      address.suburb ||
-      address.county ||
-      "";
-
-    const country =
-      address.country_code
-        ? address.country_code.toUpperCase()
-        : "";
-
-    return {
-      placeName,
-      country,
-    };
-  } catch (error) {
-    console.error(
-      "Reverse geocoding error:",
-      error,
-    );
-
-    return {
-      placeName: "",
-      country: "",
-    };
-  }
 }
-
-// ============================================================
-// PROVIDER
-// ============================================================
 
 /* ================================================================
    OPEN-METEO FORECAST
@@ -171,6 +158,10 @@ async function getForecast(latitude, longitude) {
         throw error;
     }
 }
+
+/* ================================================================
+   PROVIDER
+================================================================ */
 
 export function AppProvider({
     children,
@@ -293,11 +284,14 @@ export function AppProvider({
                 } else {
                     setUser({
                         id: firebaseUser.uid,
+                        uid: firebaseUser.uid,
                         email:
                             firebaseUser.email || "",
                         name:
                             firebaseUser.displayName ||
                             "",
+                        userId: "",
+                        username: "",
                     });
                 }
 
@@ -313,11 +307,14 @@ export function AppProvider({
 
                 setUser({
                     id: firebaseUser.uid,
+                    uid: firebaseUser.uid,
                     email:
                         firebaseUser.email || "",
                     name:
                         firebaseUser.displayName ||
                         "",
+                    userId: "",
+                    username: "",
                 });
             }
         };
@@ -343,11 +340,18 @@ export function AppProvider({
                     blockedData,
                 ] = await Promise.all([
                     fs.getFriends(user.id),
+
                     fs.getReceivedRequests(
                         user.id
                     ),
-                    fs.getSentRequests(user.id),
-                    fs.getBlockedUsers(user.id),
+
+                    fs.getSentRequests(
+                        user.id
+                    ),
+
+                    fs.getBlockedUsers(
+                        user.id
+                    ),
                 ]);
 
                 setFriendsList(
@@ -372,12 +376,15 @@ export function AppProvider({
                         friends:
                             friendsData?.length ||
                             0,
+
                         received:
                             receivedData?.length ||
                             0,
+
                         sent:
                             sentData?.length ||
                             0,
+
                         blocked:
                             blockedData?.length ||
                             0,
@@ -550,8 +557,7 @@ export function AppProvider({
                    3. FORECAST
                 ================================================= */
 
-                let formattedForecast =
-                    null;
+                let formattedForecast = null;
 
                 try {
                     const forecastData =
@@ -727,48 +733,48 @@ export function AppProvider({
                        DEBUG — FIRST HOURLY DATA
                     ============================================= */
 
-                   console.log("🌦️ FIRST HOURLY OBJECT:");
-console.log(hourly[0]);
+                    console.log(
+                        "🌦️ FIRST HOURLY OBJECT:"
+                    );
 
-console.log("⛈️ THUNDERSTORM HOURS:");
-
-console.table(
-    hourly
-        .filter(
-            (h) =>
-                h.weatherCode === 95 ||
-                h.weatherCode === 96 ||
-                h.weatherCode === 99
-        )
-        .map((h) => ({
-            time: h.time,
-            weatherCode: h.weatherCode,
-            temperature: h.temperature,
-            rain: h.rain,
-            precipitation: h.precipitation,
-            probability: h.rainProbability,
-            cape: h.cape,
-            windGust: h.windGust,
-            severeType: h.severeWeather?.type,
-            severity: h.severeWeather?.level,
-        }))
-);
-
-                    /* =============================================
-                       DEBUG — THUNDERSTORM HOURS
-                    ============================================= */
+                    console.log(hourly[0]);
 
                     console.log(
-                        "⛈️ THUNDERSTORM HOURS:",
-                        hourly.filter(
-                            (hour) =>
-                                hour.weatherCode ===
-                                    95 ||
-                                hour.weatherCode ===
-                                    96 ||
-                                hour.weatherCode ===
-                                    99
-                        )
+                        "⛈️ THUNDERSTORM HOURS:"
+                    );
+
+                    console.table(
+                        hourly
+                            .filter(
+                                (h) =>
+                                    h.weatherCode ===
+                                        95 ||
+                                    h.weatherCode ===
+                                        96 ||
+                                    h.weatherCode ===
+                                        99
+                            )
+                            .map((h) => ({
+                                time: h.time,
+                                weatherCode:
+                                    h.weatherCode,
+                                temperature:
+                                    h.temperature,
+                                rain: h.rain,
+                                precipitation:
+                                    h.precipitation,
+                                probability:
+                                    h.rainProbability,
+                                cape: h.cape,
+                                windGust:
+                                    h.windGust,
+                                severeType:
+                                    h.severeWeather
+                                        ?.type,
+                                severity:
+                                    h.severeWeather
+                                        ?.level,
+                            }))
                     );
 
                     /* =============================================
@@ -791,8 +797,7 @@ console.table(
                                 weatherCode:
                                     hour.weatherCode,
 
-                                rain:
-                                    hour.rain,
+                                rain: hour.rain,
 
                                 showers:
                                     hour.showers,
@@ -803,8 +808,7 @@ console.table(
                                 probability:
                                     hour.rainProbability,
 
-                                cape:
-                                    hour.cape,
+                                cape: hour.cape,
 
                                 windGust:
                                     hour.windGust,
@@ -826,7 +830,6 @@ console.table(
                             finalCountry,
 
                         latitude,
-
                         longitude,
 
                         timezone:
@@ -834,21 +837,13 @@ console.table(
                             "Asia/Kolkata",
 
                         current: {
-                            temperature:
-                                null,
-
-                            feelsLike:
-                                null,
-
-                            humidity:
-                                null,
-
-                            condition:
-                                "",
+                            temperature: null,
+                            feelsLike: null,
+                            humidity: null,
+                            condition: "",
                         },
 
                         daily,
-
                         hourly,
                     };
 
@@ -1040,7 +1035,6 @@ console.table(
                             ...currentUser,
 
                             latitude,
-
                             longitude,
 
                             location: {
@@ -1192,18 +1186,68 @@ console.table(
 
     const sendRequest =
         useCallback(
-            async (targetUserId) => {
-                if (
-                    !user?.id ||
-                    !targetUserId
-                ) {
+            async (target) => {
+                if (!user?.id || !target) {
                     return;
                 }
+
+                /*
+                 * IMPORTANT
+                 *
+                 * target can be:
+                 *
+                 * 1. User object
+                 *    {
+                 *       id: Firebase UID,
+                 *       userId: public ID,
+                 *       name: ...
+                 *    }
+                 *
+                 * OR
+                 *
+                 * 2. Firebase UID string
+                 *
+                 * NEVER send the public userId
+                 * to fs.sendFriendRequest().
+                 */
+
+                const targetFirebaseUid =
+                    typeof target === "object"
+                        ? target?.id
+                        : target;
+
+                if (!targetFirebaseUid) {
+                    pushToast(
+                        "Invalid user selected.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+                // Prevent accidentally sending
+                // the public User ID
+                console.log(
+                    "FRIEND REQUEST:",
+                    {
+                        senderFirebaseUid:
+                            user.id,
+
+                        receiverFirebaseUid:
+                            targetFirebaseUid,
+
+                        receiverPublicUserId:
+                            typeof target ===
+                            "object"
+                                ? target?.userId
+                                : undefined,
+                    }
+                );
 
                 try {
                     await fs.sendFriendRequest(
                         user.id,
-                        targetUserId
+                        targetFirebaseUid
                     );
 
                     await refreshFriends();
@@ -1583,7 +1627,6 @@ console.table(
 
                             return {
                                 ...currentUser,
-
                                 weatherSharing:
                                     Boolean(
                                         enabled
@@ -1646,7 +1689,6 @@ console.table(
 
                             return {
                                 ...currentUser,
-
                                 locationSharing:
                                     mode,
                             };
@@ -1927,17 +1969,16 @@ console.table(
 ================================================================ */
 
 export function useApp() {
-  const context =
-    useContext(AppContext);
+    const context =
+        useContext(AppContext);
 
-  if (!context) {
-    throw new Error(
-      "useApp must be used inside AppProvider",
-    );
-  }
+    if (!context) {
+        throw new Error(
+            "useApp must be used inside AppProvider"
+        );
+    }
 
     return context;
 }
 
 export default AppContext;
-

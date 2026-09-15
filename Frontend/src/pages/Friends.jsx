@@ -39,24 +39,21 @@ export default function Friends() {
     ).values()
   );
 
-  const filtered = uniqueFriends.filter(
-    (friend) => {
-      const t = term.trim().toLowerCase();
+  const filtered = uniqueFriends.filter((friend) => {
+  const t = term.trim().toLowerCase();
 
-      if (!t) return true;
+  if (!t) return true;
 
-      const name =
-        friend.name?.toLowerCase() || "";
+  const name = String(friend.name || "").toLowerCase();
+  const userId = String(friend.userId || "").toLowerCase();
+  const username = String(friend.username || "").toLowerCase();
 
-      const username =
-        friend.username?.toLowerCase() || "";
-
-      return (
-        name.includes(t) ||
-        username.includes(t)
-      );
-    }
+  return (
+    name.includes(t) ||
+    userId.includes(t) ||
+    username.includes(t)
   );
+});
 
   // Handle compare button
   const handleCompare = (friend) => {
