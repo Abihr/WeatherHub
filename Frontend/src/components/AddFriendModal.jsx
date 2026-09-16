@@ -234,12 +234,11 @@ export default function AddFriendModal({ open, onClose }) {
                   <p className="text-sm font-semibold text-ink-800 truncate">
                     {person.name || "User"}
                   </p>
-
-                  {/* PUBLIC USER ID */}
+                  {/* PUBLIC USER ID */}{" "}
                   <p className="text-xs text-ink-400 truncate">
-                    @ @{person.userId || person.username || "username"}
+                    {" "}
+                    @{(person.userId || person.username || "username").replace(/^@/, "")}
                   </p>
-
                   {/* LOCATION */}
                   {locationText && (
                     <p className="text-xs text-ink-400 flex items-center gap-1 truncate mt-0.5">
