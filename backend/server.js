@@ -1533,7 +1533,11 @@ app.post(
                 "User message:",
                 message
             );
-
+             console.log("🔥 DOMAIN GATE VERSION: SECONDARY BRANCH");
+             console.log(
+                   "🔥 OUT OF SCOPE:",
+             isClearlyOutOfScope(message)              
+                );
             console.log(
                 "Current location:",
                 latitude,
