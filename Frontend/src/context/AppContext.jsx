@@ -1857,42 +1857,45 @@ export function AppProvider({
             [user?.id]
         );
 
-    /* ================================================================
-       SEARCH USERS
-    ================================================================ */
+  
+/* ============================================================
+   SEARCH USERS
+============================================================ */
 
-    const searchUsers =
-        useCallback(
-            async (queryText) => {
-                if (
-                    !queryText?.trim()
-                ) {
-                    return [];
-                }
+const searchUsers = useCallback(
+    async (queryText) => {
+        if (!queryText?.trim()) {
+            return [];
+        }
 
-                try {
-                    return (
-                        (await fs.searchUsers(
-                            queryText
-                        )) || []
-                    );
-                } catch (error) {
-                    console.error(
-                        "searchUsers error:",
-                        error
-                    );
+        try {
+            const users =
+                (await fs.searchUsers(queryText)) || [];
 
-                    pushToast(
-                        error?.message ||
-                            "Unable to search users.",
-                        "error"
-                    );
+            // Don't show the currently logged-in user
+            return users.filter(
+                (person) => person.id !== user?.id
+            );
+        } catch (error) {
+            console.error(
+                "searchUsers error:",
+                error
+            );
 
-                    return [];
-                }
-            },
-            [pushToast]
-        );
+            pushToast(
+                error?.message ||
+                    "Unable to search users.",
+                "error"
+            );
+
+            return [];
+        }
+    },
+    [pushToast, user?.id]
+);
+
+
+
 
     /* ================================================================
        CONTEXT VALUE
