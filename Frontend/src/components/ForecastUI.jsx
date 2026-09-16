@@ -6,6 +6,8 @@ import {
   CloudLightning,
 } from "lucide-react";
 
+import WeatherVisual from "./weather/WeatherVisual";
+
 /* ============================================================
    TIME FORMATTER
    ============================================================ */
@@ -13,16 +15,7 @@ import {
 function formatHour(time, timezone = "Asia/Kolkata") {
   if (!time) return "--";
 
-  // Open-Meteo returns local ISO strings such as:
-  // 2026-09-10T21:00
-  //
-  // Adding a timezone to a string without an offset can cause
-  // browser timezone conversion problems, so handle Open-Meteo
-  // local time separately.
-
-  const match = String(time).match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/
-  );
+  const match = String(time).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
 
   if (match) {
     const [, year, month, day, hour, minute] = match;
@@ -32,7 +25,7 @@ function formatHour(time, timezone = "Asia/Kolkata") {
       Number(month) - 1,
       Number(day),
       Number(hour),
-      Number(minute)
+      Number(minute),
     );
 
     return date.toLocaleTimeString("en-IN", {
@@ -90,49 +83,6 @@ function getRainColor(probability = 0) {
 }
 
 /* ============================================================
-   WEATHER ICON
-   ============================================================ */
-
-function getWeatherIcon(hour) {
-  const severe = hour?.severeWeather;
-
-  // Direct thunderstorm signal
-  if (
-    hour?.weatherCode === 95 ||
-    hour?.weatherCode === 96 ||
-    hour?.weatherCode === 99
-  ) {
-    if (
-      severe?.level === "severe" ||
-      hour?.weatherCode === 96 ||
-      hour?.weatherCode === 99
-    ) {
-      return "⛈️";
-    }
-
-    return "🌩️";
-  }
-
-  if (severe?.type === "Heavy Rain") {
-    return "🌧️";
-  }
-
-  if (severe?.type === "Strong Wind") {
-    return "💨";
-  }
-
-  if (Number(hour?.rainProbability) >= 60) {
-    return "🌧️";
-  }
-
-  if (Number(hour?.temperature) >= 30) {
-    return "☀️";
-  }
-
-  return "🌤️";
-}
-
-/* ============================================================
    SEVERE WEATHER
    ============================================================ */
 
@@ -179,7 +129,7 @@ function getSeverityClasses(level) {
 }
 
 /* ============================================================
-   GET CURRENT LOCAL HOUR
+   CURRENT LOCAL HOUR
    ============================================================ */
 
 function getCurrentLocalHour(timezone = "Asia/Kolkata") {
@@ -206,7 +156,7 @@ function getCurrentLocalHour(timezone = "Asia/Kolkata") {
 }
 
 /* ============================================================
-   FIND NEXT 24 HOURS
+   NEXT 24 HOURS
    ============================================================ */
 
 function getNext24Hours(hourly, timezone = "Asia/Kolkata") {
@@ -216,39 +166,63 @@ function getNext24Hours(hourly, timezone = "Asia/Kolkata") {
 
   const currentHour = getCurrentLocalHour(timezone);
 
-  /*
-   * Open-Meteo hourly times are sorted chronologically.
-   *
-   * Example:
-   *
-   * 00:00
-   * 01:00
-   * 02:00
-   * ...
-   * 20:00
-   * 21:00  <-- current hour
-   * 22:00
-   *
-   * We find 21:00 and take the next 24 records.
-   */
-
   let startIndex = hourly.findIndex((hour) => {
     if (!hour?.time) return false;
 
-    return String(hour.time).slice(0, 13) >=
-      currentHour.slice(0, 13);
+    return String(hour.time).slice(0, 13) >= currentHour.slice(0, 13);
   });
-
-  /*
-   * If exact current hour isn't available, find the first
-   * forecast hour after the current time.
-   */
 
   if (startIndex === -1) {
     startIndex = 0;
   }
 
   return hourly.slice(startIndex, startIndex + 24);
+}
+
+/* ============================================================
+   WEATHER VISUAL DATA
+
+   IMPORTANT:
+   Preserve the real Open-Meteo is_day value.
+   1 = DAY
+   0 = NIGHT
+   ============================================================ */
+
+function buildWeatherVisualData(data = {}) {
+    const weatherCode =
+        data.weatherCode ??
+        data.weather_code ??
+        data.code;
+
+    const rawIsDay =
+        data.is_day ??
+        data.isDay;
+
+    return {
+        weatherCode,
+
+        is_day:
+            rawIsDay === undefined ||
+            rawIsDay === null
+                ? null
+                : Number(rawIsDay),
+
+        condition:
+            data.condition ||
+            data.weatherMain ||
+            data.main ||
+            "",
+
+        temperature:
+            data.temperature ??
+            data.temp ??
+            null,
+
+        rainProbability:
+            data.rainProbability ??
+            data.precipitationProbability ??
+            0,
+    };
 }
 
 /* ============================================================
@@ -259,9 +233,7 @@ export default function ForecastUI({ weatherData }) {
   if (!weatherData) {
     return (
       <div className="rounded-xl2 bg-white shadow-card p-6 text-center">
-        <p className="text-sm text-ink-400">
-          Weather forecast unavailable
-        </p>
+        <p className="text-sm text-ink-400">Weather forecast unavailable</p>
       </div>
     );
   }
@@ -277,67 +249,43 @@ export default function ForecastUI({ weatherData }) {
     hourly = [],
   } = weatherData;
 
-  /* ============================================================
-     IMPORTANT HOURLY FIX
-     ============================================================ */
-
   const next24Hours = getNext24Hours(hourly, timezone);
 
-  /* ============================================================
-     SEVERE WEATHER
-     ============================================================ */
-
   const severeHours = next24Hours.filter(
-    (hour) =>
-      hour?.severeWeather &&
-      hour.severeWeather.level !== "normal"
+    (hour) => hour?.severeWeather && hour.severeWeather.level !== "normal",
   );
 
   const thunderstormHours = next24Hours.filter(
     (hour) =>
-      hour?.weatherCode === 95 ||
-      hour?.weatherCode === 96 ||
-      hour?.weatherCode === 99
+      Number(hour?.weatherCode) === 95 ||
+      Number(hour?.weatherCode) === 96 ||
+      Number(hour?.weatherCode) === 99,
   );
 
   return (
     <div className="flex flex-col gap-6">
-
       {/* ======================================================
           LOCATION
       ====================================================== */}
 
       <div className="bg-white rounded-xl2 shadow-card p-5">
         <div className="flex items-center gap-3">
-
           <div className="h-11 w-11 rounded-full bg-sky-50 flex items-center justify-center">
-            <MapPin
-              size={20}
-              className="text-sky-600"
-            />
+            <MapPin size={20} className="text-sky-600" />
           </div>
 
           <div className="flex-1 min-w-0">
-
             <h2 className="font-display font-bold text-lg text-ink-900 truncate">
               {location || "Unknown Location"}
             </h2>
 
-            <p className="text-xs text-ink-400">
-              {country || "IN"}
-            </p>
-
+            <p className="text-xs text-ink-400">{country || "IN"}</p>
           </div>
-
         </div>
 
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-
-          {/* LATITUDE */}
           <div className="rounded-xl bg-sky-50 p-3">
-            <p className="text-[10px] text-ink-400">
-              Latitude
-            </p>
+            <p className="text-[10px] text-ink-400">Latitude</p>
 
             <p className="text-sm font-semibold text-ink-800">
               {Number.isFinite(Number(latitude))
@@ -346,11 +294,8 @@ export default function ForecastUI({ weatherData }) {
             </p>
           </div>
 
-          {/* LONGITUDE */}
           <div className="rounded-xl bg-sky-50 p-3">
-            <p className="text-[10px] text-ink-400">
-              Longitude
-            </p>
+            <p className="text-[10px] text-ink-400">Longitude</p>
 
             <p className="text-sm font-semibold text-ink-800">
               {Number.isFinite(Number(longitude))
@@ -359,28 +304,19 @@ export default function ForecastUI({ weatherData }) {
             </p>
           </div>
 
-          {/* TIMEZONE */}
           <div className="rounded-xl bg-sky-50 p-3">
-            <p className="text-[10px] text-ink-400">
-              Timezone
-            </p>
+            <p className="text-[10px] text-ink-400">Timezone</p>
 
             <p className="text-sm font-semibold text-ink-800 truncate">
               {timezone}
             </p>
           </div>
 
-          {/* COORDINATES */}
           <div className="rounded-xl bg-sky-50 p-3">
-            <p className="text-[10px] text-ink-400">
-              Coordinates
-            </p>
+            <p className="text-[10px] text-ink-400">Coordinates</p>
 
-            <p className="text-sm font-semibold text-ink-800">
-              GPS
-            </p>
+            <p className="text-sm font-semibold text-ink-800">GPS</p>
           </div>
-
         </div>
       </div>
 
@@ -389,149 +325,130 @@ export default function ForecastUI({ weatherData }) {
       ====================================================== */}
 
       <div>
-
         <h2 className="font-display font-semibold text-ink-800 mb-3">
           Current Weather
         </h2>
 
         <div className="rounded-xl2 bg-white shadow-card p-5">
-
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <p className="text-sm text-ink-400">
-                Right now
-              </p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm text-ink-400">Right now</p>
 
               <div className="flex items-end gap-2 mt-1">
-
                 <span className="text-4xl font-display font-extrabold text-ink-900">
                   {current?.temperature ?? "--"}°
                 </span>
 
-                <span className="text-sm text-ink-400 mb-1">
-                  C
-                </span>
-
+                <span className="text-sm text-ink-400 mb-1">C</span>
               </div>
 
               <p className="text-sm text-ink-500 mt-1 capitalize">
-                {current?.condition ||
-                  "Weather unavailable"}
+                {current?.condition || "Weather unavailable"}
               </p>
 
+              {/* DAY / NIGHT LABEL */}
+
+              <p className="text-xs text-sky-600 mt-1 font-medium">
+                {Number(current?.is_day ?? current?.isDay ?? 1) === 1
+                  ? "☀️ Day"
+                  : "🌙 Night"}
+              </p>
             </div>
 
-            <div className="text-6xl">
-              🌤️
-            </div>
+            {/* LARGE WEATHER ANIMATION */}
 
+            <div className="w-32 h-28 flex items-center justify-center shrink-0 overflow-visible">
+              <WeatherVisual
+                weather={buildWeatherVisualData(current)}
+                size="large"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3 mt-5">
-
-            {/* HUMIDITY */}
             <div className="rounded-xl bg-sky-50 p-3">
+              <Droplets size={16} className="text-sky-600 mb-2" />
 
-              <Droplets
-                size={16}
-                className="text-sky-600 mb-2"
-              />
-
-              <p className="text-[10px] text-ink-400">
-                Humidity
-              </p>
+              <p className="text-[10px] text-ink-400">Humidity</p>
 
               <p className="font-semibold text-ink-800">
                 {current?.humidity ?? "--"}%
               </p>
-
             </div>
 
-            {/* FEELS LIKE */}
             <div className="rounded-xl bg-sky-50 p-3">
+              <Wind size={16} className="text-sky-600 mb-2" />
 
-              <Wind
-                size={16}
-                className="text-sky-600 mb-2"
-              />
-
-              <p className="text-[10px] text-ink-400">
-                Feels Like
-              </p>
+              <p className="text-[10px] text-ink-400">Feels Like</p>
 
               <p className="font-semibold text-ink-800">
                 {current?.feelsLike ?? "--"}°
               </p>
-
             </div>
 
-            {/* CONDITION */}
             <div className="rounded-xl bg-sky-50 p-3">
+              <CloudRain size={16} className="text-sky-600 mb-2" />
 
-              <CloudRain
-                size={16}
-                className="text-sky-600 mb-2"
-              />
-
-              <p className="text-[10px] text-ink-400">
-                Condition
-              </p>
+              <p className="text-[10px] text-ink-400">Condition</p>
 
               <p className="font-semibold text-ink-800 capitalize truncate">
                 {current?.condition || "--"}
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
 
       {/* ======================================================
-          SEVERE WEATHER ALERT
+          THUNDERSTORM ALERT
       ====================================================== */}
 
       {thunderstormHours.length > 0 && (
         <div className="rounded-xl2 bg-orange-50 border border-orange-200 p-5">
-
           <div className="flex items-start gap-3">
-
             <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-
-              <CloudLightning
-                size={20}
-                className="text-orange-600"
-              />
-
+              <CloudLightning size={20} className="text-orange-600" />
             </div>
 
             <div className="min-w-0">
-
               <h2 className="font-display font-bold text-orange-800">
                 Thunderstorm Forecast
               </h2>
 
               <p className="text-sm text-orange-700 mt-1">
-                Thunderstorm activity is detected in
-                the forecast.
+                Thunderstorm activity is detected in the forecast.
               </p>
 
               <p className="text-xs text-orange-600 mt-2">
                 {thunderstormHours.length} forecast hour
-                {thunderstormHours.length !== 1
-                  ? "s"
-                  : ""}{" "}
-                affected
+                {thunderstormHours.length !== 1 ? "s" : ""} affected
               </p>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* ======================================================
+          OTHER SEVERE WEATHER
+      ====================================================== */}
+
+      {severeHours.length > 0 && thunderstormHours.length === 0 && (
+        <div className="rounded-xl2 bg-orange-50 border border-orange-200 p-5">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <CloudLightning size={20} className="text-orange-600" />
             </div>
 
-          </div>
+            <div>
+              <h2 className="font-display font-bold text-orange-800">
+                Severe Weather Alert
+              </h2>
 
+              <p className="text-sm text-orange-700 mt-1">
+                Severe weather conditions are detected in the upcoming forecast.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -540,119 +457,122 @@ export default function ForecastUI({ weatherData }) {
       ====================================================== */}
 
       <div>
-
         <div className="flex items-center justify-between mb-3">
-
           <h2 className="font-display font-semibold text-ink-800">
             7-Day Forecast
           </h2>
 
-          <span className="text-xs text-ink-400">
-            Rain probability
-          </span>
-
+          <span className="text-xs text-ink-400">Rain probability</span>
         </div>
 
         <div className="flex flex-col gap-2">
+          {daily.length > 0 ? (
+            daily.map((day, index) => (
+              <div
+                key={day.date || index}
+                className="
+                  bg-white
+                  rounded-xl2
+                  shadow-card
+                  px-4
+                  py-3
+                  flex
+                  items-center
+                  gap-3
+                "
+              >
+                {/* DATE */}
 
-          {daily.map((day, index) => (
-
-            <div
-              key={day.date || index}
-              className="
-                bg-white
-                rounded-xl2
-                shadow-card
-                px-4
-                py-3
-                flex
-                items-center
-                gap-3
-              "
-            >
-
-              {/* DATE */}
-              <div className="w-20 shrink-0">
-
-                <p className="text-sm font-semibold text-ink-800">
-
-                  {index === 0
-                    ? "Today"
-                    : formatDate(day.date)}
-
-                </p>
-
-              </div>
-
-              {/* ICON */}
-              <div className="text-2xl">
-
-                {Number(day.rainProbability) >= 60
-                  ? "🌧️"
-                  : "🌤️"}
-
-              </div>
-
-              {/* TEMPERATURE */}
-              <div className="flex-1">
-
-                <div className="flex items-center gap-2">
-
-                  <span className="font-semibold text-ink-900">
-                    {Number.isFinite(Number(day.maxTemp))
-                      ? Math.round(Number(day.maxTemp))
-                      : "--"}
-                    °
-                  </span>
-
-                  <span className="text-sm text-ink-400">
-                    {Number.isFinite(Number(day.minTemp))
-                      ? Math.round(Number(day.minTemp))
-                      : "--"}
-                    °
-                  </span>
-
+                <div className="w-20 shrink-0">
+                  <p className="text-sm font-semibold text-ink-800">
+                    {index === 0 ? "Today" : formatDate(day.date)}
+                  </p>
                 </div>
 
-                <div className="h-1.5 bg-sky-50 rounded-full mt-2 overflow-hidden">
+                {/* WEATHER VISUAL */}
 
-                  <div
-                    className="h-full bg-sky-400 rounded-full"
-                    style={{
-                      width: `${Math.min(
-                        Number(day.rainProbability) || 0,
-                        100
-                      )}%`,
-                    }}
+                <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                  <WeatherVisual
+                    weather={buildWeatherVisualData({
+                      weatherCode: day.weatherCode ?? day.weather_code,
+
+                      /*
+                       * Daily forecast represents
+                       * daytime conditions.
+                       */
+                      is_day: day.is_day ?? day.isDay ?? 1,
+
+                      condition:
+                        day.condition ||
+                        (Number(day.rainProbability) >= 60 ? "rain" : "clear"),
+
+                      temperature: day.maxTemp,
+
+                      rainProbability: day.rainProbability,
+                    })}
+                    size="small"
                   />
-
                 </div>
 
+                {/* TEMPERATURE */}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-ink-900">
+                      {Number.isFinite(Number(day.maxTemp))
+                        ? Math.round(Number(day.maxTemp))
+                        : "--"}
+                      °
+                    </span>
+
+                    <span className="text-sm text-ink-400">
+                      {Number.isFinite(Number(day.minTemp))
+                        ? Math.round(Number(day.minTemp))
+                        : "--"}
+                      °
+                    </span>
+                  </div>
+
+                  <div className="h-1.5 bg-sky-50 rounded-full mt-2 overflow-hidden">
+                    <div
+                      className="
+                        h-full
+                        bg-sky-400
+                        rounded-full
+                        transition-all
+                        duration-700
+                      "
+                      style={{
+                        width: `${Math.min(
+                          Number(day.rainProbability) || 0,
+                          100,
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* RAIN */}
+
+                <div className="text-right shrink-0">
+                  <p
+                    className={`text-sm font-semibold ${getRainColor(
+                      day.rainProbability,
+                    )}`}
+                  >
+                    {day.rainProbability ?? 0}%
+                  </p>
+
+                  <p className="text-[10px] text-ink-400">{day.rain ?? 0} mm</p>
+                </div>
               </div>
-
-              {/* RAIN */}
-              <div className="text-right shrink-0">
-
-                <p
-                  className={`text-sm font-semibold ${getRainColor(
-                    day.rainProbability
-                  )}`}
-                >
-                  {day.rainProbability ?? 0}%
-                </p>
-
-                <p className="text-[10px] text-ink-400">
-                  {day.rain ?? 0} mm
-                </p>
-
-              </div>
-
+            ))
+          ) : (
+            <div className="rounded-xl2 bg-white shadow-card p-5 text-center">
+              <p className="text-sm text-ink-400">Daily forecast unavailable</p>
             </div>
-
-          ))}
-
+          )}
         </div>
-
       </div>
 
       {/* ======================================================
@@ -660,17 +580,12 @@ export default function ForecastUI({ weatherData }) {
       ====================================================== */}
 
       <div>
-
         <div className="flex items-center justify-between mb-3">
-
           <h2 className="font-display font-semibold text-ink-800">
             Hourly Forecast
           </h2>
 
-          <span className="text-xs text-ink-400">
-            Next 24 hours
-          </span>
-
+          <span className="text-xs text-ink-400">Next 24 hours</span>
         </div>
 
         <div
@@ -682,22 +597,13 @@ export default function ForecastUI({ weatherData }) {
             scrollbar-hide
           "
         >
-
-          {/* ==================================================
-              IMPORTANT:
-              USE next24Hours INSTEAD OF hourly.slice(0, 24)
-          ================================================== */}
-
           {next24Hours.length > 0 ? (
             next24Hours.map((hour, index) => {
+              const severe = getSevereWeatherLabel(hour);
 
-              const severe =
-                getSevereWeatherLabel(hour);
-
-              const severityClasses =
-                severe
-                  ? getSeverityClasses(severe.level)
-                  : null;
+              const severityClasses = severe
+                ? getSeverityClasses(severe.level)
+                : null;
 
               return (
                 <div
@@ -717,40 +623,40 @@ export default function ForecastUI({ weatherData }) {
                     }
                   `}
                 >
-
                   {/* TIME */}
+
                   <p className="text-xs font-medium text-ink-400">
-
-                    {index === 0
-                      ? "Now"
-                      : formatHour(
-                          hour.time,
-                          timezone
-                        )}
-
+                    {index === 0 ? "Now" : formatHour(hour.time, timezone)}
                   </p>
 
-                  {/* WEATHER ICON */}
-                  <div className="text-2xl my-2">
-                    {getWeatherIcon(hour)}
+                  {/* DAY/NIGHT */}
+
+                  <p className="text-[9px] text-sky-500 mt-1 font-medium">
+                    {Number(hour.is_day ?? hour.isDay) === 1
+                      ? "☀️ Day"
+                      : "🌙 Night"}
+                  </p>
+
+                  {/* WEATHER VISUAL */}
+
+                  <div className="w-14 h-14 mx-auto my-1 flex items-center justify-center overflow-visible">
+                    <WeatherVisual
+                      weather={buildWeatherVisualData(hour)}
+                      size="small"
+                    />
                   </div>
 
                   {/* TEMPERATURE */}
+
                   <p className="text-lg font-display font-bold text-ink-900">
-
-                    {Number.isFinite(
-                      Number(hour.temperature)
-                    )
-                      ? Math.round(
-                          Number(hour.temperature)
-                        )
+                    {Number.isFinite(Number(hour.temperature))
+                      ? Math.round(Number(hour.temperature))
                       : "--"}
-
                     °
-
                   </p>
 
-                  {/* SEVERE WEATHER LABEL */}
+                  {/* SEVERE WEATHER */}
+
                   {severe && (
                     <div
                       className={`
@@ -760,111 +666,74 @@ export default function ForecastUI({ weatherData }) {
                         ${severityClasses.text}
                       `}
                     >
-
-                      {severe.icon}{" "}
-                      {severe.type}
-
+                      {severe.icon} {severe.type}
                     </div>
                   )}
 
                   {/* HUMIDITY */}
-                  <div className="flex items-center justify-center gap-1 mt-2">
 
-                    <Droplets
-                      size={11}
-                      className="text-sky-500"
-                    />
+                  <div className="flex items-center justify-center gap-1 mt-2">
+                    <Droplets size={11} className="text-sky-500" />
 
                     <span className="text-[10px] text-ink-400">
                       {hour.humidity ?? "--"}%
                     </span>
-
                   </div>
 
                   {/* RAIN PROBABILITY */}
-                  <div className="flex items-center justify-center gap-1 mt-1">
 
-                    <CloudRain
-                      size={11}
-                      className="text-sky-500"
-                    />
+                  <div className="flex items-center justify-center gap-1 mt-1">
+                    <CloudRain size={11} className="text-sky-500" />
 
                     <span
                       className={`
                         text-[10px]
                         font-medium
-                        ${getRainColor(
-                          hour.rainProbability
-                        )}
+                        ${getRainColor(hour.rainProbability)}
                       `}
                     >
                       {hour.rainProbability ?? 0}%
                     </span>
-
                   </div>
 
                   {/* RAIN AMOUNT */}
+
                   {Number(hour.precipitation) > 0 && (
                     <p className="text-[10px] text-ink-400 mt-1">
-
-                      💧{" "}
-
-                      {Number(
-                        hour.precipitation
-                      ).toFixed(1)}{" "}
-
-                      mm
-
+                      💧 {Number(hour.precipitation).toFixed(1)} mm
                     </p>
                   )}
 
-                  {/* CONVECTIVE INFORMATION */}
+                  {/* CAPE / WIND GUST */}
+
                   {severe &&
-                    (Number(hour.cape) > 0 ||
-                      Number(hour.windGust) > 0) && (
+                    (Number(hour.cape) > 0 || Number(hour.windGust) > 0) && (
+                      <div className="mt-2 pt-2 border-t border-black/5">
+                        {Number(hour.cape) > 0 && (
+                          <p className="text-[9px] text-ink-400">
+                            CAPE {Math.round(Number(hour.cape))}
+                          </p>
+                        )}
 
-                    <div className="mt-2 pt-2 border-t border-black/5">
-
-                      {Number(hour.cape) > 0 && (
-                        <p className="text-[9px] text-ink-400">
-                          CAPE{" "}
-                          {Math.round(
-                            Number(hour.cape)
-                          )}
-                        </p>
-                      )}
-
-                      {Number(hour.windGust) > 0 && (
-                        <p className="text-[9px] text-ink-400">
-                          Gust{" "}
-                          {Math.round(
-                            Number(hour.windGust)
-                          )}{" "}
-                          km/h
-                        </p>
-                      )}
-
-                    </div>
-
-                  )}
-
+                        {Number(hour.windGust) > 0 && (
+                          <p className="text-[9px] text-ink-400">
+                            Gust {Math.round(Number(hour.windGust))} km/h
+                          </p>
+                        )}
+                      </div>
+                    )}
                 </div>
               );
             })
           ) : (
             <div className="w-full rounded-xl2 bg-white shadow-card p-5 text-center">
-
               <p className="text-sm text-ink-400">
                 Hourly forecast unavailable
               </p>
-
             </div>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }
