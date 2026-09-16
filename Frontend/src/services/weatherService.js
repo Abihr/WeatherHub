@@ -30,7 +30,7 @@ export async function getCurrentWeather(latitude, longitude) {
     try {
         // Backend API URL from Vite environment variable
         const API_URL = import.meta.env.VITE_WEATHER_API_URL;
-
+        console.log("🔥 VITE_WEATHER_API_URL:", API_URL);
         // Check whether API URL is configured
         if (!API_URL) {
             throw new Error(
@@ -86,7 +86,7 @@ export async function getCurrentWeather(latitude, longitude) {
 
             throw new Error(
                 data?.error ||
-                    `Weather server returned status ${response.status}`
+                `Weather server returned status ${response.status}`
             );
         }
 
@@ -116,49 +116,56 @@ export async function getCurrentWeather(latitude, longitude) {
 
         // Return data in WeatherHub frontend format
         return {
-            // Weather icon
-            icon: mapWeatherIcon(data.weatherMain),
+    // OpenWeather icon: 01d / 01n / 02d / 02n etc.
+    icon: data.weatherIcon || "01d",
 
-            // Weather condition
-            condition: data.condition || "Unknown",
+    // Weather category
+    weatherType: mapWeatherIcon(data.weatherMain),
 
-            // Main temperature
-            temp: safeTemperature,
+    // IMPORTANT: preserve day/night
+    is_day:
+        data.is_day !== undefined && data.is_day !== null
+            ? Number(data.is_day)
+            : data.weatherIcon?.endsWith("n")
+                ? 0
+                : 1,
 
-            // Keep temperature as well
-            temperature: safeTemperature,
+    // Weather condition
+    condition: data.condition || "Unknown",
 
-            // Feels-like temperature
-            feelsLike: safeFeelsLike,
+    // Temperature
+    temp: safeTemperature,
+    temperature: safeTemperature,
 
-            // Humidity percentage
-            humidity: data.humidity ?? null,
+    // Feels like
+    feelsLike: safeFeelsLike,
 
-            // Wind speed in km/h
-            wind: safeWind,
+    // Humidity
+    humidity: data.humidity ?? null,
 
-            // Atmospheric pressure
-            pressure: data.pressure ?? null,
+    // Wind
+    wind: safeWind,
 
-            // Rainfall
-            rain: data.rainfall ?? 0,
+    // Pressure
+    pressure: data.pressure ?? null,
 
-            // Location
-            locationName: data.location || "Unknown",
+    // Rain
+    rain: data.rainfall ?? 0,
 
-            // Country
-            country: data.country || "",
+    // Location
+    locationName: data.location || "Unknown",
+    country: data.country || "",
 
-            // Coordinates
-            latitude: data.latitude ?? latitude,
-            longitude: data.longitude ?? longitude,
+    // Coordinates
+    latitude: data.latitude ?? latitude,
+    longitude: data.longitude ?? longitude,
 
-            // Visibility
-            visibility: data.visibility ?? null,
+    // Visibility
+    visibility: data.visibility ?? null,
 
-            // Wind direction
-            windDirection: data.windDirection ?? null,
-        };
+    // Wind direction
+    windDirection: data.windDirection ?? null,
+};
     } catch (error) {
         console.error(
             "❌ getCurrentWeather error:",

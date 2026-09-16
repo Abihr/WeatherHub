@@ -47,3 +47,70 @@ h1, h2, h3, h4 {
 @keyframes shimmer {
   100% { transform: translateX(100%); }
 }
+@keyframes cloudMove {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    50% {
+        transform: translateX(8px);
+    }
+}
+
+@keyframes fogMove {
+    0%,
+    100% {
+        transform: translateX(-5px);
+    }
+
+    50% {
+        transform: translateX(8px);
+    }
+}
+
+@keyframes lightning {
+    0%,
+    80%,
+    100% {
+        opacity: 1;
+    }
+
+    85% {
+        opacity: 0.2;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    95% {
+        opacity: 0.3;
+    }
+}
+
+@keyframes spinSlow {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-cloud {
+    animation: cloudMove 4s ease-in-out infinite;
+}
+
+.animate-fog {
+    animation: fogMove 5s ease-in-out infinite;
+}
+
+.animate-lightning {
+    animation: lightning 2s infinite;
+}
+
+.animate-spin-slow {
+    animation: spinSlow 12s linear infinite;
+}
