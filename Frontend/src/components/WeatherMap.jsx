@@ -6,6 +6,7 @@ import {
   Marker,
   Circle,
   useMap,
+  LayersControl,
 } from "react-leaflet";
 
 import L from "leaflet";
@@ -17,7 +18,10 @@ import { X, MapPin } from "lucide-react";
 import { weatherIcon } from "../data/mockData";
 
 function pin(label, tone) {
-  const bg = tone === "you" ? "#3874B8" : "#4A90D9";
+  const bg =
+    tone === "you"
+      ? "#3874B8"
+      : "#4A90D9";
 
   return L.divIcon({
     className: "",
@@ -55,7 +59,9 @@ function FlyTo({ position }) {
   if (position) {
     map.setView(
       position,
-      map.getZoom() < 8 ? 9 : map.getZoom()
+      map.getZoom() < 8
+        ? 9
+        : map.getZoom()
     );
   }
 
@@ -65,12 +71,16 @@ function FlyTo({ position }) {
 function getCoordinates(item) {
   if (!item) return null;
 
-  // Firebase structure:
-  // location: { lat, lng }
+  /*
+   * Firebase structure:
+   * location: { lat, lng }
+   */
   if (
     item.location &&
-    typeof item.location.lat === "number" &&
-    typeof item.location.lng === "number"
+    typeof item.location.lat ===
+      "number" &&
+    typeof item.location.lng ===
+      "number"
   ) {
     return {
       lat: item.location.lat,
@@ -78,10 +88,14 @@ function getCoordinates(item) {
     };
   }
 
-  // Fallback to top-level Firebase fields
+  /*
+   * Fallback to top-level Firebase fields
+   */
   if (
-    typeof item.latitude === "number" &&
-    typeof item.longitude === "number"
+    typeof item.latitude ===
+      "number" &&
+    typeof item.longitude ===
+      "number"
   ) {
     return {
       lat: item.latitude,
@@ -93,37 +107,54 @@ function getCoordinates(item) {
 }
 
 function getLocationText(item) {
-  if (!item) return "Unknown location";
+  if (!item) {
+    return "Unknown location";
+  }
 
-  // String location
+  /*
+   * String location
+   */
   if (
-    typeof item.location === "string" &&
+    typeof item.location ===
+      "string" &&
     item.location.trim()
   ) {
     return item.location;
   }
 
-  // location.city
+  /*
+   * location.city
+   */
   if (
     item.location &&
-    typeof item.location.city === "string" &&
+    typeof item.location.city ===
+      "string" &&
     item.location.city.trim()
   ) {
     return item.location.city;
   }
 
-  // Weather location name
+  /*
+   * Weather location name
+   */
   if (
     item.weather?.locationName &&
-    typeof item.weather.locationName === "string"
+    typeof item.weather.locationName ===
+      "string"
   ) {
     return item.weather.locationName;
   }
 
-  const coordinates = getCoordinates(item);
+  /*
+   * Coordinates
+   */
+  const coordinates =
+    getCoordinates(item);
 
   if (coordinates) {
-    return `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`;
+    return `${coordinates.lat.toFixed(
+      4
+    )}, ${coordinates.lng.toFixed(4)}`;
   }
 
   return "Unknown location";
@@ -132,11 +163,17 @@ function getLocationText(item) {
 function getTemperature(weather) {
   if (!weather) return null;
 
-  if (typeof weather.temperature === "number") {
+  if (
+    typeof weather.temperature ===
+    "number"
+  ) {
     return weather.temperature;
   }
 
-  if (typeof weather.temp === "number") {
+  if (
+    typeof weather.temp ===
+    "number"
+  ) {
     return weather.temp;
   }
 
@@ -145,36 +182,40 @@ function getTemperature(weather) {
 
 /*
  * Format Firebase weatherUpdatedAt.
- *
- * Examples:
- * just now
- * 1 minute ago
- * 5 minutes ago
- * 2 hours ago
- * 08 Sep, 07:30 PM
  */
-function formatWeatherUpdatedAt(timestamp) {
+function formatWeatherUpdatedAt(
+  timestamp
+) {
   if (!timestamp) {
     return null;
   }
 
   try {
-    const date = timestamp?.toDate
-      ? timestamp.toDate()
-      : new Date(timestamp);
+    const date =
+      timestamp?.toDate
+        ? timestamp.toDate()
+        : new Date(timestamp);
 
-    if (Number.isNaN(date.getTime())) {
+    if (
+      Number.isNaN(date.getTime())
+    ) {
       return null;
     }
 
-    const diffMs = Date.now() - date.getTime();
+    const diffMs =
+      Date.now() - date.getTime();
 
-    // Prevent weird future timestamps
+    /*
+     * Prevent weird future timestamps.
+     */
     if (diffMs < 0) {
       return "just now";
     }
 
-    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffMinutes =
+      Math.floor(
+        diffMs / 60000
+      );
 
     if (diffMinutes < 1) {
       return "just now";
@@ -188,7 +229,10 @@ function formatWeatherUpdatedAt(timestamp) {
       return `${diffMinutes} minutes ago`;
     }
 
-    const diffHours = Math.floor(diffMinutes / 60);
+    const diffHours =
+      Math.floor(
+        diffMinutes / 60
+      );
 
     if (diffHours === 1) {
       return "1 hour ago";
@@ -198,69 +242,223 @@ function formatWeatherUpdatedAt(timestamp) {
       return `${diffHours} hours ago`;
     }
 
-    return date.toLocaleString([], {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return date.toLocaleString(
+      [],
+      {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }
+    );
   } catch {
     return null;
   }
+}
+
+/*
+ * ============================================================
+ * FRIEND PRIVACY
+ * ============================================================
+ *
+ * We intentionally DO NOT place an exact marker on a friend's
+ * location.
+ *
+ * Instead, we display a 5 km radius around the friend's actual
+ * Firebase location.
+ *
+ * The actual coordinates are still used internally for:
+ * - weather information
+ * - selecting the friend
+ * - centering the map
+ *
+ * But the exact point is not visually exposed as a marker.
+ */
+
+const FRIEND_RADIUS_METERS = 2000;
+
+/*
+ * Creates a slightly offset visual point for the friend.
+ *
+ * IMPORTANT:
+ * We don't actually need to use this point as the circle
+ * center because the 5 km circle itself already provides
+ * approximate-location privacy.
+ *
+ * This helper exists if you later want the circle center
+ * itself to be randomized.
+ */
+function getApproximateFriendCenter(
+  coordinates,
+  friendId
+) {
+  if (!coordinates) {
+    return null;
+  }
+
+  /*
+   * Generate deterministic values from friend ID.
+   *
+   * This prevents the position from changing every render.
+   */
+  const seedString =
+    String(friendId || "friend");
+
+  let seed = 0;
+
+  for (
+    let i = 0;
+    i < seedString.length;
+    i++
+  ) {
+    seed =
+      (seed * 31 +
+        seedString.charCodeAt(i)) >>>
+      0;
+  }
+
+  /*
+   * Convert deterministic seed to
+   * values between -1 and +1.
+   */
+  const randomLat =
+    ((seed % 1000) / 1000) * 2 - 1;
+
+  const randomLng =
+    (((seed >> 10) % 1000) /
+      1000) *
+      2 -
+    1;
+
+  /*
+   * Maximum offset is approximately
+   * 1.5 km.
+   *
+   * The circle itself is still 5 km.
+   */
+  const maxOffsetKm = 1.5;
+
+  /*
+   * 1 degree latitude ≈ 111 km.
+   */
+  const latOffset =
+    (randomLat * maxOffsetKm) /
+    111;
+
+  /*
+   * Longitude distance depends on
+   * latitude.
+   */
+  const longitudeFactor =
+    Math.cos(
+      (coordinates.lat * Math.PI) /
+        180
+    );
+
+  const lngOffset =
+    (randomLng * maxOffsetKm) /
+    (111 * longitudeFactor);
+
+  return {
+    lat:
+      coordinates.lat +
+      latOffset,
+    lng:
+      coordinates.lng +
+      lngOffset,
+  };
 }
 
 export default function WeatherMap({
   user,
   friends = [],
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] =
+    useState(null);
 
   /*
-   * Used to refresh the "Updated X minutes ago"
-   * text automatically.
+   * Used to refresh:
+   * "Updated 5 minutes ago"
    */
-  const [, setTimeTick] = useState(0);
+  const [, setTimeTick] =
+    useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeTick((value) => value + 1);
-    }, 60000);
+    const interval =
+      setInterval(() => {
+        setTimeTick(
+          (value) => value + 1
+        );
+      }, 60000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, []);
 
-  const userCoordinates = getCoordinates(user);
+  /*
+   * YOUR EXACT LOCATION
+   */
+  const userCoordinates =
+    getCoordinates(user);
 
   const center = userCoordinates
-    ? [userCoordinates.lat, userCoordinates.lng]
+    ? [
+        userCoordinates.lat,
+        userCoordinates.lng,
+      ]
     : [22.5726, 88.3639];
 
   /*
-   * Only show friends that have valid Firebase coordinates.
+   * FRIENDS WITH VALID COORDINATES
    */
-  const visibleFriends = useMemo(() => {
-    return friends.filter((friend) => {
-      const coordinates = getCoordinates(friend);
+  const visibleFriends =
+    useMemo(() => {
+      return friends
+        .map((friend) => {
+          const coordinates =
+            getCoordinates(friend);
 
-      return (
-        coordinates &&
-        Number.isFinite(coordinates.lat) &&
-        Number.isFinite(coordinates.lng)
-      );
-    });
-  }, [friends]);
+          if (!coordinates) {
+            return null;
+          }
+
+          /*
+           * Approximate visual center.
+           *
+           * The exact Firebase coordinate
+           * is NOT directly rendered as a marker.
+           */
+          const approximateCenter =
+            getApproximateFriendCenter(
+              coordinates,
+              friend.id
+            );
+
+          return {
+            ...friend,
+            exactCoordinates:
+              coordinates,
+            approximateCenter,
+          };
+        })
+        .filter(Boolean);
+    }, [friends]);
 
   /*
-   * Keep selected friend data updated when
-   * Firebase sends a new friendsList.
-   *
-   * This is important for real-time weather updates.
+   * Keep selected friend data updated
+   * when Firebase changes.
    */
   useEffect(() => {
-    if (!selected?.id && !selected?.isYou) {
+    if (
+      !selected?.id &&
+      !selected?.isYou
+    ) {
       return;
     }
 
+    /*
+     * YOUR LOCATION
+     */
     if (selected.isYou) {
       setSelected((current) => ({
         ...current,
@@ -271,18 +469,51 @@ export default function WeatherMap({
       return;
     }
 
-    const updatedFriend = friends.find(
-      (friend) => friend.id === selected.id
-    );
+    /*
+     * FRIEND LOCATION
+     */
+    const updatedFriend =
+      friends.find(
+        (friend) =>
+          friend.id === selected.id
+      );
 
     if (updatedFriend) {
       const coordinates =
-        getCoordinates(updatedFriend);
+        getCoordinates(
+          updatedFriend
+        );
+
+      if (!coordinates) {
+        return;
+      }
+
+      /*
+       * Recalculate deterministic
+       * approximate center.
+       */
+      const approximateCenter =
+        getApproximateFriendCenter(
+          coordinates,
+          updatedFriend.id
+        );
 
       setSelected({
         ...updatedFriend,
-        latitude: coordinates?.lat,
-        longitude: coordinates?.lng,
+
+        /*
+         * Keep exact coordinates
+         * internally for weather/data.
+         *
+         * These are NOT shown directly
+         * on the map.
+         */
+        latitude:
+          coordinates.lat,
+        longitude:
+          coordinates.lng,
+
+        approximateCenter,
       });
     }
   }, [friends, user]);
@@ -305,31 +536,96 @@ export default function WeatherMap({
         scrollWheelZoom
         className="h-full w-full"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        {/* =================================================
+            MAP LAYERS
+        ================================================= */}
 
-        {/* Move map to selected friend */}
+        <LayersControl
+          position="topright"
+          collapsed={false}
+        >
+          {/* NORMAL MAP */}
+
+          <LayersControl.BaseLayer
+            checked
+            name="🗺️ Map"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          </LayersControl.BaseLayer>
+
+          {/* SATELLITE MAP */}
+
+          <LayersControl.BaseLayer
+            name="🛰️ Satellite"
+          >
+            <TileLayer
+              attribution="© Esri"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
+
+        {/* =================================================
+            FLY TO SELECTED FRIEND
+        ================================================= */}
+
         <FlyTo
           position={
             selected
               ? (() => {
-                  const coordinates =
-                    getCoordinates(selected);
+                  /*
+                   * If YOU are selected:
+                   * fly to exact location.
+                   */
 
-                  return coordinates
-                    ? [
-                        coordinates.lat,
-                        coordinates.lng,
-                      ]
-                    : null;
+                  if (
+                    selected.isYou
+                  ) {
+                    const coordinates =
+                      getCoordinates(
+                        selected
+                      );
+
+                    return coordinates
+                      ? [
+                          coordinates.lat,
+                          coordinates.lng,
+                        ]
+                      : null;
+                  }
+
+                  /*
+                   * If FRIEND is selected:
+                   * fly to approximate center,
+                   * NOT the exact Firebase point.
+                   */
+
+                  if (
+                    selected.approximateCenter
+                  ) {
+                    return [
+                      selected
+                        .approximateCenter
+                        .lat,
+                      selected
+                        .approximateCenter
+                        .lng,
+                    ];
+                  }
+
+                  return null;
                 })()
               : null
           }
         />
 
-        {/* YOUR LOCATION */}
+        {/* =================================================
+            YOUR EXACT LOCATION
+        ================================================= */}
+
         {userCoordinates && (
           <>
             <Marker
@@ -337,7 +633,10 @@ export default function WeatherMap({
                 userCoordinates.lat,
                 userCoordinates.lng,
               ]}
-              icon={pin("👤", "you")}
+              icon={pin(
+                "👤",
+                "you"
+              )}
               eventHandlers={{
                 click: () =>
                   setSelected({
@@ -347,7 +646,8 @@ export default function WeatherMap({
               }}
             />
 
-            {user.locationSharing !== "exact" && (
+            {user.locationSharing !==
+              "exact" && (
               <Circle
                 center={[
                   userCoordinates.lat,
@@ -364,35 +664,73 @@ export default function WeatherMap({
           </>
         )}
 
-        {/* FRIEND LOCATIONS FROM FIREBASE */}
-        {visibleFriends.map((friend) => {
-          const coordinates =
-            getCoordinates(friend);
+        {/* =================================================
+            FRIEND APPROXIMATE LOCATIONS
+        ================================================= */}
 
-          if (!coordinates) return null;
+        {visibleFriends.map(
+          (friend) => {
+            if (
+              !friend.approximateCenter
+            ) {
+              return null;
+            }
 
-          return (
-            <Marker
-              key={friend.id}
-              position={[
-                coordinates.lat,
-                coordinates.lng,
-              ]}
-              icon={pin("👥", "friend")}
-              eventHandlers={{
-                click: () =>
-                  setSelected({
-                    ...friend,
-                    latitude: coordinates.lat,
-                    longitude: coordinates.lng,
-                  }),
-              }}
-            />
-          );
-        })}
+            const position = [
+              friend
+                .approximateCenter
+                .lat,
+              friend
+                .approximateCenter
+                .lng,
+            ];
+
+            return (
+              <Circle
+                key={friend.id}
+                center={position}
+                radius={
+                  FRIEND_RADIUS_METERS
+                }
+                pathOptions={{
+                  color: "#4A90D9",
+                  fillColor: "#4A90D9",
+                  fillOpacity: 0.12,
+                  weight: 2,
+                }}
+                eventHandlers={{
+                  click: () =>
+                    setSelected({
+                      ...friend,
+
+                      /*
+                       * Exact coordinates remain
+                       * available internally.
+                       */
+                      latitude:
+                        friend
+                          .exactCoordinates
+                          .lat,
+
+                      longitude:
+                        friend
+                          .exactCoordinates
+                          .lng,
+
+                      approximateCenter:
+                        friend.approximateCenter,
+                    }),
+                }}
+              />
+            );
+          }
+        )}
       </MapContainer>
 
-      {/* MAP HEADER */}
+      {/* =================================================
+          MAP HEADER
+      ================================================= */}
+
       <div
         className="
           absolute
@@ -419,8 +757,10 @@ export default function WeatherMap({
             shadow-card
           "
         >
-          {visibleFriends.length} friend
-          {visibleFriends.length !== 1
+          {visibleFriends.length}{" "}
+          friend
+          {visibleFriends.length !==
+          1
             ? "s"
             : ""}{" "}
           shown
@@ -443,7 +783,10 @@ export default function WeatherMap({
         </span>
       </div>
 
-      {/* SELECTED FRIEND / USER */}
+      {/* =================================================
+          SELECTED USER / FRIEND CARD
+      ================================================= */}
+
       {selected && (
         <div
           className="
@@ -463,6 +806,7 @@ export default function WeatherMap({
           "
         >
           {/* AVATAR */}
+
           <div
             className="
               h-10
@@ -483,33 +827,55 @@ export default function WeatherMap({
               ? "You"
               : selected.name
                   ?.split(" ")
-                  .map((n) => n[0])
+                  .map(
+                    (n) => n[0]
+                  )
                   .slice(0, 2)
                   .join("")
-                  .toUpperCase() || "U"}
+                  .toUpperCase() ||
+                "U"}
           </div>
 
           {/* INFORMATION */}
+
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-ink-800">
               {selected.isYou
                 ? "Your Location"
-                : selected.name || "User"}
+                : selected.name ||
+                  "User"}
             </p>
 
             <p className="text-xs text-ink-400 flex items-center gap-1">
-              <MapPin size={11} />
-              {getLocationText(selected)}
+              <MapPin
+                size={11}
+              />
+
+              {selected.isYou
+                ? getLocationText(
+                    selected
+                  )
+                : "Approximate location · within 2 km"}
             </p>
 
+            {/* FRIEND PRIVACY LABEL */}
+
+            {!selected.isYou && (
+              <p className="text-[11px] text-ink-400 mt-1">
+                🔒 Exact location hidden
+              </p>
+            )}
+
             {/* WEATHER */}
+
             {selected.weather &&
             (selected.isYou ||
               selected.weatherSharing) ? (
               <>
                 <p className="text-sm mt-1.5">
                   {weatherIcon[
-                    selected.weather.icon
+                    selected.weather
+                      .icon
                   ] || "🌤️"}{" "}
                   {getTemperature(
                     selected.weather
@@ -519,11 +885,13 @@ export default function WeatherMap({
                       )}°C`
                     : "--"}{" "}
                   {" · "}
-                  {selected.weather.condition ||
+                  {selected.weather
+                    .condition ||
                     "Weather unavailable"}
                 </p>
 
                 {/* UPDATED TIME */}
+
                 {selected.weatherUpdatedAt && (
                   <p className="text-xs text-ink-400 mt-1">
                     🕐 Updated{" "}
@@ -541,9 +909,12 @@ export default function WeatherMap({
           </div>
 
           {/* CLOSE */}
+
           <button
             type="button"
-            onClick={() => setSelected(null)}
+            onClick={() =>
+              setSelected(null)
+            }
             className="
               text-ink-400
               hover:text-ink-700
