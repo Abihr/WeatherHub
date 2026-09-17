@@ -33,23 +33,6 @@ import {
 import { auth, db } from "../firebase/firebase";
 
 // ========================================
-// FLOATING WEATHER ELEMENTS
-// ========================================
-
-const weather = [
-  ["⛅", "left-[6%] top-[14%] text-4xl"],
-  ["🌧️", "left-[18%] top-[62%] text-3xl"],
-  ["☀️", "left-[32%] top-[8%] text-2xl"],
-  ["🌦️", "left-[44%] top-[44%] text-3xl"],
-  ["🌥️", "left-[58%] top-[20%] text-2xl"],
-  ["⛈️", "left-[70%] top-[66%] text-4xl"],
-  ["🌤️", "left-[82%] top-[12%] text-3xl"],
-  ["☔", "left-[90%] top-[52%] text-3xl"],
-  ["🌈", "left-[12%] top-[82%] text-2xl"],
-  ["❄️", "left-[64%] top-[86%] text-2xl"],
-];
-
-// ========================================
 // LOGIN COMPONENT
 // ========================================
 
@@ -64,12 +47,9 @@ export default function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-
   const [error, setError] = useState("");
-
   const [loading, setLoading] = useState(false);
 
-  // Username availability
   const [usernameStatus, setUsernameStatus] = useState("idle");
   const [usernameMessage, setUsernameMessage] = useState("");
 
@@ -101,7 +81,6 @@ export default function Login() {
       [name]: value,
     }));
 
-    // Reset username availability when username changes
     if (name === "username") {
       setUsernameStatus("idle");
       setUsernameMessage("");
@@ -115,14 +94,11 @@ export default function Login() {
   // ========================================
 
   function normalizeUsername(username) {
-    return username
-      .trim()
-      .toLowerCase()
-      .replace(/^@/, "");
+    return username.trim().toLowerCase().replace(/^@/, "");
   }
 
   // ========================================
-  // VALIDATE USERNAME FORMAT
+  // VALIDATE USERNAME
   // ========================================
 
   function validateUsername(username) {
@@ -148,7 +124,7 @@ export default function Login() {
   }
 
   // ========================================
-  // CHECK USERNAME AVAILABILITY
+  // CHECK USERNAME
   // ========================================
 
   async function checkUsernameAvailability() {
@@ -170,7 +146,6 @@ export default function Login() {
 
     try {
       const usernameRef = doc(db, "usernames", username);
-
       const usernameSnapshot = await getDoc(usernameRef);
 
       if (usernameSnapshot.exists()) {
@@ -181,6 +156,7 @@ export default function Login() {
 
       setUsernameStatus("available");
       setUsernameMessage("Username is available.");
+
       return true;
     } catch (err) {
       console.error("Username check error:", err);
@@ -204,16 +180,14 @@ export default function Login() {
     await runTransaction(db, async (transaction) => {
       const usernameSnapshot = await transaction.get(usernameRef);
 
-      // Someone already owns this username
       if (usernameSnapshot.exists()) {
         throw new Error("USERNAME_TAKEN");
       }
 
-      // Reserve username
       transaction.set(usernameRef, {
         uid: user.uid,
         email: user.email,
-        username: username,
+        username,
         createdAt: new Date().toISOString(),
       });
     });
@@ -250,12 +224,10 @@ export default function Login() {
       // ========================================
 
       if (mode === "register") {
-        // Full name
         if (!form.name.trim()) {
           throw new Error("Please enter your full name.");
         }
 
-        // Username
         const username = normalizeUsername(form.username);
 
         const usernameValidation = validateUsername(username);
@@ -264,22 +236,17 @@ export default function Login() {
           throw new Error(usernameValidation);
         }
 
-        // Email
         if (!form.email.trim()) {
           throw new Error("Please enter your email.");
         }
 
-        // Password
         if (form.password.length < 6) {
           throw new Error(
             "Password must be at least 6 characters."
           );
         }
 
-        // ========================================
-        // CREATE FIREBASE AUTH USER
-        // ========================================
-
+        // Create Firebase Auth user
         const userCredential =
           await createUserWithEmailAndPassword(
             auth,
@@ -291,21 +258,14 @@ export default function Login() {
 
         createdUser = user;
 
-        // ========================================
-        // SAVE NAME TO FIREBASE AUTH
-        // ========================================
-
+        // Save display name
         await updateProfile(user, {
           displayName: form.name.trim(),
         });
 
-        // ========================================
-        // RESERVE UNIQUE USERNAME
-        // ========================================
-
+        // Reserve username
         try {
           await reserveUsername(username, user);
-
           reservedUsername = username;
         } catch (err) {
           if (err.message === "USERNAME_TAKEN") {
@@ -317,22 +277,12 @@ export default function Login() {
           throw err;
         }
 
-        // ========================================
-        // CREATE FIRESTORE USER DOCUMENT
-        // ========================================
-
+        // Create Firestore profile
         await setDoc(doc(db, "users", user.uid), {
           name: form.name.trim(),
-
-          username: username,
-
+          username,
           email: form.email.trim(),
-
           photoURL: user.photoURL || "",
-
-          // ========================================
-          // LOCATION
-          // ========================================
 
           latitude: null,
           longitude: null,
@@ -342,10 +292,6 @@ export default function Login() {
             lat: null,
             lng: null,
           },
-
-          // ========================================
-          // WEATHER
-          // ========================================
 
           weather: {
             temperature: null,
@@ -359,19 +305,13 @@ export default function Login() {
             country: "",
           },
 
-          // ========================================
-          // PRIVACY
-          // ========================================
-
           locationSharing: "friends",
           weatherSharing: true,
         });
 
-        console.log("✅ Account created:", user.uid);
-        console.log("✅ Username:", username);
-        console.log("✅ Firestore profile created:", user.uid);
+        console.log("Account created:", user.uid);
+        console.log("Username:", username);
 
-        // Firebase automatically signs the user in.
         return;
       }
 
@@ -382,7 +322,9 @@ export default function Login() {
       const loginValue = form.username.trim();
 
       if (!loginValue) {
-        throw new Error("Please enter your username or email.");
+        throw new Error(
+          "Please enter your username or email."
+        );
       }
 
       if (!form.password) {
@@ -391,10 +333,7 @@ export default function Login() {
 
       let emailToLogin = loginValue;
 
-      // ========================================
-      // USERNAME LOGIN
-      // ========================================
-
+      // Login with username
       if (!loginValue.includes("@")) {
         const username = normalizeUsername(loginValue);
 
@@ -426,10 +365,7 @@ export default function Login() {
         emailToLogin = usernameData.email;
       }
 
-      // ========================================
-      // FIREBASE LOGIN
-      // ========================================
-
+      // Firebase login
       const userCredential =
         await signInWithEmailAndPassword(
           auth,
@@ -438,14 +374,14 @@ export default function Login() {
         );
 
       console.log(
-        "✅ Logged in successfully:",
+        "Logged in successfully:",
         userCredential.user.uid
       );
     } catch (err) {
       console.error("Firebase Auth Error:", err);
 
       // ========================================
-      // CLEANUP IF REGISTRATION FAILED
+      // CLEANUP
       // ========================================
 
       if (createdUser && reservedUsername) {
@@ -515,424 +451,369 @@ export default function Login() {
   // ========================================
 
   return (
-    <main className="relative flex min-h-screen overflow-hidden bg-gradient-to-br from-violet-400 via-sky-400 to-amber-200 font-sans text-slate-800 max-[900px]:block">
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-gradient-to-br from-violet-400 via-sky-400 to-amber-200 font-sans text-slate-800">
 
       {/* Background glow */}
-
-      <div className="pointer-events-none absolute -left-12 -top-24 h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(255,240,190,.55),transparent_70%)]" />
-
-      {/* Floating weather */}
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-      >
-        {weather.map(([mark, position], index) => (
-          <span
-            key={`${mark}-${index}`}
-            className={`absolute opacity-55 drop-shadow-md motion-safe:animate-bounce ${position}`}
-          >
-            {mark}
-          </span>
-        ))}
-      </div>
+      <div className="pointer-events-none absolute -left-24 -top-24 h-[350px] w-[350px] rounded-full bg-[radial-gradient(circle,rgba(255,240,190,.55),transparent_70%)] sm:h-[420px] sm:w-[420px]" />
 
       {/* ========================================
-          LEFT SIDE
+          MAIN LAYOUT
       ======================================== */}
 
-      <section className="relative z-10 flex min-h-screen flex-[0.85] flex-col px-8 py-10 text-white md:px-[72px] md:py-16 max-[900px]:min-h-0">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] flex-col lg:grid lg:grid-cols-[1fr_480px]">
 
-        {/* Logo */}
+        {/* ========================================
+            LEFT SIDE
+        ======================================== */}
 
-        <div className="flex items-center gap-3 drop-shadow-md">
+        <section className="flex flex-col px-5 pb-5 pt-6 text-white sm:px-8 sm:pb-8 sm:pt-9 lg:min-h-screen lg:px-14 lg:py-14 xl:px-20">
 
-          <div className="flex size-14 items-center justify-center overflow-hidden rounded-2xl bg-white/20 p-1 backdrop-blur-sm">
+          {/* Logo */}
+          <div className="flex items-center gap-3 drop-shadow-md">
+            <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/20 p-1 backdrop-blur-sm sm:size-14 sm:rounded-2xl">
+              <img
+                src={logo}
+                alt="WeatherHub logo"
+                className="h-full w-full object-contain"
+              />
+            </div>
 
-            <img
-              src={logo}
-              alt="WeatherHub logo"
-              className="h-full w-full object-contain"
-            />
-
+            <strong className="font-serif text-[28px] font-medium sm:text-[34px] lg:text-[38px]">
+              WeatherHub
+            </strong>
           </div>
 
-          <strong className="font-serif text-[38px] font-medium">
-            WeatherHub
-          </strong>
+          {/* Hero */}
+          <div className="mt-8 max-w-xl sm:mt-12 lg:my-auto lg:mt-0">
+            <h1 className="mb-2 font-serif text-[32px] font-medium leading-[1.08] tracking-tight drop-shadow-sm sm:mb-4 sm:text-4xl md:text-[46px]">
+              Ask the sky anything.
+            </h1>
 
-        </div>
+            <p className="max-w-md text-[14px] leading-relaxed text-white/90 sm:text-base">
+              Plain-language forecasts for your city, powered by
+              community — not just a chart.
+            </p>
+          </div>
 
-        {/* Hero */}
-
-        <div className="my-auto max-w-md pt-16 max-[900px]:my-14 max-[900px]:pt-0">
-
-          <h1 className="mb-5 font-serif text-4xl font-medium leading-tight drop-shadow-sm md:text-[46px]">
-            Ask the sky anything.
-          </h1>
-
-          <p className="max-w-sm text-base leading-relaxed text-white/90">
-            Plain-language forecasts for your city, powered by
-            community — not just a chart.
+          {/* Footer */}
+          <p className="mt-6 text-[10px] text-white/70 sm:text-xs lg:mt-0">
+            © 2026 WeatherHub · Available on web, iOS & Android
           </p>
+        </section>
 
-          {/* Feature cards */}
+        {/* ========================================
+            RIGHT SIDE
+        ======================================== */}
 
-          <div className="mt-8 flex flex-wrap gap-3">
+        <section className="flex w-full items-start justify-center px-4 pb-6 sm:px-6 sm:pb-10 lg:min-h-screen lg:items-center lg:px-8 lg:py-10">
 
-            <div className="rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-sm text-white backdrop-blur-md">
-              🌦️ Live weather
-            </div>
-
-            <div className="rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-sm text-white backdrop-blur-md">
-              👥 Community
-            </div>
-
-            <div className="rounded-xl border border-white/30 bg-white/15 px-4 py-2.5 text-sm text-white backdrop-blur-md">
-              📍 Local insights
-            </div>
-
-          </div>
-        </div>
-
-        <p className="text-[13px] text-white/75">
-          © 2026 WeatherHub · Available on web, iOS &amp; Android
-        </p>
-
-      </section>
-
-      {/* ========================================
-          RIGHT SIDE
-      ======================================== */}
-
-      <section className="relative z-10 flex flex-1 items-center justify-center px-6 py-14 md:p-12">
-
-        <div className="w-full max-w-[420px] rounded-[20px] border border-white/55 bg-white/15 p-7 shadow-2xl backdrop-blur-xl md:px-10 md:py-9">
-
-          {/* ========================================
-              TABS
-          ======================================== */}
-
-          <div className="mb-7 flex gap-7 border-b border-white/35">
-
-            <Tab
-              active={mode === "login"}
-              onClick={() => setLoginMode("login")}
-            >
-              Sign in
-            </Tab>
-
-            <Tab
-              active={mode === "register"}
-              onClick={() => setLoginMode("register")}
-            >
-              Create account
-            </Tab>
-
-          </div>
-
-          {/* ========================================
-              HEADING
-          ======================================== */}
-
-          <h2 className="mb-1 font-serif text-[28px] font-medium text-white">
-
-            {mode === "login"
-              ? "Welcome back"
-              : "Create your account"}
-
-          </h2>
-
-          <p className="mb-6 text-sm leading-relaxed text-white/80">
-
-            {mode === "login"
-              ? "Sign in with your WeatherHub username or email."
-              : "Join WeatherHub and get your forecasts ready."}
-
-          </p>
-
-          {/* ========================================
-              FORM
-          ======================================== */}
-
-          <form onSubmit={submit}>
+          {/* Auth Card */}
+          <div className="w-full max-w-[430px] rounded-2xl border border-white/55 bg-white/15 p-4 shadow-2xl backdrop-blur-xl sm:rounded-[22px] sm:p-6 md:p-8">
 
             {/* ========================================
-                REGISTER NAME
+                TABS
+            ======================================== */}
+
+            <div className="mb-4 flex w-full gap-5 border-b border-white/35 sm:mb-6 sm:gap-7">
+
+              <Tab
+                active={mode === "login"}
+                onClick={() => setLoginMode("login")}
+              >
+                Sign in
+              </Tab>
+
+              <Tab
+                active={mode === "register"}
+                onClick={() => setLoginMode("register")}
+              >
+                Create account
+              </Tab>
+
+            </div>
+
+            {/* ========================================
+                HEADING
+            ======================================== */}
+
+            <h2 className="mb-1 font-serif text-[24px] font-medium leading-tight text-white sm:text-[28px]">
+              {mode === "login"
+                ? "Welcome back"
+                : "Create your account"}
+            </h2>
+
+            <p className="mb-4 text-xs leading-snug text-white/80 sm:mb-6 sm:text-sm">
+              {mode === "login"
+                ? "Sign in with your WeatherHub username or email."
+                : "Join WeatherHub and get your forecasts ready."}
+            </p>
+
+            {/* ========================================
+                FORM
+            ======================================== */}
+
+            <form onSubmit={submit}>
+
+              {/* Full name */}
+              {mode === "register" && (
+                <Field
+                  label="Full name"
+                  name="name"
+                  type="text"
+                  icon={<UserIcon size={18} />}
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Ravi Sharma"
+                />
+              )}
+
+              {/* Username */}
+              {mode === "register" ? (
+                <div className="mb-3 sm:mb-[18px]">
+
+                  <label
+                    htmlFor="username"
+                    className="mb-[7px] block text-[13px] font-semibold text-white/90"
+                  >
+                    Username
+                  </label>
+
+                  <div className="relative">
+
+                    <span className="absolute left-[13px] top-1/2 -translate-y-1/2 text-slate-800/55">
+                      <UserIcon size={18} />
+                    </span>
+
+                    {/* <span className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                      @
+                    </span> */}
+
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      required
+                      autoComplete="username"
+                      value={form.username}
+                      onChange={handleChange}
+                      onBlur={checkUsernameAvailability}
+                      placeholder="ravi@1234"
+                      maxLength={20}
+                      className={`h-11 w-full rounded-xl border bg-white/85 py-0 pl-[45px] pr-10 text-sm text-slate-800 outline-none transition placeholder:text-slate-800/40 focus:bg-white focus:ring-4 ${
+                        usernameStatus === "available"
+                          ? "border-emerald-400 focus:ring-emerald-100"
+                          : usernameStatus === "taken" ||
+                              usernameStatus === "invalid"
+                            ? "border-red-400 focus:ring-red-100"
+                            : "border-white/50 focus:border-white focus:ring-white/35"
+                      }`}
+                    />
+
+                    {usernameStatus === "checking" && (
+                      <Loader2
+                        size={17}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-500"
+                      />
+                    )}
+
+                    {usernameStatus === "available" && (
+                      <Check
+                        size={18}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600"
+                      />
+                    )}
+
+                    {(usernameStatus === "taken" ||
+                      usernameStatus === "invalid") && (
+                      <X
+                        size={18}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500"
+                      />
+                    )}
+                  </div>
+
+                  <p
+                    className={`mt-1.5 text-[11px] ${
+                      usernameStatus === "available"
+                        ? "text-emerald-100"
+                        : usernameStatus === "taken" ||
+                            usernameStatus === "invalid"
+                          ? "text-red-100"
+                          : "text-white/75"
+                    }`}
+                  >
+                    {usernameMessage ||
+                      "Choose a unique username — this is how you'll sign in."}
+                  </p>
+                </div>
+              ) : (
+                <Field
+                  label="Username or Email"
+                  name="username"
+                  type="text"
+                  icon={<UserIcon size={18} />}
+                  value={form.username}
+                  onChange={handleChange}
+                  placeholder="ravi@1234 or email@example.com"
+                />
+              )}
+
+              {/* Email */}
+              {mode === "register" && (
+                <Field
+                  label="Email"
+                  name="email"
+                  type="email"
+                  icon={<Mail size={18} />}
+                  value={form.email}
+                  onChange={handleChange}
+                  placeholder="ravi@example.com"
+                />
+              )}
+
+              {/* Password */}
+              <Field
+                label="Password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                icon={<Lock size={18} />}
+                value={form.password}
+                onChange={handleChange}
+                placeholder={
+                  mode === "login"
+                    ? "••••••••••"
+                    : "Create a password"
+                }
+                trailing={
+                  <button
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-700/60 transition hover:bg-slate-200/50 hover:text-slate-800"
+                    type="button"
+                    onClick={() =>
+                      setShowPassword((prev) => !prev)
+                    }
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                  </button>
+                }
+              />
+
+              {/* Error */}
+              {error && (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-xl border border-red-200/50 bg-rose-900/30 p-3 text-xs leading-relaxed text-white backdrop-blur-sm"
+                >
+                  {error}
+                </div>
+              )}
+
+              {/* Login options */}
+              {mode === "login" && (
+                <div className="mb-4 flex flex-col gap-2 text-xs sm:mb-6 sm:flex-row sm:items-center sm:justify-between sm:text-[13px]">
+
+                  <label className="flex cursor-pointer items-center gap-2 text-white/90">
+                    <input
+                      type="checkbox"
+                      defaultChecked
+                      className="size-4 accent-slate-800"
+                    />
+                    Keep me signed in
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setError(
+                        "Password reset will be available soon."
+                      )
+                    }
+                    className="self-start font-semibold text-white hover:underline sm:self-auto"
+                  >
+                    Forgot password?
+                  </button>
+
+                </div>
+              )}
+
+              {/* Register info */}
+              {mode === "register" && (
+                <p className="mb-4 text-xs leading-snug text-white/85 sm:mb-[22px]">
+                  By creating an account, you agree to the
+                  Terms & Privacy Policy.
+                </p>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  (mode === "register" &&
+                    usernameStatus === "checking")
+                }
+                className="h-11 w-full rounded-xl bg-slate-800 text-sm font-bold text-white shadow-lg transition hover:bg-slate-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 sm:h-[47px] sm:text-[15px]"
+              >
+                {loading
+                  ? "Please wait…"
+                  : mode === "login"
+                    ? "Sign in"
+                    : "Create account"}
+              </button>
+            </form>
+
+            {/* ========================================
+                FEATURE PILLS
+            ======================================== */}
+
+            <div className="mt-4 flex flex-wrap gap-2 sm:mt-7 sm:gap-3">
+
+              <FeaturePill>
+                🌦️ Live weather
+              </FeaturePill>
+
+              <FeaturePill>
+                👥 Community
+              </FeaturePill>
+
+              <FeaturePill>
+                📍 Local insights
+              </FeaturePill>
+
+            </div>
+
+            {/* ========================================
+                LOCATION INFO
             ======================================== */}
 
             {mode === "register" && (
-              <Field
-                label="Full name"
-                name="name"
-                type="text"
-                icon={<UserIcon size={18} />}
-                value={form.name}
-                onChange={handleChange}
-                placeholder="Ravi Sharma"
-              />
-            )}
+              <div className="mt-3 flex gap-2.5 rounded-xl border border-white/35 bg-white/10 p-3 backdrop-blur-sm sm:mt-5 sm:gap-3 sm:p-3.5">
 
-            {/* ========================================
-                USERNAME
-            ======================================== */}
+                <MapPin
+                  size={19}
+                  className="mt-0.5 shrink-0 text-white/90"
+                />
 
-            {mode === "register" ? (
-              <div className="mb-[18px]">
-
-                <label
-                  htmlFor="username"
-                  className="mb-[7px] block text-[13px] font-semibold text-white/90"
-                >
-                  Username
-                </label>
-
-                <div className="relative">
-
-                  <span className="absolute left-[13px] top-1/2 -translate-y-1/2 text-slate-800/55">
-                    <UserIcon size={18} />
-                  </span>
-
-                  <span className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                    @
-                  </span>
-
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    required
-                    autoComplete="username"
-                    value={form.username}
-                    onChange={handleChange}
-                    onBlur={checkUsernameAvailability}
-                    placeholder="aritra18571"
-                    maxLength={20}
-                    className={`h-11 w-full rounded-xl border bg-white/85 py-0 pl-[58px] pr-10 text-sm text-slate-800 outline-none placeholder:text-slate-800/40 transition focus:bg-white focus:ring-4 ${
-                      usernameStatus === "available"
-                        ? "border-emerald-400 focus:ring-emerald-100"
-                        : usernameStatus === "taken" ||
-                            usernameStatus === "invalid"
-                          ? "border-red-400 focus:ring-red-100"
-                          : "border-white/50 focus:border-white focus:ring-white/35"
-                    }`}
-                  />
-
-                  {/* Username status icon */}
-
-                  {usernameStatus === "checking" && (
-                    <Loader2
-                      size={17}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-slate-500"
-                    />
-                  )}
-
-                  {usernameStatus === "available" && (
-                    <Check
-                      size={18}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600"
-                    />
-                  )}
-
-                  {(usernameStatus === "taken" ||
-                    usernameStatus === "invalid") && (
-                    <X
-                      size={18}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-red-500"
-                    />
-                  )}
-
-                </div>
-
-                <p
-                  className={`mt-1.5 text-[11px] ${
-                    usernameStatus === "available"
-                      ? "text-emerald-100"
-                      : usernameStatus === "taken" ||
-                          usernameStatus === "invalid"
-                        ? "text-red-100"
-                        : "text-white/75"
-                  }`}
-                >
-                  {usernameMessage ||
-                    "Choose a unique username — this is how you'll sign in."}
+                <p className="text-xs leading-relaxed text-white/85">
+                  WeatherHub can use your location to show
+                  weather conditions and nearby community
+                  reports.
                 </p>
 
               </div>
-            ) : (
-              /* ========================================
-                 LOGIN USERNAME / EMAIL
-              ======================================== */
-
-              <Field
-                label="Username or Email"
-                name="username"
-                type="text"
-                icon={<UserIcon size={18} />}
-                value={form.username}
-                onChange={handleChange}
-                placeholder="aritra18571 or email@example.com"
-              />
             )}
 
-            {/* ========================================
-                EMAIL - REGISTER ONLY
-            ======================================== */}
-
-            {mode === "register" && (
-              <Field
-                label="Email"
-                name="email"
-                type="email"
-                icon={<Mail size={18} />}
-                value={form.email}
-                onChange={handleChange}
-                placeholder="ravi@example.com"
-              />
-            )}
-
-            {/* ========================================
-                PASSWORD
-            ======================================== */}
-
-            <Field
-              label="Password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              icon={<Lock size={18} />}
-              value={form.password}
-              onChange={handleChange}
-              placeholder={
-                mode === "login"
-                  ? "••••••••••"
-                  : "Create a password"
-              }
-              trailing={
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-700/60 transition hover:bg-slate-200/50 hover:text-slate-800"
-                  type="button"
-                  onClick={() =>
-                    setShowPassword((prev) => !prev)
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
-                  }
-                >
-                  {showPassword ? (
-                    <EyeOff size={17} />
-                  ) : (
-                    <Eye size={17} />
-                  )}
-                </button>
-              }
-            />
-
-            {/* ========================================
-                ERROR
-            ======================================== */}
-
-            {error && (
-              <div
-                role="alert"
-                className="mb-4 rounded-xl border border-red-200/50 bg-rose-900/30 p-3 text-xs text-white backdrop-blur-sm"
-              >
-                {error}
-              </div>
-            )}
-
-            {/* ========================================
-                LOGIN OPTIONS
-            ======================================== */}
-
-            {mode === "login" && (
-              <div className="mb-6 flex items-center justify-between text-[13px]">
-
-                <label className="flex cursor-pointer items-center gap-2 text-white/90">
-
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="size-4 accent-slate-800"
-                  />
-
-                  Keep me signed in
-
-                </label>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setError(
-                      "Password reset will be available soon."
-                    )
-                  }
-                  className="font-semibold text-white hover:underline"
-                >
-                  Forgot password?
-                </button>
-
-              </div>
-            )}
-
-            {/* ========================================
-                REGISTER INFO
-            ======================================== */}
-
-            {mode === "register" && (
-              <p className="mb-[22px] text-xs leading-relaxed text-white/85">
-                By creating an account, you agree to the
-                Terms &amp; Privacy Policy.
-              </p>
-            )}
-
-            {/* ========================================
-                SUBMIT BUTTON
-            ======================================== */}
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                (mode === "register" &&
-                  usernameStatus === "checking")
-              }
-              className="h-[47px] w-full rounded-xl bg-slate-800 text-[15px] font-bold text-white shadow-lg transition hover:bg-slate-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {loading
-                ? "Please wait…"
-                : mode === "login"
-                  ? "Sign in"
-                  : "Create account"}
-            </button>
-
-          </form>
-
-          {/* ========================================
-              LOCATION INFO
-          ======================================== */}
-
-          {mode === "register" && (
-            <div className="mt-5 flex gap-3 rounded-xl border border-white/35 bg-white/10 p-3.5 backdrop-blur-sm">
-
-              <MapPin
-                size={19}
-                className="mt-0.5 shrink-0 text-white/90"
-              />
-
-              <p className="text-xs leading-relaxed text-white/85">
-                WeatherHub can use your location to show
-                weather conditions and nearby community reports.
-              </p>
-
-            </div>
-          )}
-
-        </div>
-
-      </section>
-
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
@@ -946,7 +827,7 @@ function Tab({ active, children, ...props }) {
     <button
       {...props}
       type="button"
-      className={`relative -mb-px border-b-2 pb-3 text-sm font-semibold transition ${
+      className={`relative -mb-px whitespace-nowrap border-b-2 pb-3 text-xs font-semibold transition sm:text-sm ${
         active
           ? "border-white text-white"
           : "border-transparent text-slate-800/55 hover:text-slate-800/75"
@@ -968,7 +849,7 @@ function Field({
   ...props
 }) {
   return (
-    <div className="mb-[18px]">
+    <div className="mb-3 sm:mb-[18px]">
 
       <label
         className="mb-[7px] block text-[13px] font-semibold text-white/90"
@@ -979,26 +860,31 @@ function Field({
 
       <div className="relative">
 
-        {/* Icon */}
-
         <span className="absolute left-[13px] top-1/2 -translate-y-1/2 text-slate-800/55">
           {icon}
         </span>
-
-        {/* Input */}
 
         <input
           id={props.name}
           required
           {...props}
-          className="h-11 w-full rounded-xl border border-white/50 bg-white/85 py-0 pl-10 pr-10 text-sm text-slate-800 outline-none placeholder:text-slate-800/40 transition focus:border-white focus:bg-white focus:ring-4 focus:ring-white/35"
+          className="h-11 w-full rounded-xl border border-white/50 bg-white/85 py-0 pl-10 pr-10 text-sm text-slate-800 outline-none transition placeholder:text-slate-800/40 focus:border-white focus:bg-white focus:ring-4 focus:ring-white/35"
         />
 
         {trailing}
-
       </div>
-
     </div>
   );
 }
 
+// ========================================
+// FEATURE PILL
+// ========================================
+
+function FeaturePill({ children }) {
+  return (
+    <div className="rounded-xl border border-white/30 bg-white/15 px-3 py-2 text-xs text-white backdrop-blur-md sm:px-4 sm:py-2.5 sm:text-sm">
+      {children}
+    </div>
+  );
+}
