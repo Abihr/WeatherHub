@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 
 import WeatherVisual from "./weather/WeatherVisual";
+import { ForecastUISkeleton } from "./Loading";
 
 /* ============================================================
    TIME FORMATTER
@@ -230,12 +231,9 @@ function buildWeatherVisualData(data = {}) {
    ============================================================ */
 
 export default function ForecastUI({ weatherData }) {
+
   if (!weatherData) {
-    return (
-      <div className="rounded-xl2 bg-white shadow-card p-6 text-center">
-        <p className="text-sm text-ink-400">Weather forecast unavailable</p>
-      </div>
-    );
+    return <ForecastUISkeleton />;
   }
 
   const {
