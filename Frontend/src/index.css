@@ -1,116 +1,329 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+html,
+body,
+#root {
   height: 100%;
 }
 
 body {
-  @apply font-body text-ink-800 bg-sky-50 antialiased;
+  @apply font-body text-ink-900 antialiased;
+
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(125, 211, 252, 0.25),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 100% 20%,
+      rgba(147, 197, 253, 0.20),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(191, 219, 254, 0.18),
+      transparent 40%
+    ),
+    #f8fafc;
+
+  background-attachment: fixed;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   @apply font-display;
 }
 
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #C3E2FC transparent;
+  scrollbar-color: #c3e2fc transparent;
 }
+
+
+/* =========================================================
+   LEAFLET
+   ========================================================= */
 
 .leaflet-container {
   font-family: inherit;
 }
 
+
+/* =========================================================
+   PAGE ANIMATION
+   ========================================================= */
+
 @keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-enter {
   animation: fadeSlideUp 0.35s ease-out both;
 }
 
+
+/* =========================================================
+   SKELETON
+   ========================================================= */
+
 .skeleton {
   @apply bg-sky-100 relative overflow-hidden;
 }
+
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
+
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+
   animation: shimmer 1.4s infinite;
 }
-@keyframes shimmer {
-  100% { transform: translateX(100%); }
-}
-@keyframes cloudMove {
-    0%,
-    100% {
-        transform: translateX(0);
-    }
 
-    50% {
-        transform: translateX(8px);
-    }
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+
+/* =========================================================
+   WEATHER ANIMATIONS
+   ========================================================= */
+
+@keyframes cloudMove {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(8px);
+  }
 }
 
 @keyframes fogMove {
-    0%,
-    100% {
-        transform: translateX(-5px);
-    }
+  0%,
+  100% {
+    transform: translateX(-5px);
+  }
 
-    50% {
-        transform: translateX(8px);
-    }
+  50% {
+    transform: translateX(8px);
+  }
 }
 
 @keyframes lightning {
-    0%,
-    80%,
-    100% {
-        opacity: 1;
-    }
+  0%,
+  80%,
+  100% {
+    opacity: 1;
+  }
 
-    85% {
-        opacity: 0.2;
-    }
+  85% {
+    opacity: 0.2;
+  }
 
-    90% {
-        opacity: 1;
-    }
+  90% {
+    opacity: 1;
+  }
 
-    95% {
-        opacity: 0.3;
-    }
+  95% {
+    opacity: 0.3;
+  }
 }
 
 @keyframes spinSlow {
-    from {
-        transform: rotate(0deg);
-    }
+  from {
+    transform: rotate(0deg);
+  }
 
-    to {
-        transform: rotate(360deg);
-    }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-cloud {
-    animation: cloudMove 4s ease-in-out infinite;
+  animation: cloudMove 4s ease-in-out infinite;
 }
 
 .animate-fog {
-    animation: fogMove 5s ease-in-out infinite;
+  animation: fogMove 5s ease-in-out infinite;
 }
 
 .animate-lightning {
-    animation: lightning 2s infinite;
+  animation: lightning 2s infinite;
 }
 
 .animate-spin-slow {
-    animation: spinSlow 12s linear infinite;
+  animation: spinSlow 12s linear infinite;
 }
+
+
+/* =========================================================
+   WEATHERHUB GRADIENTS
+   ========================================================= */
+
+@layer utilities {
+
+  /* Main page gradient */
+
+  .weather-gradient {
+    background: linear-gradient(
+      135deg,
+      #f0f9ff 0%,
+      #ffffff 45%,
+      #eff6ff 100%
+    );
+  }
+
+
+  /* Stronger section gradient */
+
+  .weather-gradient-strong {
+    background: linear-gradient(
+      135deg,
+      #e0f2fe 0%,
+      #ffffff 45%,
+      #dbeafe 100%
+    );
+  }
+
+
+  /* Soft atmospheric gradient */
+
+  .weather-atmosphere {
+    background:
+      radial-gradient(
+        circle at 10% 10%,
+        rgba(125, 211, 252, 0.35),
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at 90% 20%,
+        rgba(96, 165, 250, 0.25),
+        transparent 30%
+      ),
+      radial-gradient(
+        circle at 50% 100%,
+        rgba(191, 219, 254, 0.25),
+        transparent 35%
+      );
+  }
+
+
+  /* Gradient text */
+
+  .weather-text-gradient {
+    background: linear-gradient(
+      90deg,
+      #0ea5e9,
+      #2563eb,
+      #4f46e5
+    );
+
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+
+  /* Primary buttons */
+
+  .weather-button-gradient {
+    background: linear-gradient(
+      135deg,
+      #0ea5e9,
+      #2563eb
+    );
+
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      filter 0.2s ease;
+  }
+
+  .weather-button-gradient:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 25px rgba(14, 165, 233, 0.25);
+  }
+
+
+  /* Weather cards */
+
+  .weather-card-gradient {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 1),
+      rgba(240, 249, 255, 0.9),
+      rgba(239, 246, 255, 0.85)
+    );
+  }
+
+
+  /* Premium glass-style card */
+
+  .weather-glass {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(240, 249, 255, 0.78)
+    );
+
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+
+    border: 1px solid rgba(255, 255, 255, 0.8);
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

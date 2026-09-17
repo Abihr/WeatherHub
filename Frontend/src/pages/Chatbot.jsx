@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import {
-    Send,
-    Bot,
-    User,
-    Mic,
-    MicOff,
-    Volume2,
-    VolumeX,
-    ChevronDown,
+  Send,
+  Bot,
+  User,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ChevronDown,
 } from "lucide-react";
 
 import { useApp } from "../context/AppContext";
@@ -21,1172 +21,910 @@ import { generateSpeech } from "../services/ttsService";
 // ------------------------------------------------------------
 
 const VOICE_LANGUAGES = [
-    { code: "en-IN", label: "English" },
-    { code: "hi-IN", label: "Hindi" },
-    { code: "bn-IN", label: "Bengali" },
-    { code: "ta-IN", label: "Tamil" },
-    { code: "te-IN", label: "Telugu" },
-    { code: "mr-IN", label: "Marathi" },
-    { code: "gu-IN", label: "Gujarati" },
-    { code: "kn-IN", label: "Kannada" },
-    { code: "ml-IN", label: "Malayalam" },
-    { code: "pa-IN", label: "Punjabi" },
+  { code: "en-IN", label: "English" },
+  { code: "hi-IN", label: "Hindi" },
+  { code: "bn-IN", label: "Bengali" },
+  { code: "ta-IN", label: "Tamil" },
+  { code: "te-IN", label: "Telugu" },
+  { code: "mr-IN", label: "Marathi" },
+  { code: "gu-IN", label: "Gujarati" },
+  { code: "kn-IN", label: "Kannada" },
+  { code: "ml-IN", label: "Malayalam" },
+  { code: "pa-IN", label: "Punjabi" },
 ];
 
 export default function Chatbot() {
-    const { user, friendsList } = useApp();
+  const { user, friendsList } = useApp();
 
-    // --------------------------------------------------------
-    // CHAT STATE
-    // --------------------------------------------------------
+  // --------------------------------------------------------
+  // CHAT STATE
+  // --------------------------------------------------------
 
-    const [messages, setMessages] = useState([
-        {
-            id: 1,
-            role: "assistant",
-            text: "Hi! I'm WeatherGPT 🌤️ Ask me anything!",
-        },
-    ]);
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      role: "assistant",
+      text: "Hi! I'm WeatherGPT 🌤️ Ask me anything!",
+    },
+  ]);
 
-    const [input, setInput] = useState("");
-    const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    // --------------------------------------------------------
-    // CHAT SCROLL REF
-    // --------------------------------------------------------
+  // --------------------------------------------------------
+  // CHAT SCROLL REF
+  // --------------------------------------------------------
 
-    const messagesContainerRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
-    // --------------------------------------------------------
-    // VOICE STATE
-    // --------------------------------------------------------
+  // --------------------------------------------------------
+  // VOICE STATE
+  // --------------------------------------------------------
 
-    const [selectedLanguage, setSelectedLanguage] =
-        useState("en-IN");
+  const [selectedLanguage, setSelectedLanguage] = useState("en-IN");
 
-    const [isListening, setIsListening] =
-        useState(false);
+  const [isListening, setIsListening] = useState(false);
 
-    const [isSpeaking, setIsSpeaking] =
-        useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
-    const [voiceSupported, setVoiceSupported] =
-        useState(true);
+  const [voiceSupported, setVoiceSupported] = useState(true);
 
-    const [voiceError, setVoiceError] =
-        useState("");
+  const [voiceError, setVoiceError] = useState("");
 
-    // --------------------------------------------------------
-    // SPEECH RECOGNITION REF
-    // --------------------------------------------------------
+  // --------------------------------------------------------
+  // SPEECH RECOGNITION REF
+  // --------------------------------------------------------
 
-    const recognitionRef = useRef(null);
+  const recognitionRef = useRef(null);
 
-    // --------------------------------------------------------
-    // SARVAM AUDIO REF
-    // --------------------------------------------------------
+  // --------------------------------------------------------
+  // SARVAM AUDIO REF
+  // --------------------------------------------------------
 
-    const audioRef = useRef(null);
+  const audioRef = useRef(null);
 
-    // ========================================================
-    // AUTO SCROLL CHAT
-    // ========================================================
+  // ========================================================
+  // AUTO SCROLL CHAT
+  // ========================================================
 
-    useEffect(() => {
-        const container =
-            messagesContainerRef.current;
+  useEffect(() => {
+    const container = messagesContainerRef.current;
 
-        if (!container) {
-            return;
-        }
-
-        container.scrollTo({
-            top: container.scrollHeight,
-            behavior: "smooth",
-        });
-    }, [messages, loading]);
-
-    // ========================================================
-    // CLEAN TEXT FOR SPEECH
-    // ========================================================
-
-    function cleanTextForSpeech(text) {
-        if (!text || typeof text !== "string") {
-            return "";
-        }
-
-        let cleaned = text;
-
-        // ----------------------------------------------------
-        // Remove Markdown links
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /\[([^\]]+)\]\([^)]+\)/g,
-            "$1"
-        );
-
-        // ----------------------------------------------------
-        // Remove Markdown headings
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /^#{1,6}\s*/gm,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove bold / italic markers
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /\*\*(.*?)\*\*/g,
-            "$1"
-        );
-
-        cleaned = cleaned.replace(
-            /__(.*?)__/g,
-            "$1"
-        );
-
-        cleaned = cleaned.replace(
-            /\*(.*?)\*/g,
-            "$1"
-        );
-
-        cleaned = cleaned.replace(
-            /_(.*?)_/g,
-            "$1"
-        );
-
-        // ----------------------------------------------------
-        // Remove strikethrough
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /~~(.*?)~~/g,
-            "$1"
-        );
-
-        // ----------------------------------------------------
-        // Remove bullet markers
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /^\s*[-*+]\s+/gm,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove numbered-list markers
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /^\s*\d+\.\s+/gm,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove Markdown table pipes
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /\|/g,
-            " "
-        );
-
-        // ----------------------------------------------------
-        // Remove Markdown table separator characters
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /^\s*:?-+:?\s*$/gm,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove backticks
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /`/g,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove common Markdown formatting characters
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /[~*_#]/g,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove URLs
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /https?:\/\/\S+/gi,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove emojis
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /[\u{1F300}-\u{1FAFF}]/gu,
-            ""
-        );
-
-        cleaned = cleaned.replace(
-            /[\u{2600}-\u{27BF}]/gu,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove variation selectors
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /[\uFE0E\uFE0F]/g,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Remove zero-width characters
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /[\u200B-\u200D\u2060]/g,
-            ""
-        );
-
-        // ----------------------------------------------------
-        // Normalize whitespace
-        // ----------------------------------------------------
-
-        cleaned = cleaned.replace(
-            /[ \t]{2,}/g,
-            " "
-        );
-
-        cleaned = cleaned.replace(
-            /\n{3,}/g,
-            "\n\n"
-        );
-
-        return cleaned.trim();
+    if (!container) {
+      return;
     }
 
-    // ========================================================
-    // CREATE SPEECH RECOGNITION INSTANCE
-    // ========================================================
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [messages, loading]);
 
-    useEffect(() => {
-        const SpeechRecognition =
-            window.SpeechRecognition ||
-            window.webkitSpeechRecognition;
+  // ========================================================
+  // CLEAN TEXT FOR SPEECH
+  // ========================================================
 
-        if (!SpeechRecognition) {
-            setVoiceSupported(false);
-            return;
-        }
+  function cleanTextForSpeech(text) {
+    if (!text || typeof text !== "string") {
+      return "";
+    }
 
-        const recognition =
-            new SpeechRecognition();
+    let cleaned = text;
 
-        recognition.continuous = false;
-        recognition.interimResults = true;
-        recognition.maxAlternatives = 1;
+    // ----------------------------------------------------
+    // Remove Markdown links
+    // ----------------------------------------------------
 
-        recognitionRef.current = recognition;
+    cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 
-        // ----------------------------------------------------
-        // Recognition started
-        // ----------------------------------------------------
+    // ----------------------------------------------------
+    // Remove Markdown headings
+    // ----------------------------------------------------
 
-        recognition.onstart = () => {
-            setIsListening(true);
-            setVoiceError("");
-        };
+    cleaned = cleaned.replace(/^#{1,6}\s*/gm, "");
 
-        // ----------------------------------------------------
-        // Recognition result
-        // ----------------------------------------------------
+    // ----------------------------------------------------
+    // Remove bold / italic markers
+    // ----------------------------------------------------
 
-        recognition.onresult = (event) => {
-            let transcript = "";
+    cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, "$1");
 
-            for (
-                let i = event.resultIndex;
-                i < event.results.length;
-                i++
-            ) {
-                transcript +=
-                    event.results[i][0].transcript;
-            }
+    cleaned = cleaned.replace(/__(.*?)__/g, "$1");
 
-            setInput(transcript);
-        };
+    cleaned = cleaned.replace(/\*(.*?)\*/g, "$1");
 
-        // ----------------------------------------------------
-        // Recognition ended
-        // ----------------------------------------------------
+    cleaned = cleaned.replace(/_(.*?)_/g, "$1");
 
-        recognition.onend = () => {
-            setIsListening(false);
-        };
+    // ----------------------------------------------------
+    // Remove strikethrough
+    // ----------------------------------------------------
 
-        // ----------------------------------------------------
-        // Recognition error
-        // ----------------------------------------------------
+    cleaned = cleaned.replace(/~~(.*?)~~/g, "$1");
 
-        recognition.onerror = (event) => {
-            console.error(
-                "Speech recognition error:",
-                event.error
-            );
+    // ----------------------------------------------------
+    // Remove bullet markers
+    // ----------------------------------------------------
 
-            setIsListening(false);
+    cleaned = cleaned.replace(/^\s*[-*+]\s+/gm, "");
 
-            if (event.error === "not-allowed") {
-                setVoiceError(
-                    "Microphone permission was denied."
-                );
-            } else if (
-                event.error === "language-not-supported"
-            ) {
-                setVoiceError(
-                    "This language is not supported by your browser."
-                );
-            } else if (
-                event.error === "no-speech"
-            ) {
-                setVoiceError(
-                    "No speech was detected. Please try again."
-                );
-            } else {
-                setVoiceError(
-                    "Voice recognition failed. Please try again."
-                );
-            }
-        };
+    // ----------------------------------------------------
+    // Remove numbered-list markers
+    // ----------------------------------------------------
 
-        // ----------------------------------------------------
-        // Cleanup
-        // ----------------------------------------------------
+    cleaned = cleaned.replace(/^\s*\d+\.\s+/gm, "");
 
-        return () => {
-            try {
-                recognition.stop();
-            } catch (error) {
-                // Recognition may already be stopped.
-            }
+    // ----------------------------------------------------
+    // Remove Markdown table pipes
+    // ----------------------------------------------------
 
-            recognitionRef.current = null;
-        };
-    }, []);
+    cleaned = cleaned.replace(/\|/g, " ");
 
-    // ========================================================
-    // UPDATE RECOGNITION LANGUAGE
-    // ========================================================
+    // ----------------------------------------------------
+    // Remove Markdown table separator characters
+    // ----------------------------------------------------
 
-    useEffect(() => {
-        if (recognitionRef.current) {
-            recognitionRef.current.lang =
-                selectedLanguage;
-        }
-    }, [selectedLanguage]);
+    cleaned = cleaned.replace(/^\s*:?-+:?\s*$/gm, "");
 
-    // ========================================================
-    // STOP SARVAM AUDIO
-    // ========================================================
+    // ----------------------------------------------------
+    // Remove backticks
+    // ----------------------------------------------------
 
-    function stopSpeaking() {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            audioRef.current = null;
-        }
+    cleaned = cleaned.replace(/`/g, "");
+
+    // ----------------------------------------------------
+    // Remove common Markdown formatting characters
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/[~*_#]/g, "");
+
+    // ----------------------------------------------------
+    // Remove URLs
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/https?:\/\/\S+/gi, "");
+
+    // ----------------------------------------------------
+    // Remove emojis
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/[\u{1F300}-\u{1FAFF}]/gu, "");
+
+    cleaned = cleaned.replace(/[\u{2600}-\u{27BF}]/gu, "");
+
+    // ----------------------------------------------------
+    // Remove variation selectors
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/[\uFE0E\uFE0F]/g, "");
+
+    // ----------------------------------------------------
+    // Remove zero-width characters
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/[\u200B-\u200D\u2060]/g, "");
+
+    // ----------------------------------------------------
+    // Normalize whitespace
+    // ----------------------------------------------------
+
+    cleaned = cleaned.replace(/[ \t]{2,}/g, " ");
+
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+    return cleaned.trim();
+  }
+
+  // ========================================================
+  // CREATE SPEECH RECOGNITION INSTANCE
+  // ========================================================
+
+  useEffect(() => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceSupported(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognitionRef.current = recognition;
+
+    // ----------------------------------------------------
+    // Recognition started
+    // ----------------------------------------------------
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceError("");
+    };
+
+    // ----------------------------------------------------
+    // Recognition result
+    // ----------------------------------------------------
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      setInput(transcript);
+    };
+
+    // ----------------------------------------------------
+    // Recognition ended
+    // ----------------------------------------------------
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    // ----------------------------------------------------
+    // Recognition error
+    // ----------------------------------------------------
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+
+      setIsListening(false);
+
+      if (event.error === "not-allowed") {
+        setVoiceError("Microphone permission was denied.");
+      } else if (event.error === "language-not-supported") {
+        setVoiceError("This language is not supported by your browser.");
+      } else if (event.error === "no-speech") {
+        setVoiceError("No speech was detected. Please try again.");
+      } else {
+        setVoiceError("Voice recognition failed. Please try again.");
+      }
+    };
+
+    // ----------------------------------------------------
+    // Cleanup
+    // ----------------------------------------------------
+
+    return () => {
+      try {
+        recognition.stop();
+      } catch (error) {
+        // Recognition may already be stopped.
+      }
+
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  // ========================================================
+  // UPDATE RECOGNITION LANGUAGE
+  // ========================================================
+
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = selectedLanguage;
+    }
+  }, [selectedLanguage]);
+
+  // ========================================================
+  // STOP SARVAM AUDIO
+  // ========================================================
+
+  function stopSpeaking() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+
+    setIsSpeaking(false);
+  }
+
+  // ========================================================
+  // TEXT TO SPEECH
+  // ========================================================
+
+  async function speakText(text) {
+    if (!text) {
+      return;
+    }
+
+    const speechText = cleanTextForSpeech(text);
+
+    if (!speechText) {
+      return;
+    }
+
+    // ----------------------------------------------------
+    // Stop currently playing Sarvam audio
+    // ----------------------------------------------------
+
+    stopSpeaking();
+
+    setVoiceError("");
+    setIsSpeaking(true);
+
+    try {
+      // ------------------------------------------------
+      // Generate Sarvam speech
+      //
+      // IMPORTANT:
+      // Do NOT pass a speaker here.
+      //
+      // ttsService.js automatically selects:
+      //
+      // en-IN -> ratan
+      // hi-IN -> shubh
+      // bn-IN -> rehan
+      // ta-IN -> rohan
+      // te-IN -> neha
+      // mr-IN -> priya
+      // gu-IN -> ritu
+      // kn-IN -> ishita
+      // ml-IN -> pooja
+      // pa-IN -> mani
+      // ------------------------------------------------
+
+      const data = await generateSpeech(speechText, selectedLanguage);
+
+      if (!data?.audio) {
+        throw new Error("No audio was returned from Sarvam.");
+      }
+
+      // ------------------------------------------------
+      // Sarvam returns base64 audio.
+      // Convert it into a playable WAV data URL.
+      // ------------------------------------------------
+
+      const audio = new Audio(`data:audio/wav;base64,${data.audio}`);
+
+      audioRef.current = audio;
+
+      // ------------------------------------------------
+      // Audio started
+      // ------------------------------------------------
+
+      audio.onplay = () => {
+        setIsSpeaking(true);
+      };
+
+      // ------------------------------------------------
+      // Audio ended
+      // ------------------------------------------------
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        audioRef.current = null;
+      };
+
+      // ------------------------------------------------
+      // Audio error
+      // ------------------------------------------------
+
+      audio.onerror = (event) => {
+        console.error("Sarvam audio playback error:", event);
 
         setIsSpeaking(false);
+        audioRef.current = null;
+
+        setVoiceError("Unable to play the generated voice.");
+      };
+
+      // ------------------------------------------------
+      // Play generated audio
+      // ------------------------------------------------
+
+      await audio.play();
+    } catch (error) {
+      console.error("Sarvam TTS error:", error);
+
+      setIsSpeaking(false);
+      audioRef.current = null;
+
+      setVoiceError(error?.message || "Unable to generate speech.");
+    }
+  }
+
+  // ========================================================
+  // START / STOP LISTENING
+  // ========================================================
+
+  function toggleListening() {
+    if (!voiceSupported) {
+      setVoiceError("Voice recognition is not supported in this browser.");
+      return;
     }
 
-    // ========================================================
-    // TEXT TO SPEECH
-    // ========================================================
+    const recognition = recognitionRef.current;
 
-    async function speakText(text) {
-        if (!text) {
-            return;
-        }
-
-        const speechText =
-            cleanTextForSpeech(text);
-
-        if (!speechText) {
-            return;
-        }
-
-        // ----------------------------------------------------
-        // Stop currently playing Sarvam audio
-        // ----------------------------------------------------
-
-        stopSpeaking();
-
-        setVoiceError("");
-        setIsSpeaking(true);
-
-        try {
-            // ------------------------------------------------
-            // Generate Sarvam speech
-            //
-            // IMPORTANT:
-            // Do NOT pass a speaker here.
-            //
-            // ttsService.js automatically selects:
-            //
-            // en-IN -> ratan
-            // hi-IN -> shubh
-            // bn-IN -> rehan
-            // ta-IN -> rohan
-            // te-IN -> neha
-            // mr-IN -> priya
-            // gu-IN -> ritu
-            // kn-IN -> ishita
-            // ml-IN -> pooja
-            // pa-IN -> mani
-            // ------------------------------------------------
-
-            const data =
-                await generateSpeech(
-                    speechText,
-                    selectedLanguage
-                );
-
-            if (!data?.audio) {
-                throw new Error(
-                    "No audio was returned from Sarvam."
-                );
-            }
-
-            // ------------------------------------------------
-            // Sarvam returns base64 audio.
-            // Convert it into a playable WAV data URL.
-            // ------------------------------------------------
-
-            const audio =
-                new Audio(
-                    `data:audio/wav;base64,${data.audio}`
-                );
-
-            audioRef.current = audio;
-
-            // ------------------------------------------------
-            // Audio started
-            // ------------------------------------------------
-
-            audio.onplay = () => {
-                setIsSpeaking(true);
-            };
-
-            // ------------------------------------------------
-            // Audio ended
-            // ------------------------------------------------
-
-            audio.onended = () => {
-                setIsSpeaking(false);
-                audioRef.current = null;
-            };
-
-            // ------------------------------------------------
-            // Audio error
-            // ------------------------------------------------
-
-            audio.onerror = (event) => {
-                console.error(
-                    "Sarvam audio playback error:",
-                    event
-                );
-
-                setIsSpeaking(false);
-                audioRef.current = null;
-
-                setVoiceError(
-                    "Unable to play the generated voice."
-                );
-            };
-
-            // ------------------------------------------------
-            // Play generated audio
-            // ------------------------------------------------
-
-            await audio.play();
-
-        } catch (error) {
-            console.error(
-                "Sarvam TTS error:",
-                error
-            );
-
-            setIsSpeaking(false);
-            audioRef.current = null;
-
-            setVoiceError(
-                error?.message ||
-                "Unable to generate speech."
-            );
-        }
+    if (!recognition) {
+      setVoiceError("Voice recognition is unavailable.");
+      return;
     }
 
-    // ========================================================
-    // START / STOP LISTENING
-    // ========================================================
+    setVoiceError("");
 
-    function toggleListening() {
-        if (!voiceSupported) {
-            setVoiceError(
-                "Voice recognition is not supported in this browser."
-            );
-            return;
-        }
-
-        const recognition =
-            recognitionRef.current;
-
-        if (!recognition) {
-            setVoiceError(
-                "Voice recognition is unavailable."
-            );
-            return;
-        }
-
-        setVoiceError("");
-
-        if (isListening) {
-            recognition.stop();
-            return;
-        }
-
-        // ----------------------------------------------------
-        // Make sure previous speech is stopped
-        // ----------------------------------------------------
-
-        stopSpeaking();
-
-        recognition.lang =
-            selectedLanguage;
-
-        try {
-            recognition.start();
-        } catch (error) {
-            console.error(
-                "Failed to start recognition:",
-                error
-            );
-        }
+    if (isListening) {
+      recognition.stop();
+      return;
     }
 
-    // ========================================================
-    // SEND MESSAGE
-    // ========================================================
+    // ----------------------------------------------------
+    // Make sure previous speech is stopped
+    // ----------------------------------------------------
 
-    async function handleSend() {
-        const text = input.trim();
+    stopSpeaking();
 
-        if (!text || loading) {
-            return;
-        }
+    recognition.lang = selectedLanguage;
 
-        // ----------------------------------------------------
-        // Stop recording if active
-        // ----------------------------------------------------
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error("Failed to start recognition:", error);
+    }
+  }
 
-        if (
-            isListening &&
-            recognitionRef.current
-        ) {
-            recognitionRef.current.stop();
-        }
+  // ========================================================
+  // SEND MESSAGE
+  // ========================================================
 
-        // ----------------------------------------------------
-        // Stop previous speech
-        // ----------------------------------------------------
+  async function handleSend() {
+    const text = input.trim();
 
-        stopSpeaking();
-
-        // ----------------------------------------------------
-        // Create user message
-        // ----------------------------------------------------
-
-        const userMessage = {
-            id: Date.now(),
-            role: "user",
-            text,
-        };
-
-        // ----------------------------------------------------
-        // IMPORTANT:
-        // Create the history BEFORE adding the new message.
-        // ----------------------------------------------------
-
-        const conversationHistory =
-            messages.map((message) => ({
-                role: message.role,
-                content: message.text,
-            }));
-
-        // ----------------------------------------------------
-        // FRIEND CONTEXT
-        //
-        // Only send information the chatbot is allowed to use.
-        //
-        // locationSharing:
-        //   "off"        -> location is null
-        //   "approximate" -> only locationText is sent
-        //
-        // IMPORTANT:
-        // Never send latitude / longitude for friends.
-        // ----------------------------------------------------
-
-        const friendContext =
-            (friendsList || [])
-                .filter(
-                    (friend) =>
-                        !friend?.isBlocked
-                )
-                .map((friend) => ({
-                    id: friend.id,
-                    name: friend.name,
-                    username: friend.username,
-
-                    location:
-                        friend.locationSharing !==
-                        "off"
-                            ? friend.locationText ||
-                              null
-                            : null,
-
-                    locationSharing:
-                        friend.locationSharing ||
-                        "off",
-
-                    weatherSharing:
-                        friend.weatherSharing ===
-                        true,
-                }));
-
-        setMessages((previous) => [
-            ...previous,
-            userMessage,
-        ]);
-
-        setInput("");
-        setLoading(true);
-        setVoiceError("");
-
-        // ----------------------------------------------------
-        // Current user location
-        //
-        // This is still sent as before because it is the
-        // CURRENT USER'S location, not a friend's location.
-        // ----------------------------------------------------
-
-        const currentLocation = {
-            latitude:
-                user?.location?.lat ??
-                user?.latitude ??
-                null,
-
-            longitude:
-                user?.location?.lng ??
-                user?.longitude ??
-                null,
-        };
-
-        console.log(
-            "📤 CHATBOT SENDING LOCATION:",
-            currentLocation
-        );
-
-        console.log(
-            "📤 CHATBOT SENDING HISTORY:",
-            conversationHistory
-        );
-
-        console.log(
-            "👥 CHATBOT FRIEND CONTEXT:",
-            friendContext
-        );
-
-        // ====================================================
-        // SEND TO BACKEND
-        // ====================================================
-
-        try {
-            const data =
-                await sendChatMessage(
-                    text,
-                    currentLocation,
-                    conversationHistory,
-                    friendContext
-                );
-
-            const reply =
-                data?.reply ||
-                "Sorry, I couldn't generate a response.";
-
-            const assistantMessage = {
-                id: Date.now() + 1,
-                role: "assistant",
-                text: reply,
-            };
-
-            setMessages((previous) => [
-                ...previous,
-                assistantMessage,
-            ]);
-
-            // ------------------------------------------------
-            // Speak AI response automatically
-            // ------------------------------------------------
-
-            speakText(reply);
-
-        } catch (error) {
-            console.error(
-                "Chat error:",
-                error
-            );
-
-            const errorMessage = {
-                id: Date.now() + 1,
-                role: "assistant",
-                text:
-                    "Sorry, I couldn't connect to the AI right now.",
-            };
-
-            setMessages((previous) => [
-                ...previous,
-                errorMessage,
-            ]);
-
-        } finally {
-            setLoading(false);
-        }
+    if (!text || loading) {
+      return;
     }
 
-    // ========================================================
-    // ENTER KEY
-    // ========================================================
+    // ----------------------------------------------------
+    // Stop recording if active
+    // ----------------------------------------------------
 
-    function handleKeyDown(event) {
-        if (
-            event.key === "Enter" &&
-            !event.shiftKey
-        ) {
-            event.preventDefault();
-            handleSend();
-        }
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
     }
 
-    // ========================================================
-    // RENDER
-    // ========================================================
+    // ----------------------------------------------------
+    // Stop previous speech
+    // ----------------------------------------------------
 
-    return (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10">
+    stopSpeaking();
 
-            {/* ------------------------------------------------
+    // ----------------------------------------------------
+    // Create user message
+    // ----------------------------------------------------
+
+    const userMessage = {
+      id: Date.now(),
+      role: "user",
+      text,
+    };
+
+    // ----------------------------------------------------
+    // IMPORTANT:
+    // Create the history BEFORE adding the new message.
+    // ----------------------------------------------------
+
+    const conversationHistory = messages.map((message) => ({
+      role: message.role,
+      content: message.text,
+    }));
+
+    // ----------------------------------------------------
+    // FRIEND CONTEXT
+    //
+    // Only send information the chatbot is allowed to use.
+    //
+    // locationSharing:
+    //   "off"        -> location is null
+    //   "approximate" -> only locationText is sent
+    //
+    // IMPORTANT:
+    // Never send latitude / longitude for friends.
+    // ----------------------------------------------------
+
+    const friendContext = (friendsList || [])
+      .filter((friend) => !friend?.isBlocked)
+      .map((friend) => ({
+        id: friend.id,
+        name: friend.name,
+        username: friend.username,
+
+        location:
+          friend.locationSharing !== "off" ? friend.locationText || null : null,
+
+        locationSharing: friend.locationSharing || "off",
+
+        weatherSharing: friend.weatherSharing === true,
+      }));
+
+    setMessages((previous) => [...previous, userMessage]);
+
+    setInput("");
+    setLoading(true);
+    setVoiceError("");
+
+    // ----------------------------------------------------
+    // Current user location
+    //
+    // This is still sent as before because it is the
+    // CURRENT USER'S location, not a friend's location.
+    // ----------------------------------------------------
+
+    const currentLocation = {
+      latitude: user?.location?.lat ?? user?.latitude ?? null,
+
+      longitude: user?.location?.lng ?? user?.longitude ?? null,
+    };
+
+    console.log("📤 CHATBOT SENDING LOCATION:", currentLocation);
+
+    console.log("📤 CHATBOT SENDING HISTORY:", conversationHistory);
+
+    console.log("👥 CHATBOT FRIEND CONTEXT:", friendContext);
+
+    // ====================================================
+    // SEND TO BACKEND
+    // ====================================================
+
+    try {
+      const data = await sendChatMessage(
+        text,
+        currentLocation,
+        conversationHistory,
+        friendContext,
+      );
+
+      const reply = data?.reply || "Sorry, I couldn't generate a response.";
+
+      const assistantMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        text: reply,
+      };
+
+      setMessages((previous) => [...previous, assistantMessage]);
+
+      // ------------------------------------------------
+      // Speak AI response automatically
+      // ------------------------------------------------
+
+      speakText(reply);
+    } catch (error) {
+      console.error("Chat error:", error);
+
+      const errorMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        text: "Sorry, I couldn't connect to the AI right now.",
+      };
+
+      setMessages((previous) => [...previous, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ========================================================
+  // ENTER KEY
+  // ========================================================
+
+  function handleKeyDown(event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      handleSend();
+    }
+  }
+
+  // ========================================================
+  // RENDER
+  // ========================================================
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10">
+      {/* ------------------------------------------------
                 HEADER
             ------------------------------------------------- */}
 
-            <div className="mb-4">
-                <h1 className="text-xl md:text-2xl font-display font-extrabold text-ink-900">
-                    WeatherGPT
-                </h1>
+      <div className="mb-4">
+        <h1 className="text-xl md:text-2xl font-display font-extrabold text-ink-900">
+          WeatherGPT
+        </h1>
 
-                <p className="text-sm text-ink-400 mt-1">
-                    Your AI weather assistant
-                </p>
-            </div>
+        <p className="text-sm text-ink-400 mt-1">Your AI weather assistant</p>
+      </div>
 
-            {/* ------------------------------------------------
+      {/* ------------------------------------------------
                 CHAT CONTAINER
             ------------------------------------------------- */}
 
-            <div className="bg-white rounded-xl3 shadow-card overflow-hidden">
-
-                {/* ------------------------------------------------
+      <div className="bg-white rounded-xl3 shadow-card overflow-hidden">
+        {/* ------------------------------------------------
                     MESSAGES
                 ------------------------------------------------- */}
 
+        <div
+          ref={messagesContainerRef}
+          className="h-[350px] sm:h-[400px] overflow-y-auto px-4 sm:px-6 py-4"
+        >
+          <div className="space-y-5">
+            {messages.map((message) => {
+              const isUser = message.role === "user";
+
+              return (
                 <div
-                    ref={messagesContainerRef}
-                    className="h-[400px] overflow-y-auto px-4 sm:px-6 py-4"
+                  key={message.id}
+                  className={`flex gap-3 ${
+                    isUser ? "justify-end" : "justify-start"
+                  }`}
                 >
+                  {/* Assistant icon */}
 
-                    <div className="space-y-5">
+                  {!isUser && (
+                    <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
+                      <Bot size={17} />
+                    </div>
+                  )}
 
-                        {messages.map((message) => {
+                  {/* User message */}
 
-                            const isUser =
-                                message.role === "user";
+                  {isUser ? (
+                    <>
+                      <div className="max-w-[75%]">
+                        <div className="px-4 py-2.5 rounded-2xl rounded-br-md bg-sky-500 text-white text-sm leading-6">
+                          {message.text}
+                        </div>
+                      </div>
 
-                            return (
-                                <div
-                                    key={message.id}
-                                    className={`flex gap-3 ${
-                                        isUser
-                                            ? "justify-end"
-                                            : "justify-start"
-                                    }`}
-                                >
+                      <div className="w-8 h-8 rounded-full bg-ink-100 text-ink-600 flex items-center justify-center shrink-0 mt-1">
+                        <User size={17} />
+                      </div>
+                    </>
+                  ) : (
+                    /* Assistant message */
 
-                                    {/* Assistant icon */}
+                    <div className="max-w-[88%] sm:max-w-[82%] text-ink-700 text-sm leading-6">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => (
+                            <p className="mb-3 last:mb-0">{children}</p>
+                          ),
 
-                                    {!isUser && (
-                                        <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
-                                            <Bot size={17} />
-                                        </div>
-                                    )}
+                          strong: ({ children }) => (
+                            <strong className="font-bold text-ink-900">
+                              {children}
+                            </strong>
+                          ),
 
-                                    {/* User message */}
+                          em: ({ children }) => (
+                            <em className="italic">{children}</em>
+                          ),
 
-                                    {isUser ? (
-                                        <>
-                                            <div className="max-w-[75%]">
+                          ol: ({ children }) => (
+                            <ol className="space-y-3 my-3 pl-6 list-decimal marker:font-semibold marker:text-sky-600">
+                              {children}
+                            </ol>
+                          ),
 
-                                                <div className="px-4 py-2.5 rounded-2xl rounded-br-md bg-sky-500 text-white text-sm leading-6">
-                                                    {message.text}
-                                                </div>
+                          ul: ({ children }) => (
+                            <ul className="space-y-1.5 my-3 pl-6 list-disc marker:text-sky-500">
+                              {children}
+                            </ul>
+                          ),
 
-                                            </div>
+                          li: ({ children }) => (
+                            <li className="pl-1 leading-6">{children}</li>
+                          ),
 
-                                            <div className="w-8 h-8 rounded-full bg-ink-100 text-ink-600 flex items-center justify-center shrink-0 mt-1">
-                                                <User size={17} />
-                                            </div>
-                                        </>
-                                    ) : (
+                          h1: ({ children }) => (
+                            <h1 className="text-xl font-bold text-ink-900 mt-4 mb-2">
+                              {children}
+                            </h1>
+                          ),
 
-                                        /* Assistant message */
+                          h2: ({ children }) => (
+                            <h2 className="text-lg font-bold text-ink-900 mt-4 mb-2">
+                              {children}
+                            </h2>
+                          ),
 
-                                        <div className="max-w-[88%] sm:max-w-[82%] text-ink-700 text-sm leading-6">
+                          h3: ({ children }) => (
+                            <h3 className="text-base font-bold text-ink-900 mt-3 mb-2">
+                              {children}
+                            </h3>
+                          ),
 
-                                            <ReactMarkdown
-                                                components={{
-                                                    p: ({ children }) => (
-                                                        <p className="mb-3 last:mb-0">
-                                                            {children}
-                                                        </p>
-                                                    ),
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-sky-300 pl-4 my-3 text-ink-500 italic">
+                              {children}
+                            </blockquote>
+                          ),
 
-                                                    strong: ({ children }) => (
-                                                        <strong className="font-bold text-ink-900">
-                                                            {children}
-                                                        </strong>
-                                                    ),
+                          hr: () => <hr className="my-4 border-ink-100" />,
 
-                                                    em: ({ children }) => (
-                                                        <em className="italic">
-                                                            {children}
-                                                        </em>
-                                                    ),
+                          code: ({ children }) => (
+                            <code className="px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-800 text-xs">
+                              {children}
+                            </code>
+                          ),
 
-                                                    ol: ({ children }) => (
-                                                        <ol className="space-y-3 my-3 pl-6 list-decimal marker:font-semibold marker:text-sky-600">
-                                                            {children}
-                                                        </ol>
-                                                    ),
+                          a: ({ children, href }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sky-600 underline hover:text-sky-700"
+                            >
+                              {children}
+                            </a>
+                          ),
+                        }}
+                      >
+                        {message.text}
+                      </ReactMarkdown>
 
-                                                    ul: ({ children }) => (
-                                                        <ul className="space-y-1.5 my-3 pl-6 list-disc marker:text-sky-500">
-                                                            {children}
-                                                        </ul>
-                                                    ),
-
-                                                    li: ({ children }) => (
-                                                        <li className="pl-1 leading-6">
-                                                            {children}
-                                                        </li>
-                                                    ),
-
-                                                    h1: ({ children }) => (
-                                                        <h1 className="text-xl font-bold text-ink-900 mt-4 mb-2">
-                                                            {children}
-                                                        </h1>
-                                                    ),
-
-                                                    h2: ({ children }) => (
-                                                        <h2 className="text-lg font-bold text-ink-900 mt-4 mb-2">
-                                                            {children}
-                                                        </h2>
-                                                    ),
-
-                                                    h3: ({ children }) => (
-                                                        <h3 className="text-base font-bold text-ink-900 mt-3 mb-2">
-                                                            {children}
-                                                        </h3>
-                                                    ),
-
-                                                    blockquote: ({ children }) => (
-                                                        <blockquote className="border-l-4 border-sky-300 pl-4 my-3 text-ink-500 italic">
-                                                            {children}
-                                                        </blockquote>
-                                                    ),
-
-                                                    hr: () => (
-                                                        <hr className="my-4 border-ink-100" />
-                                                    ),
-
-                                                    code: ({ children }) => (
-                                                        <code className="px-1.5 py-0.5 rounded-md bg-ink-100 text-ink-800 text-xs">
-                                                            {children}
-                                                        </code>
-                                                    ),
-
-                                                    a: ({ children, href }) => (
-                                                        <a
-                                                            href={href}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-sky-600 underline hover:text-sky-700"
-                                                        >
-                                                            {children}
-                                                        </a>
-                                                    ),
-                                                }}
-                                            >
-                                                {message.text}
-                                            </ReactMarkdown>
-
-                                            {/* ------------------------------------------------
+                      {/* ------------------------------------------------
                                                 Read aloud button
                                             ------------------------------------------------- */}
 
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    isSpeaking
-                                                        ? stopSpeaking()
-                                                        : speakText(
-                                                            message.text
-                                                        )
-                                                }
-                                                className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-400 hover:text-sky-600 transition-colors"
-                                            >
-                                                {isSpeaking ? (
-                                                    <>
-                                                        <VolumeX size={14} />
-                                                        Stop
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Volume2 size={14} />
-                                                        Read aloud
-                                                    </>
-                                                )}
-                                            </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isSpeaking ? stopSpeaking() : speakText(message.text)
+                        }
+                        className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-400 hover:text-sky-600 transition-colors"
+                      >
+                        {isSpeaking ? (
+                          <>
+                            <VolumeX size={14} />
+                            Stop
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 size={14} />
+                            Read aloud
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
-                                        </div>
-                                    )}
-
-                                </div>
-                            );
-                        })}
-
-                        {/* ------------------------------------------------
+            {/* ------------------------------------------------
                             LOADING
                         ------------------------------------------------- */}
 
-                        {loading && (
-                            <div className="flex gap-3 justify-start">
-
-                                <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
-                                    <Bot size={17} />
-                                </div>
-
-                                <div className="flex items-center gap-1.5 pt-2">
-
-                                    <span className="w-2 h-2 rounded-full bg-ink-300 animate-bounce" />
-
-                                    <span
-                                        className="w-2 h-2 rounded-full bg-ink-300 animate-bounce"
-                                        style={{
-                                            animationDelay:
-                                                "120ms",
-                                        }}
-                                    />
-
-                                    <span
-                                        className="w-2 h-2 rounded-full bg-ink-300 animate-bounce"
-                                        style={{
-                                            animationDelay:
-                                                "240ms",
-                                        }}
-                                    />
-
-                                </div>
-
-                            </div>
-                        )}
-
-                    </div>
-
+            {loading && (
+              <div className="flex gap-3 justify-start">
+                <div className="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 mt-1">
+                  <Bot size={17} />
                 </div>
 
-                {/* ------------------------------------------------
+                <div className="flex items-center gap-1.5 pt-2">
+                  <span className="w-2 h-2 rounded-full bg-ink-300 animate-bounce" />
+
+                  <span
+                    className="w-2 h-2 rounded-full bg-ink-300 animate-bounce"
+                    style={{
+                      animationDelay: "120ms",
+                    }}
+                  />
+
+                  <span
+                    className="w-2 h-2 rounded-full bg-ink-300 animate-bounce"
+                    style={{
+                      animationDelay: "240ms",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ------------------------------------------------
                     VOICE ERROR
                 ------------------------------------------------- */}
 
-                {voiceError && (
-                    <div className="px-4 sm:px-6 pb-2">
+        {voiceError && (
+          <div className="px-4 sm:px-6 pb-2">
+            <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {voiceError}
+            </div>
+          </div>
+        )}
 
-                        <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                            {voiceError}
-                        </div>
-
-                    </div>
-                )}
-
-                {/* ------------------------------------------------
+        {/* ------------------------------------------------
                     INPUT AREA
                 ------------------------------------------------- */}
 
-                <div className="border-t border-ink-100 p-3 sm:p-4">
+        <div className="border-t border-ink-100 p-3 sm:p-4">
+          {/* Voice controls */}
 
-                    {/* Voice controls */}
+          <div className="flex items-center justify-between mb-2">
+            {/* Language selector */}
 
-                    <div className="flex items-center justify-between mb-2">
+            <div className="relative">
+              <select
+                value={selectedLanguage}
+                onChange={(event) => setSelectedLanguage(event.target.value)}
+                disabled={isListening}
+                className="appearance-none bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 pr-8 text-xs text-ink-700 outline-none focus:border-sky-300 disabled:opacity-60"
+              >
+                {VOICE_LANGUAGES.map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.label}
+                  </option>
+                ))}
+              </select>
 
-                        {/* Language selector */}
-
-                        <div className="relative">
-
-                            <select
-                                value={selectedLanguage}
-                                onChange={(event) =>
-                                    setSelectedLanguage(
-                                        event.target.value
-                                    )
-                                }
-                                disabled={isListening}
-                                className="appearance-none bg-sky-50 border border-sky-100 rounded-lg px-3 py-1.5 pr-8 text-xs text-ink-700 outline-none focus:border-sky-300 disabled:opacity-60"
-                            >
-
-                                {VOICE_LANGUAGES.map(
-                                    (language) => (
-                                        <option
-                                            key={
-                                                language.code
-                                            }
-                                            value={
-                                                language.code
-                                            }
-                                        >
-                                            {language.label}
-                                        </option>
-                                    )
-                                )}
-
-                            </select>
-
-                            <ChevronDown
-                                size={14}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
-                            />
-
-                        </div>
-
-                        {/* Voice status */}
-
-                        {isListening && (
-                            <div className="flex items-center gap-2 text-xs text-red-500">
-
-                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-
-                                Listening...
-
-                            </div>
-                        )}
-
-                    </div>
-
-                    <div className="flex items-center gap-2">
-
-                        {/* Text input */}
-
-                        <input
-                            type="text"
-                            value={input}
-                            onChange={(event) =>
-                                setInput(
-                                    event.target.value
-                                )
-                            }
-                            onKeyDown={handleKeyDown}
-                            placeholder={
-                                isListening
-                                    ? "Speak now..."
-                                    : "Ask WeatherGPT..."
-                            }
-                            disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-100 outline-none text-sm text-ink-800 placeholder:text-ink-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
-                        />
-
-                        {/* Microphone */}
-
-                        <button
-                            type="button"
-                            onClick={toggleListening}
-                            disabled={
-                                loading ||
-                                !voiceSupported
-                            }
-                            title={
-                                !voiceSupported
-                                    ? "Voice recognition is not supported in this browser"
-                                    : isListening
-                                    ? "Stop listening"
-                                    : "Start voice input"
-                            }
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                                isListening
-                                    ? "bg-red-500 text-white hover:bg-red-600"
-                                    : "bg-sky-100 text-sky-600 hover:bg-sky-200"
-                            } disabled:opacity-40`}
-                        >
-
-                            {isListening ? (
-                                <MicOff size={17} />
-                            ) : (
-                                <Mic size={17} />
-                            )}
-
-                        </button>
-
-                        {/* Send */}
-
-                        <button
-                            type="button"
-                            onClick={handleSend}
-                            disabled={
-                                !input.trim() ||
-                                loading
-                            }
-                            className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-sky-600 transition-colors shrink-0"
-                        >
-                            <Send size={17} />
-                        </button>
-
-                    </div>
-
-                </div>
-
+              <ChevronDown
+                size={14}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none"
+              />
             </div>
 
+            {/* Voice status */}
+
+            {isListening && (
+              <div className="flex items-center gap-2 text-xs text-red-500">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                Listening...
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Text input */}
+            <input
+              type="text"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isListening ? "Speak now..." : "Ask WeatherGPT..."}
+              disabled={loading}
+              className="min-w-0 flex-1 px-3 sm:px-4 py-2.5 rounded-xl bg-sky-50 border border-sky-100 outline-none text-sm text-ink-800 placeholder:text-ink-400 focus:border-sky-300 focus:ring-2 focus:ring-sky-100 disabled:opacity-60"
+            />
+
+            {/* Microphone */}
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={loading || !voiceSupported}
+              title={
+                !voiceSupported
+                  ? "Voice recognition is not supported in this browser"
+                  : isListening
+                    ? "Stop listening"
+                    : "Start voice input"
+              }
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                isListening
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "bg-sky-100 text-sky-600 hover:bg-sky-200"
+              } disabled:opacity-40`}
+            >
+              {isListening ? <MicOff size={17} /> : <Mic size={17} />}
+            </button>
+
+            {/* Send */}
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!input.trim() || loading}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-sky-600 transition-colors shrink-0"
+            >
+              <Send size={17} />
+            </button>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
