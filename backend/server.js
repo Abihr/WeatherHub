@@ -5,7 +5,7 @@ const Groq = require("groq-sdk");
 
 const {
     getAgricultureData,
-} = require("../Frontend/src/services/agricultureService");
+} = require("./agricultureService");
 
 dotenv.config({
     path: __dirname + "/.env",
@@ -2686,7 +2686,160 @@ app.get(
         });
     }
 );
+ /* =========================================================
+   WEATHER MAP TILES
+========================================================= */
 
+app.get(
+    "/api/weather-map/:layer/:z/:x/:y.png",
+    async (req, res) => {
+        try {
+            const {
+                layer,
+                z,
+                x,
+                y,
+            } = req.params;
+
+            const apiKey =
+                process.env
+                    .WEATHER_API_KEY;
+
+            if (!apiKey) {
+                return res.status(500).json({
+                    error:
+                        "WEATHER_API_KEY is not configured",
+                });
+            }
+
+            /*
+             * Only allow the weather layers
+             * that WeatherHub actually needs.
+             *
+             * This prevents this endpoint from
+             * becoming an unrestricted proxy.
+             */
+
+            const allowedLayers = [
+                "precipitation_new",
+                "clouds_new",
+                "temp_new",
+                "pressure_new",
+                "wind_new",
+            ];
+
+            if (
+                !allowedLayers.includes(
+                    layer
+                )
+            ) {
+                return res.status(400).json({
+                    error:
+                        "Unsupported weather map layer",
+                });
+            }
+
+            /*
+             * Validate tile coordinates.
+             */
+
+            const zoom = Number(z);
+            const tileX = Number(x);
+            const tileY = Number(y);
+
+            if (
+                !Number.isInteger(zoom) ||
+                !Number.isInteger(tileX) ||
+                !Number.isInteger(tileY) ||
+                zoom < 0 ||
+                zoom > 18 ||
+                tileX < 0 ||
+                tileY < 0
+            ) {
+                return res.status(400).json({
+                    error:
+                        "Invalid tile coordinates",
+                });
+            }
+
+            /*
+             * Request the tile from OpenWeather.
+             *
+             * The API key remains on the backend
+             * and is NEVER sent to the browser.
+             */
+
+            const weatherTileUrl =
+                `https://tile.openweathermap.org/map/${encodeURIComponent(
+                    layer
+                )}/${zoom}/${tileX}/${tileY}.png?appid=${encodeURIComponent(
+                    apiKey
+                )}`;
+
+            const response =
+                await fetch(
+                    weatherTileUrl
+                );
+
+            if (!response.ok) {
+                const errorText =
+                    await response.text();
+
+                console.error(
+                    "OpenWeather tile error:",
+                    response.status,
+                    errorText
+                );
+
+                return res.status(
+                    response.status
+                ).send(
+                    errorText ||
+                        "Weather map tile request failed"
+                );
+            }
+
+            /*
+             * OpenWeather returns PNG image data.
+             */
+
+            const imageBuffer =
+                Buffer.from(
+                    await response.arrayBuffer()
+                );
+
+            res.set(
+                "Content-Type",
+                "image/png"
+            );
+
+            /*
+             * Allow the browser to cache
+             * tiles for a short period.
+             */
+
+            res.set(
+                "Cache-Control",
+                "public, max-age=300"
+            );
+
+            return res.send(
+                imageBuffer
+            );
+        } catch (error) {
+            console.error(
+                "/api/weather-map error:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    error.message ||
+                    "Failed to load weather map tile",
+            });
+        }
+    }
+);
 /* =========================================================
    SERVER
 ========================================================= */
