@@ -2841,6 +2841,58 @@ app.get(
     }
 );
 /* =========================================================
+   IMD SATELLITE IMAGE
+========================================================= */
+
+app.get(
+    "/api/imd-satellite/ir1",
+    async (req, res) => {
+        try {
+            const response = await fetch(
+                "https://mausam.imd.gov.in/Satellite/rsse_ir1.jpg"
+            );
+
+            if (!response.ok) {
+                return res.status(
+                    response.status
+                ).send(
+                    "Failed to fetch IMD satellite image"
+                );
+            }
+
+            const imageBuffer =
+                Buffer.from(
+                    await response.arrayBuffer()
+                );
+
+            res.set(
+                "Content-Type",
+                "image/jpeg"
+            );
+
+            res.set(
+                "Cache-Control",
+                "public, max-age=60"
+            );
+
+            return res.send(
+                imageBuffer
+            );
+        } catch (error) {
+            console.error(
+                "IMD satellite error:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    error.message ||
+                    "Failed to load IMD satellite image",
+            });
+        }
+    }
+);
+/* =========================================================
    SERVER
 ========================================================= */
 
