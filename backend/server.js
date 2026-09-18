@@ -2853,6 +2853,11 @@ app.get(
             );
 
             if (!response.ok) {
+                console.error(
+                    "IMD satellite response:",
+                    response.status
+                );
+
                 return res.status(
                     response.status
                 ).send(
