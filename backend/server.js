@@ -2841,6 +2841,172 @@ app.get(
     }
 );
 /* =========================================================
+   IMD / MOSDAC LATEST SATELLITE FRAME
+========================================================= */
+
+app.get(
+    "/api/imd-satellite/latest",
+    async (req, res) => {
+        try {
+            const mosdacUrl =
+                "https://mosdac.gov.in/live/backend/satellite_data_initial.php?file_prefix=IMG&file_extension=L1B_STD&param=startlayer&timezone=local&timezone_formal=-19800";
+
+            const response =
+                await fetch(
+                    mosdacUrl
+                );
+
+            if (!response.ok) {
+                console.error(
+                    "MOSDAC satellite initial response:",
+                    response.status
+                );
+
+                return res.status(
+                    response.status
+                ).json({
+                    error:
+                        "Failed to fetch MOSDAC satellite data",
+                });
+            }
+
+            const text =
+                await response.text();
+
+            /*
+             * Find all INSAT-3DS frames.
+             *
+             * Example:
+             *
+             * 3SIMG_18SEP2026_0930_L1B_STD_V01R00.h5
+             */
+
+            const frames =
+                text.match(
+                    /3SIMG_\d{2}[A-Z]{3}\d{4}_\d{4}_L1B_STD_V\d+R\d+\.h5/g
+                );
+
+            if (
+                !frames ||
+                frames.length === 0
+            ) {
+                console.error(
+                    "No INSAT-3DS frames found:",
+                    text
+                );
+
+                return res.status(404).json({
+                    error:
+                        "No INSAT-3DS satellite frames found",
+                });
+            }
+
+            /*
+             * Remove duplicates.
+             */
+
+            const uniqueFrames =
+                [
+                    ...new Set(frames),
+                ];
+
+            /*
+             * The MOSDAC response is chronological.
+             *
+             * The final 3SIMG frame is therefore
+             * the latest available INSAT-3DS frame.
+             */
+
+            const latestFrame =
+                uniqueFrames[
+                    uniqueFrames.length - 1
+                ];
+
+            /*
+             * Extract date from filename.
+             *
+             * Example:
+             *
+             * 3SIMG_18SEP2026_0930_L1B_STD_V01R00.h5
+             */
+
+            const match =
+                latestFrame.match(
+                    /^3SIMG_(\d{2})([A-Z]{3})(\d{4})_(\d{4})_L1B_STD/
+                );
+
+            if (!match) {
+                return res.status(500).json({
+                    error:
+                        "Unable to parse MOSDAC satellite filename",
+                });
+            }
+
+            const [
+                ,
+                day,
+                month,
+                year,
+                time,
+            ] = match;
+
+            /*
+             * MOSDAC directory format:
+             *
+             * /2026/18SEP/
+             */
+
+            const directory =
+                `${day}${month}`;
+
+            /*
+             * Build the WMS endpoint.
+             */
+
+            const wmsUrl =
+                `https://www.mosdac.gov.in/live_data/wms/live3SL1BSTD4km/products/Insat3s/3S_IMG/${year}/${directory}/${latestFrame}`;
+
+            return res.json({
+                success: true,
+
+                satellite:
+                    "INSAT-3DS",
+
+                product:
+                    "3SIMG_L1B_STD",
+
+                channel:
+                    "IMG_TIR1",
+
+                frame:
+                    latestFrame,
+
+                date:
+                    `${day}${month}${year}`,
+
+                time,
+
+                wmsUrl,
+
+                fetchedAt:
+                    new Date().toISOString(),
+            });
+
+        } catch (error) {
+            console.error(
+                "MOSDAC latest satellite error:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    error.message ||
+                    "Failed to determine latest satellite frame",
+            });
+        }
+    }
+);
+/* =========================================================
    SERVER
 ========================================================= */
 
