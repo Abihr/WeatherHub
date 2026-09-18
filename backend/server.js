@@ -3007,6 +3007,133 @@ app.get(
     }
 );
 /* =========================================================
+   IMD / MOSDAC SATELLITE TIMELINE
+========================================================= */
+
+app.get(
+    "/api/imd-satellite/timeline",
+    async (req, res) => {
+        try {
+            const mosdacUrl =
+                "https://mosdac.gov.in/live/backend/satellite_data_initial.php?file_prefix=IMG&file_extension=L1B_STD&param=startlayer&timezone=local&timezone_formal=-19800";
+
+            const response =
+                await fetch(mosdacUrl);
+
+            if (!response.ok) {
+                return res.status(
+                    response.status
+                ).json({
+                    error:
+                        "Failed to fetch MOSDAC satellite timeline",
+                });
+            }
+
+            const text =
+                await response.text();
+
+            /*
+             * Find all INSAT-3DS frames.
+             */
+
+            const frames =
+                text.match(
+                    /3SIMG_\d{2}[A-Z]{3}\d{4}_\d{4}_L1B_STD_V\d+R\d+\.h5/g
+                );
+
+            if (
+                !frames ||
+                frames.length === 0
+            ) {
+                return res.status(404).json({
+                    error:
+                        "No INSAT-3DS satellite frames found",
+                });
+            }
+
+            /*
+             * Remove duplicates.
+             */
+
+            const uniqueFrames = [
+                ...new Set(frames),
+            ];
+
+            /*
+             * Convert each filename into
+             * a usable WMS URL.
+             */
+
+            const timeline =
+                uniqueFrames.map(
+                    (frame) => {
+                        const match =
+                            frame.match(
+                                /^3SIMG_(\d{2})([A-Z]{3})(\d{4})_(\d{4})_L1B_STD/
+                            );
+
+                        if (!match) {
+                            return null;
+                        }
+
+                        const [
+                            ,
+                            day,
+                            month,
+                            year,
+                            time,
+                        ] = match;
+
+                        const directory =
+                            `${day}${month}`;
+
+                        const wmsUrl =
+                            `https://www.mosdac.gov.in/live_data/wms/live3SL1BSTD4km/products/Insat3s/3S_IMG/${year}/${directory}/${frame}`;
+
+                        return {
+                            frame,
+                            date:
+                                `${day}${month}${year}`,
+                            time,
+                            wmsUrl,
+                        };
+                    }
+                ).filter(Boolean);
+
+            return res.json({
+                success: true,
+
+                satellite:
+                    "INSAT-3DS",
+
+                product:
+                    "3SIMG_L1B_STD",
+
+                channel:
+                    "IMG_TIR1",
+
+                frames:
+                    timeline,
+
+                fetchedAt:
+                    new Date().toISOString(),
+            });
+
+        } catch (error) {
+            console.error(
+                "MOSDAC satellite timeline error:",
+                error
+            );
+
+            return res.status(500).json({
+                error:
+                    error.message ||
+                    "Failed to fetch satellite timeline",
+            });
+        }
+    }
+);
+/* =========================================================
    SERVER
 ========================================================= */
 
