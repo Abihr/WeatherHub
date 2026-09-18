@@ -11,7 +11,7 @@ import {
   Circle,
   useMap,
   LayersControl,
-  ImageOverlay,
+  WMSTileLayer,
 } from "react-leaflet";
 
 import L from "leaflet";
@@ -618,22 +618,29 @@ export default function WeatherMap({
 
 
           {/* =================================================
-              IMD SATELLITE
+              IMD / MOSDAC SATELLITE
+              INSAT-3DS/3DR IMG TIR1
           ================================================= */}
 
           <LayersControl.Overlay
             checked={false}
-            name="🇮🇳 IMD Satellite"
+            name="🇮🇳 IMD Satellite — TIR1"
           >
-            <ImageOverlay
-              url={`${WEATHER_BACKEND_URL}/api/imd-satellite/ir1`}
-              bounds={[
-                [0, 74],
-                [27, 100],
-              ]}
-              opacity={0.85}
+            <WMSTileLayer
+              url="https://www.mosdac.gov.in/live_data/wms/live3SL1BSTD4km/products/Insat3s/3S_IMG/2026/18SEP/3SIMG_18SEP2026_0900_L1B_STD_V01R00.h5"
+              layers="IMG_TIR1"
+              styles="boxfill/Greyscale"
+              format="image/png"
+              transparent={true}
+              version="1.3.0"
+              opacity={0.75}
               zIndex={20}
-              attribution="© India Meteorological Department"
+              params={{
+                COLORSCALERANGE: "260,921",
+                BELOWMINCOLOR: "extend",
+                ABOVEMAXCOLOR: "extend",
+              }}
+              attribution="© MOSDAC / ISRO"
             />
           </LayersControl.Overlay>
 
@@ -1048,4 +1055,3 @@ export default function WeatherMap({
     </div>
   );
 }
-
