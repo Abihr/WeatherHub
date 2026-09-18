@@ -405,6 +405,83 @@ export default function WeatherMap({
   ] = useState(null);
 
 
+  /* =======================================================
+     LIVE IMD SATELLITE FRAME
+  ======================================================= */
+
+  const [
+    satelliteWmsUrl,
+    setSatelliteWmsUrl,
+  ] = useState(null);
+
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchLatestSatellite =
+      async () => {
+        try {
+          const response =
+            await fetch(
+              `${WEATHER_BACKEND_URL}/api/imd-satellite/latest`
+            );
+
+          if (!response.ok) {
+            throw new Error(
+              `Satellite request failed: ${response.status}`
+            );
+          }
+
+          const data =
+            await response.json();
+
+          if (
+            mounted &&
+            data.success &&
+            data.wmsUrl
+          ) {
+            setSatelliteWmsUrl(
+              data.wmsUrl
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Failed to fetch latest IMD satellite frame:",
+            error
+          );
+        }
+      };
+
+
+    /*
+     * Fetch immediately.
+     */
+
+    fetchLatestSatellite();
+
+
+    /*
+     * Check for a newer satellite frame
+     * every 15 minutes.
+     */
+
+    const interval =
+      setInterval(
+        fetchLatestSatellite,
+        15 * 60 * 1000
+      );
+
+
+    return () => {
+      mounted = false;
+
+      clearInterval(
+        interval
+      );
+    };
+  }, []);
+
+
   /*
    * Refresh the
    * "Updated X minutes ago"
@@ -490,6 +567,7 @@ export default function WeatherMap({
       return;
     }
 
+
     /*
      * Selected user.
      */
@@ -505,6 +583,7 @@ export default function WeatherMap({
 
       return;
     }
+
 
     /*
      * Selected friend.
@@ -617,31 +696,38 @@ export default function WeatherMap({
           </LayersControl.Overlay>
 
 
-          {/* ================================================= 
+          {/* =================================================
               IMD / MOSDAC SATELLITE
-              INSAT-3DS/3DR IMG TIR1
+              INSAT-3DS IMG TIR1
           ================================================= */}
 
           <LayersControl.Overlay
             checked={false}
             name="🇮🇳 IMD Satellite — TIR1"
           >
-            <WMSTileLayer
-              url="https://www.mosdac.gov.in/live_data/wms/live3SL1BSTD4km/products/Insat3s/3S_IMG/2026/18SEP/3SIMG_18SEP2026_0900_L1B_STD_V01R00.h5"
-              layers="IMG_TIR1"
-              styles="boxfill/Greyscale"
-              format="image/png"
-              transparent={true}
-              version="1.3.0"
-              opacity={0.75}
-              zIndex={20}
-              params={{
-                COLORSCALERANGE: "260,921",
-                BELOWMINCOLOR: "extend",
-                ABOVEMAXCOLOR: "extend",
-              }}
-              attribution="© MOSDAC / ISRO"
-            />
+            {satelliteWmsUrl && (
+              <WMSTileLayer
+                url={satelliteWmsUrl}
+                layers="IMG_TIR1"
+                styles="boxfill/Greyscale"
+                format="image/png"
+                transparent={true}
+                version="1.3.0"
+                opacity={0.75}
+                zIndex={20}
+                params={{
+                  COLORSCALERANGE:
+                    "260,921",
+
+                  BELOWMINCOLOR:
+                    "extend",
+
+                  ABOVEMAXCOLOR:
+                    "extend",
+                }}
+                attribution="© MOSDAC / ISRO"
+              />
+            )}
           </LayersControl.Overlay>
 
         </LayersControl>
@@ -707,8 +793,10 @@ export default function WeatherMap({
                 pathOptions={{
                   color:
                     "#4A90D9",
+
                   fillOpacity:
                     0.08,
+
                   weight: 1,
                 }}
               />
@@ -733,6 +821,7 @@ export default function WeatherMap({
               return null;
             }
 
+
             /*
              * IMPORTANT:
              *
@@ -755,6 +844,7 @@ export default function WeatherMap({
               return null;
             }
 
+
             return (
               <div
                 key={
@@ -775,8 +865,10 @@ export default function WeatherMap({
                   pathOptions={{
                     color:
                       "#4A90D9",
+
                     fillOpacity:
                       0.08,
+
                     weight: 1,
                   }}
                 />
@@ -1055,3 +1147,4 @@ export default function WeatherMap({
     </div>
   );
 }
+
