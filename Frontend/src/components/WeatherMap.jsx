@@ -607,6 +607,26 @@ export default function WeatherMap({
               zIndex={10}
             />
           </LayersControl.Overlay>
+
+          {/* =================================================
+              WEATHER SATELLITE
+          ================================================= */}
+
+          <LayersControl.Overlay
+            checked={false}
+            name="🛰️ Weather Satellite"
+          >
+            <TileLayer
+              attribution="© EUMETSAT"
+              url="https://view.eumetsat.int/geoserver/wms"
+              layers="msg_iodc:rgb_natural"
+              format="image/png"
+              transparent={true}
+              version="1.3.0"
+              opacity={0.85}
+              zIndex={20}
+            />
+          </LayersControl.Overlay>
         </LayersControl>
 
         {/* =================================================
@@ -945,4 +965,3 @@ export default function WeatherMap({
     </div>
   );
 }
-
