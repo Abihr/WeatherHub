@@ -2840,6 +2840,15 @@ app.get(
         }
     }
 );
+app.get(
+    "/api/imd-debug",
+    (req, res) => {
+        res.json({
+            message: "IMD route code is deployed",
+            timestamp: new Date().toISOString(),
+        });
+    }
+);
 /* =========================================================
    IMD SATELLITE IMAGE
 ========================================================= */
