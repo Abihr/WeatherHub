@@ -1,17 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
-import {
-  Home,
-  Users,
-  Map,
-  Train,
-  Bot,
-  Sprout,
-  Bell,
-  User,
-} from "lucide-react";
+import { Home, Users, Map, Train, Bot, Sprout, Bell, User } from "lucide-react";
 
 import { useApp } from "../context/AppContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -19,10 +9,7 @@ import LanguageSetter from "./LanguageSetter";
 
 import logo from "../assets/logo_simple.png";
 
-import {
-  getGreeting,
-  getGreetingRefreshDelay,
-} from "../utils/greeting";
+import { getGreeting, getGreetingRefreshDelay } from "../utils/greeting";
 
 const primaryLinks = [
   {
@@ -41,11 +28,11 @@ const primaryLinks = [
     translationKey: "map",
     icon: Map,
   },
-  {
-    to: "/railway-weather",
-    translationKey: "railway",
-    icon: Train,
-  },
+  // {
+  //   to: "/railway-weather",
+  //   translationKey: "railway",
+  //   icon: Train,
+  // },
   {
     to: "/chatbot",
     translationKey: "chatbot",
@@ -68,9 +55,7 @@ export default function Navbar() {
   // GREETING
   // =========================================================
 
-  const [greetingKey, setGreetingKey] = useState(() =>
-    getGreeting()
-  );
+  const [greetingKey, setGreetingKey] = useState(() => getGreeting());
 
   useEffect(() => {
     let timer;
@@ -106,21 +91,20 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleAgricultureModeChange = () => {
-      const value =
-        localStorage.getItem("agricultureMode") === "true";
+      const value = localStorage.getItem("agricultureMode") === "true";
 
       setAgricultureMode(value);
     };
 
     window.addEventListener(
       "agricultureModeChanged",
-      handleAgricultureModeChange
+      handleAgricultureModeChange,
     );
 
     return () => {
       window.removeEventListener(
         "agricultureModeChanged",
-        handleAgricultureModeChange
+        handleAgricultureModeChange,
       );
     };
   }, []);
@@ -129,33 +113,32 @@ export default function Navbar() {
   // TOGGLE AGRICULTURE
   // =========================================================
 
-  const toggleAgriculture = () => {
-    const newValue = !agricultureMode;
+const toggleAgriculture = () => {
+  const newValue = !agricultureMode;
 
-    setAgricultureMode(newValue);
+  setAgricultureMode(newValue);
 
-    localStorage.setItem(
-      "agricultureMode",
-      String(newValue)
-    );
+  localStorage.setItem(
+    "agricultureMode",
+    String(newValue)
+  );
 
-    window.dispatchEvent(
-      new Event("agricultureModeChanged")
-    );
+  window.dispatchEvent(
+    new Event("agricultureModeChanged")
+  );
 
-    if (newValue) {
-      navigate("/farmer");
-    }
-  };
+  if (newValue) {
+    navigate("/farmer");
+  } else {
+    navigate("/");
+  }
+};
 
   // =========================================================
   // TRANSLATED GREETING
   // =========================================================
 
-  const greetingText =
-    t[greetingKey] ||
-    t.greeting_night ||
-    "Good Night";
+  const greetingText = t[greetingKey] || t.greeting_night || "Good Night";
 
   return (
     <header
@@ -256,10 +239,7 @@ export default function Navbar() {
               }
             `}
           >
-            <Sprout
-              size={19}
-              strokeWidth={agricultureMode ? 2.5 : 2}
-            />
+            <Sprout size={19} strokeWidth={agricultureMode ? 2.5 : 2} />
           </button>
 
           {/* Language */}
@@ -287,10 +267,7 @@ export default function Navbar() {
               transition-all
             "
           >
-            <Bell
-              size={17}
-              strokeWidth={2}
-            />
+            <Bell size={17} strokeWidth={2} />
 
             {alerts?.length > 0 && (
               <span
@@ -328,10 +305,7 @@ export default function Navbar() {
               transition-all
             "
           >
-            <User
-              size={17}
-              strokeWidth={2}
-            />
+            <User size={17} strokeWidth={2} />
           </button>
         </div>
       </div>
@@ -406,133 +380,86 @@ export default function Navbar() {
 
         <nav
           className="
-            flex-1
-            min-w-0
-            overflow-x-auto
-            scrollbar-hide
-          "
+    flex-1
+    min-w-0
+    overflow-x-auto
+    scrollbar-hide
+  "
         >
           <div
             className="
-              flex
-              items-center
-              justify-center
-              gap-1
-              min-w-max
-            "
+      flex
+      items-center
+      justify-center
+      gap-1
+      min-w-max
+    "
           >
             {primaryLinks.map(
-              ({
-                to,
-                translationKey,
-                icon: Icon,
-                end,
-                agriculture,
-              }) => {
-                const label =
-                  t[translationKey] ||
-                  translationKey;
+  ({
+    to,
+    translationKey,
+    icon: Icon,
+    end,
+    agriculture,
+  }) => {
+    const label = t[translationKey] || translationKey;
 
-                // Agriculture hidden when OFF
+    // Hide Agriculture when mode is OFF
+    if (agriculture && !agricultureMode) {
+      return null;
+    }
 
-                if (
-                  agriculture &&
-                  !agricultureMode
-                ) {
-                  return null;
-                }
+    if (agriculture) {
+      return (
+        <NavLink
+          key={to}
+          to={to}
+          className={({ isActive }) => `
+            flex items-center gap-2
+            px-3 py-2
+            rounded-xl
+            text-sm font-medium
+            transition-colors
+            ${
+              isActive
+                ? "bg-green-100 text-green-600"
+                : "text-green-600 hover:bg-green-50"
+            }
+          `}
+        >
+          <Sprout className="h-4 w-4" />
+          {label}
+        </NavLink>
+      );
+    }
 
-                // Agriculture toggle
-
-                if (agriculture) {
-                  return (
-                    <div
-                      key={to}
-                      className="relative group"
-                    >
-                      <button
-                        type="button"
-                        onClick={toggleAgriculture}
-                        aria-pressed={agricultureMode}
-                        aria-label={label}
-                        className={`
-                          flex items-center gap-2
-                          px-3 py-2
-                          rounded-xl
-                          text-sm font-medium
-                          transition-colors
-                          ${
-                            agricultureMode
-                              ? "bg-green-100 text-green-600 hover:bg-green-200"
-                              : "bg-white text-ink-500 hover:bg-sky-50 hover:text-sky-600"
-                          }
-                        `}
-                      >
-                        <Sprout className="h-4 w-4" />
-
-                        {label}
-                      </button>
-
-                      {/* Tooltip */}
-
-                      <div
-                        className="
-                          absolute
-                          left-1/2
-                          -translate-x-1/2
-                          top-full
-                          mt-2
-                          hidden
-                          group-hover:block
-                          whitespace-nowrap
-                          bg-gray-900
-                          text-white
-                          text-xs
-                          px-2
-                          py-1
-                          rounded-lg
-                          shadow-lg
-                          z-50
-                        "
-                      >
-                        Agriculture Mode
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Normal navigation
-
-                return (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    end={end}
-                    className={({ isActive }) =>
-                      `
-                        flex items-center gap-2
-                        px-3 py-2
-                        rounded-xl
-                        text-sm font-medium
-                        transition-colors
-                        ${
-                          isActive
-                            ? "bg-sky-100 text-sky-600"
-                            : "text-ink-500 hover:bg-sky-50 hover:text-sky-600"
-                        }
-                      `
-                    }
-                  >
-                    <Icon className="h-4 w-4" />
-
-                    {label}
-                  </NavLink>
-                );
-              }
-            )}
+    return (
+      <NavLink
+        key={to}
+        to={to}
+        end={end}
+        className={({ isActive }) => `
+          flex items-center gap-2
+          px-3 py-2
+          rounded-xl
+          text-sm font-medium
+          transition-colors
+          ${
+            isActive
+              ? "bg-sky-100 text-sky-600"
+              : "text-ink-500 hover:bg-sky-50 hover:text-sky-600"
+          }
+        `}
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </NavLink>
+    );
+  }
+)}
           </div>
         </nav>
-
         {/* =================================================
             RIGHT CONTROLS
         ================================================== */}
@@ -544,10 +471,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={toggleAgriculture}
-              aria-label={
-                t.agriculture ||
-                "Agriculture"
-              }
+              aria-label={t.agriculture || "Agriculture"}
               aria-pressed={agricultureMode}
               className={`
                 h-10
@@ -565,12 +489,7 @@ export default function Navbar() {
                 }
               `}
             >
-              <Sprout
-                size={19}
-                strokeWidth={
-                  agricultureMode ? 2.5 : 2
-                }
-              />
+              <Sprout size={19} strokeWidth={agricultureMode ? 2.5 : 2} />
             </button>
 
             {/* Tooltip */}
@@ -629,10 +548,7 @@ export default function Navbar() {
               transition-all
             "
           >
-            <Bell
-              size={18}
-              strokeWidth={2}
-            />
+            <Bell size={18} strokeWidth={2} />
 
             {alerts?.length > 0 && (
               <span
@@ -653,9 +569,7 @@ export default function Navbar() {
           <button
             type="button"
             onClick={() => navigate("/profile")}
-            aria-label={
-              t.profile || "Profile"
-            }
+            aria-label={t.profile || "Profile"}
             className="
               h-10 w-10
               rounded-full
@@ -673,10 +587,7 @@ export default function Navbar() {
               transition-all
             "
           >
-            <User
-              size={18}
-              strokeWidth={2}
-            />
+            <User size={18} strokeWidth={2} />
           </button>
         </div>
       </div>
