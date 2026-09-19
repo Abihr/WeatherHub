@@ -924,7 +924,7 @@ export default function WeatherMap({
           MAP HEADER
       ===================================================== */}
 
-      <div
+      {/* <div
         className="
           absolute
           top-3
@@ -976,7 +976,7 @@ export default function WeatherMap({
           📍 Live locations
         </span>
 
-      </div>
+      </div> */}
 
 
       {/* =====================================================
