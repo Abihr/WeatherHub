@@ -1441,7 +1441,343 @@ app.get(
         }
     }
 );
+/* =========================================================
+   IMD ALERTS
+   Official IMD CAP alerts
+========================================================= */
 
+const IMD_ALERTS_URL =
+    "https://wis2box.imd.gov.in/oapi/collections/messages/items";
+
+
+function getXmlTag(xml, tagName) {
+    const regex = new RegExp(
+        `<(?:cap:)?${tagName}[^>]*>([\\s\\S]*?)<\\/(?:cap:)?${tagName}>`,
+        "i"
+    );
+
+    const match = xml.match(regex);
+
+    return match
+        ? match[1].trim()
+        : null;
+}
+
+
+function decodeBase64(value) {
+    try {
+        return Buffer.from(
+            value,
+            "base64"
+        ).toString("utf8");
+    } catch {
+        return null;
+    }
+}
+
+
+function parseIMDCapAlert(item) {
+    /*
+     * IMD WIS2 messages store the CAP XML
+     * inside:
+     *
+     * item.properties.content.value
+     */
+
+    const encoded =
+        item?.properties?.content?.value ||
+        item?.content?.value ||
+        item?.properties?.content;
+
+    if (!encoded) {
+        return null;
+    }
+
+    const xml =
+        decodeBase64(encoded);
+
+    if (!xml) {
+        return null;
+    }
+
+    const identifier =
+        getXmlTag(
+            xml,
+            "identifier"
+        );
+
+    const sender =
+        getXmlTag(
+            xml,
+            "sender"
+        );
+
+    const sent =
+        getXmlTag(
+            xml,
+            "sent"
+        );
+
+    const status =
+        getXmlTag(
+            xml,
+            "status"
+        );
+
+    const messageType =
+        getXmlTag(
+            xml,
+            "msgType"
+        );
+
+    const event =
+        getXmlTag(
+            xml,
+            "event"
+        );
+
+    const urgency =
+        getXmlTag(
+            xml,
+            "urgency"
+        );
+
+    const severity =
+        getXmlTag(
+            xml,
+            "severity"
+        );
+
+    const certainty =
+        getXmlTag(
+            xml,
+            "certainty"
+        );
+
+    const effective =
+        getXmlTag(
+            xml,
+            "effective"
+        );
+
+    const onset =
+        getXmlTag(
+            xml,
+            "onset"
+        );
+
+    const expires =
+        getXmlTag(
+            xml,
+            "expires"
+        );
+
+    const headline =
+        getXmlTag(
+            xml,
+            "headline"
+        );
+
+    const description =
+        getXmlTag(
+            xml,
+            "description"
+        );
+
+    const instruction =
+        getXmlTag(
+            xml,
+            "instruction"
+        );
+
+    const areaDescription =
+        getXmlTag(
+            xml,
+            "areaDesc"
+        );
+
+    const polygon =
+        getXmlTag(
+            xml,
+            "polygon"
+        );
+
+    return {
+        identifier,
+        sender,
+        sent,
+
+        status,
+        messageType,
+
+        event,
+
+        urgency,
+        severity,
+        certainty,
+
+        effective,
+        onset,
+        expires,
+
+        headline,
+        description,
+        instruction,
+
+        area: areaDescription,
+
+        polygon,
+
+        source: "India Meteorological Department",
+    };
+}
+/* =========================================================
+   GET IMD ALERTS
+========================================================= */
+
+app.get(
+    "/api/imd-alerts",
+    async (req, res) => {
+        try {
+            const limit =
+                Math.min(
+                    Number(req.query.limit) || 50,
+                    100
+                );
+
+            const url =
+                `${IMD_ALERTS_URL}?limit=${limit}&f=json`;
+
+            console.log(
+                "Fetching IMD alerts:",
+                url
+            );
+
+            const response =
+                await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(
+                    `IMD alerts request failed: ${response.status}`
+                );
+            }
+
+            const data =
+                await response.json();
+
+            /*
+             * WIS2 returns a FeatureCollection.
+             */
+
+            const items =
+                data.features || [];
+
+            const alerts = [];
+
+            for (
+                const item of items
+            ) {
+                const alert =
+                    parseIMDCapAlert(
+                        item
+                    );
+
+                if (alert) {
+                    alerts.push(alert);
+                }
+            }
+
+            /*
+             * Remove expired alerts.
+             */
+
+            const now =
+                Date.now();
+
+            const activeAlerts =
+                alerts.filter(
+                    (alert) => {
+                        if (
+                            !alert.expires
+                        ) {
+                            return true;
+                        }
+
+                        const expiry =
+                            new Date(
+                                alert.expires
+                            ).getTime();
+
+                        if (
+                            Number.isNaN(
+                                expiry
+                            )
+                        ) {
+                            return true;
+                        }
+
+                        return (
+                            expiry >= now
+                        );
+                    }
+                );
+
+            /*
+             * Sort newest first.
+             */
+
+            activeAlerts.sort(
+                (a, b) => {
+                    const aTime =
+                        new Date(
+                            a.sent || 0
+                        ).getTime();
+
+                    const bTime =
+                        new Date(
+                            b.sent || 0
+                        ).getTime();
+
+                    return (
+                        bTime - aTime
+                    );
+                }
+            );
+
+            res.json({
+                success: true,
+
+                source:
+                    "India Meteorological Department",
+
+                fetchedAt:
+                    new Date().toISOString(),
+
+                count:
+                    activeAlerts.length,
+
+                alerts:
+                    activeAlerts,
+            });
+
+        } catch (error) {
+            console.error(
+                "/api/imd-alerts error:",
+                error
+            );
+
+            res.status(502).json({
+                success: false,
+
+                error:
+                    "Unable to retrieve IMD alerts.",
+
+                details:
+                    error.message,
+            });
+        }
+    }
+);
 /* =========================================================
    CHATBOT
 ========================================================= */
