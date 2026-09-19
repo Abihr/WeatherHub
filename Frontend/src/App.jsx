@@ -1,7 +1,10 @@
-
 import { useEffect, useState } from "react";
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+} from "react-router-dom";
 
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -37,32 +40,116 @@ import Farmer from "./pages/Farmer";
 
 function AppShell() {
   return (
-    <div className="min-h-screen bg-sky-wash">
+    <div className="min-h-screen overflow-x-hidden bg-sky-wash">
+      {/* ================================
+          TOP NAVBAR
+      ================================= */}
       <Navbar />
 
-      <main className="min-w-0">
+      {/* ================================
+          PAGE CONTENT
+          pb-24 prevents BottomNav from
+          covering content on mobile
+      ================================= */}
+      <main className="min-w-0 pb-24 md:pb-0">
         <div className="animate-page-enter">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/friends" element={<Friends />} />
-            <Route path="/requests" element={<FriendRequests />} />
-            <Route path="/compare" element={<Compare />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/blocked" element={<BlockedUsers />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/chatbot" element={<Chatbot />} />
-            <Route path="/Frontend" element={<Chatbot />} />
-            <Route path="/railway-weather" element={<RailwayWeather />} />
-            <Route path="/railway" element={<RailwayWeather />} />
-            <Route path="/farmer" element={<Farmer />} />
+            {/* HOME */}
+            <Route
+              path="/"
+              element={<Home />}
+            />
+
+            {/* FRIENDS */}
+            <Route
+              path="/friends"
+              element={<Friends />}
+            />
+
+            {/* FRIEND REQUESTS */}
+            <Route
+              path="/requests"
+              element={<FriendRequests />}
+            />
+
+            {/* COMPARE */}
+            <Route
+              path="/compare"
+              element={<Compare />}
+            />
+
+            {/* MAP */}
+            <Route
+              path="/map"
+              element={<MapPage />}
+            />
+
+            {/* ALERTS */}
+            <Route
+              path="/alerts"
+              element={<Alerts />}
+            />
+
+            {/* PROFILE */}
+            <Route
+              path="/profile"
+              element={<Profile />}
+            />
+
+            {/* BLOCKED USERS */}
+            <Route
+              path="/blocked"
+              element={<BlockedUsers />}
+            />
+
+            {/* SETTINGS */}
+            <Route
+              path="/settings"
+              element={<Settings />}
+            />
+
+            {/* CHATBOT */}
+            <Route
+              path="/chatbot"
+              element={<Chatbot />}
+            />
+
+            {/* FRONTEND / CHATBOT */}
+            <Route
+              path="/Frontend"
+              element={<Chatbot />}
+            />
+
+            {/* RAILWAY WEATHER */}
+            <Route
+              path="/railway-weather"
+              element={<RailwayWeather />}
+            />
+
+            {/* RAILWAY SHORT ROUTE */}
+            <Route
+              path="/railway"
+              element={<RailwayWeather />}
+            />
+
+            {/* AGRICULTURE */}
+            <Route
+              path="/farmer"
+              element={<Farmer />}
+            />
           </Routes>
         </div>
       </main>
 
+      {/* ================================
+          MOBILE BOTTOM NAVIGATION
+          BottomNav itself uses md:hidden
+      ================================= */}
       <BottomNav />
 
+      {/* ================================
+          TOAST NOTIFICATIONS
+      ================================= */}
       <ToastStack />
     </div>
   );
@@ -75,6 +162,7 @@ export default function App() {
   // ===========================================================
   // FIREBASE AUTH SESSION
   // ===========================================================
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -84,6 +172,7 @@ export default function App() {
             // =================================================
             // FIREBASE AUTH UID
             // =================================================
+
             const userRef = doc(
               db,
               "users",
@@ -93,15 +182,19 @@ export default function App() {
             // =================================================
             // GET FIRESTORE PROFILE
             // =================================================
-            const userSnapshot = await getDoc(userRef);
+
+            const userSnapshot =
+              await getDoc(userRef);
 
             let profileData = {};
 
             // =================================================
             // EXISTING USER
             // =================================================
+
             if (userSnapshot.exists()) {
-              profileData = userSnapshot.data();
+              profileData =
+                userSnapshot.data();
 
               await setDoc(
                 userRef,
@@ -123,7 +216,8 @@ export default function App() {
                     profileData.photoURL ||
                     "",
 
-                  lastLogin: serverTimestamp(),
+                  lastLogin:
+                    serverTimestamp(),
                 },
                 {
                   merge: true,
@@ -146,6 +240,7 @@ export default function App() {
             // =================================================
             // FIRESTORE PROFILE DOES NOT EXIST
             // =================================================
+
             else {
               profileData = {
                 uid: currentUser.uid,
@@ -177,7 +272,8 @@ export default function App() {
                   photoURL:
                     currentUser.photoURL || "",
 
-                  lastLogin: serverTimestamp(),
+                  lastLogin:
+                    serverTimestamp(),
                 },
                 {
                   merge: true,
@@ -197,6 +293,7 @@ export default function App() {
             // =================================================
             // COMBINE AUTH USER + FIRESTORE PROFILE
             // =================================================
+
             const combinedUser = {
               ...currentUser,
 
@@ -291,12 +388,13 @@ export default function App() {
   }, []);
 
   // ===========================================================
-  // FIREBASE SESSION CHECK
+  // LOADING SCREEN
   // ===========================================================
+
   if (loading) {
     return (
       <LanguageProvider>
-        <div className="min-h-screen bg-sky-wash flex items-center justify-center">
+        <div className="flex min-h-screen items-center justify-center bg-sky-wash">
           <p className="text-sm text-ink-400">
             Loading WeatherHub...
           </p>
@@ -308,6 +406,7 @@ export default function App() {
   // ===========================================================
   // LOGGED OUT
   // ===========================================================
+
   if (!user) {
     return (
       <LanguageProvider>
@@ -319,6 +418,7 @@ export default function App() {
   // ===========================================================
   // LOGGED IN
   // ===========================================================
+
   return (
     <LanguageProvider>
       <AppProvider firebaseUser={user}>
@@ -329,4 +429,3 @@ export default function App() {
     </LanguageProvider>
   );
 }
-

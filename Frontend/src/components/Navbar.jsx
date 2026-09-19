@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 
 import { useNavigate, NavLink } from "react-router-dom";
@@ -59,7 +58,6 @@ const primaryLinks = [
 export default function Navbar() {
   const { user, alerts } = useApp();
   const { t } = useLanguage();
-
   const navigate = useNavigate();
 
   // =========================================================
@@ -69,6 +67,10 @@ export default function Navbar() {
   const [agricultureMode, setAgricultureMode] = useState(() => {
     return localStorage.getItem("agricultureMode") === "true";
   });
+
+  // =========================================================
+  // LISTEN FOR AGRICULTURE MODE CHANGES
+  // =========================================================
 
   useEffect(() => {
     const handleAgricultureModeChange = () => {
@@ -217,7 +219,10 @@ export default function Navbar() {
               transition-all
             "
           >
-            <Bell size={17} strokeWidth={2} />
+            <Bell
+              size={17}
+              strokeWidth={2}
+            />
 
             {alerts?.length > 0 && (
               <span
@@ -255,7 +260,10 @@ export default function Navbar() {
               transition-all
             "
           >
-            <User size={17} strokeWidth={2} />
+            <User
+              size={17}
+              strokeWidth={2}
+            />
           </button>
         </div>
       </div>
@@ -328,8 +336,23 @@ export default function Navbar() {
             PRIMARY NAVIGATION
         ================================================== */}
 
-        <nav className="flex-1 min-w-0 overflow-x-auto scrollbar-hide">
-          <div className="flex items-center justify-center gap-1 min-w-max">
+        <nav
+          className="
+            flex-1
+            min-w-0
+            overflow-x-auto
+            scrollbar-hide
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              justify-center
+              gap-1
+              min-w-max
+            "
+          >
             {primaryLinks.map(
               ({
                 to,
@@ -341,11 +364,13 @@ export default function Navbar() {
                 const label = t[translationKey];
 
                 // Agriculture hidden when OFF
+
                 if (agriculture && !agricultureMode) {
                   return null;
                 }
 
                 // Agriculture toggle button
+
                 if (agriculture) {
                   return (
                     <div
@@ -371,6 +396,7 @@ export default function Navbar() {
                         `}
                       >
                         <Sprout className="h-4 w-4" />
+
                         {label}
                       </button>
 
@@ -425,6 +451,7 @@ export default function Navbar() {
                     }
                   >
                     <Icon className="h-4 w-4" />
+
                     {label}
                   </NavLink>
                 );
@@ -527,7 +554,10 @@ export default function Navbar() {
               transition-all
             "
           >
-            <Bell size={18} strokeWidth={2} />
+            <Bell
+              size={18}
+              strokeWidth={2}
+            />
 
             {alerts?.length > 0 && (
               <span
@@ -566,11 +596,13 @@ export default function Navbar() {
               transition-all
             "
           >
-            <User size={18} strokeWidth={2} />
+            <User
+              size={18}
+              strokeWidth={2}
+            />
           </button>
         </div>
       </div>
     </header>
   );
 }
-
