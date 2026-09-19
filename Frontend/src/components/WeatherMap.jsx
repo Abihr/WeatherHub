@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   MapContainer,
@@ -29,15 +33,19 @@ import { weatherIcon } from "../data/mockData";
    CONFIG
 ========================================================= */
 
-const WEATHER_BACKEND_URL = "https://weathergpt-idq6.onrender.com";
+const WEATHER_BACKEND_URL =
+  "https://weathergpt-idq6.onrender.com";
 
 const DEFAULT_CENTER = [22.5726, 88.3639];
 const DEFAULT_ZOOM = 9;
 
 const FRIEND_RADIUS_METERS = 2000;
 
-const IMD_ALERT_REFRESH_MS = 5 * 60 * 1000;
-const SATELLITE_REFRESH_MS = 15 * 60 * 1000;
+const IMD_ALERT_REFRESH_MS =
+  5 * 60 * 1000;
+
+const SATELLITE_REFRESH_MS =
+  15 * 60 * 1000;
 
 /* =========================================================
    MAP COLORS
@@ -85,7 +93,9 @@ function getCoordinates(item) {
 ========================================================= */
 
 function getLocationText(item) {
-  if (!item) return "Unknown location";
+  if (!item) {
+    return "Unknown location";
+  }
 
   if (
     typeof item.location === "string" &&
@@ -112,7 +122,9 @@ function getLocationText(item) {
   const coordinates = getCoordinates(item);
 
   if (coordinates) {
-    return `${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)}`;
+    return `${coordinates.lat.toFixed(
+      4
+    )}, ${coordinates.lng.toFixed(4)}`;
   }
 
   return "Unknown location";
@@ -125,11 +137,15 @@ function getLocationText(item) {
 function getTemperature(weather) {
   if (!weather) return null;
 
-  if (typeof weather.temperature === "number") {
+  if (
+    typeof weather.temperature === "number"
+  ) {
     return weather.temperature;
   }
 
-  if (typeof weather.temp === "number") {
+  if (
+    typeof weather.temp === "number"
+  ) {
     return weather.temp;
   }
 
@@ -152,13 +168,15 @@ function formatWeatherUpdatedAt(timestamp) {
       return null;
     }
 
-    const diffMs = Date.now() - date.getTime();
+    const diffMs =
+      Date.now() - date.getTime();
 
     if (diffMs < 0) {
       return "just now";
     }
 
-    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffMinutes =
+      Math.floor(diffMs / 60000);
 
     if (diffMinutes < 1) {
       return "just now";
@@ -172,7 +190,8 @@ function formatWeatherUpdatedAt(timestamp) {
       return `${diffMinutes} minutes ago`;
     }
 
-    const diffHours = Math.floor(diffMinutes / 60);
+    const diffHours =
+      Math.floor(diffMinutes / 60);
 
     if (diffHours === 1) {
       return "1 hour ago";
@@ -197,18 +216,29 @@ function formatWeatherUpdatedAt(timestamp) {
    PRIVACY-SAFE FRIEND LOCATION
 ========================================================= */
 
-function getApproximateFriendCenter(coordinates, friendId) {
+function getApproximateFriendCenter(
+  coordinates,
+  friendId
+) {
   if (!coordinates) return null;
 
-  const seedString = String(friendId || "friend");
+  const seedString =
+    String(friendId || "friend");
 
   let seed = 0;
 
-  for (let i = 0; i < seedString.length; i++) {
-    seed = (seed * 31 + seedString.charCodeAt(i)) >>> 0;
+  for (
+    let i = 0;
+    i < seedString.length;
+    i++
+  ) {
+    seed =
+      (seed * 31 +
+        seedString.charCodeAt(i)) >>> 0;
   }
 
-  const randomLat = ((seed % 1000) / 1000) * 2 - 1;
+  const randomLat =
+    ((seed % 1000) / 1000) * 2 - 1;
 
   const randomLng =
     (((seed >> 10) % 1000) / 1000) * 2 - 1;
@@ -218,17 +248,23 @@ function getApproximateFriendCenter(coordinates, friendId) {
   const latOffset =
     (randomLat * maxOffsetKm) / 111;
 
-  const longitudeFactor = Math.cos(
-    (coordinates.lat * Math.PI) / 180
-  );
+  const longitudeFactor =
+    Math.cos(
+      (coordinates.lat * Math.PI) / 180
+    );
 
   const lngOffset =
     (randomLng * maxOffsetKm) /
     (111 * longitudeFactor);
 
   return {
-    lat: coordinates.lat + latOffset,
-    lng: coordinates.lng + lngOffset,
+    lat:
+      coordinates.lat +
+      latOffset,
+
+    lng:
+      coordinates.lng +
+      lngOffset,
   };
 }
 
@@ -236,7 +272,10 @@ function getApproximateFriendCenter(coordinates, friendId) {
    CUSTOM MAP PIN
 ========================================================= */
 
-function createMapPin(label, type = "friend") {
+function createMapPin(
+  label,
+  type = "friend"
+) {
   const background =
     type === "you"
       ? MAP_COLORS.user
@@ -292,7 +331,9 @@ function FlyToLocation({ position }) {
 
     map.setView(
       position,
-      currentZoom < 8 ? 9 : currentZoom,
+      currentZoom < 8
+        ? 9
+        : currentZoom,
       {
         animate: true,
         duration: 0.6,
@@ -310,13 +351,17 @@ function FlyToLocation({ position }) {
 function MyLocationButton() {
   const map = useMap();
 
-  const [locating, setLocating] = useState(false);
+  const [
+    locating,
+    setLocating,
+  ] = useState(false);
 
   const handleMyLocation = () => {
     if (!navigator.geolocation) {
       alert(
         "Geolocation is not supported by your browser."
       );
+
       return;
     }
 
@@ -397,6 +442,7 @@ function MyLocationButton() {
 
     button.type = "button";
     button.title = "My Location";
+
     button.setAttribute(
       "aria-label",
       "My Location"
@@ -429,8 +475,12 @@ function MyLocationButton() {
         handleClick
       );
 
-      if (corner.contains(container)) {
-        corner.removeChild(container);
+      if (
+        corner.contains(container)
+      ) {
+        corner.removeChild(
+          container
+        );
       }
     };
   }, [map]);
@@ -446,7 +496,8 @@ function MyLocationButton() {
 
     button.innerHTML = "";
 
-    const icon = document.createElement("div");
+    const icon =
+      document.createElement("div");
 
     icon.innerHTML = `
       <svg
@@ -490,41 +541,58 @@ function MyLocationButton() {
 
 function getAlertSeverityClass(severity) {
   switch (
-    String(severity || "").toLowerCase()
+    String(
+      severity || ""
+    ).toLowerCase()
   ) {
     case "extreme":
       return {
-        badge: "bg-red-100 text-red-700",
-        border: "border-red-200",
-        icon: "text-red-600",
+        badge:
+          "bg-red-100 text-red-700",
+        border:
+          "border-red-200",
+        icon:
+          "text-red-600",
       };
 
     case "severe":
       return {
-        badge: "bg-orange-100 text-orange-700",
-        border: "border-orange-200",
-        icon: "text-orange-600",
+        badge:
+          "bg-orange-100 text-orange-700",
+        border:
+          "border-orange-200",
+        icon:
+          "text-orange-600",
       };
 
     case "moderate":
       return {
-        badge: "bg-yellow-100 text-yellow-700",
-        border: "border-yellow-200",
-        icon: "text-yellow-600",
+        badge:
+          "bg-yellow-100 text-yellow-700",
+        border:
+          "border-yellow-200",
+        icon:
+          "text-yellow-600",
       };
 
     case "minor":
       return {
-        badge: "bg-blue-100 text-blue-700",
-        border: "border-blue-200",
-        icon: "text-blue-600",
+        badge:
+          "bg-blue-100 text-blue-700",
+        border:
+          "border-blue-200",
+        icon:
+          "text-blue-600",
       };
 
     default:
       return {
-        badge: "bg-gray-100 text-gray-700",
-        border: "border-gray-200",
-        icon: "text-gray-500",
+        badge:
+          "bg-gray-100 text-gray-700",
+        border:
+          "border-gray-200",
+        icon:
+          "text-gray-500",
       };
   }
 }
@@ -538,19 +606,27 @@ function formatAlertExpiry(expires) {
     return "No expiry specified";
   }
 
-  const date = new Date(expires);
+  const date =
+    new Date(expires);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return expires;
   }
 
-  return date.toLocaleString([], {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date.toLocaleString(
+    [],
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
 }
 
 /* =========================================================
@@ -558,8 +634,10 @@ function formatAlertExpiry(expires) {
 ========================================================= */
 
 function IMDAlertCard({ alert }) {
-  const [expanded, setExpanded] =
-    useState(false);
+  const [
+    expanded,
+    setExpanded,
+  ] = useState(false);
 
   const severity =
     getAlertSeverityClass(
@@ -861,12 +939,12 @@ function IMDAlertPanel({
     <div
       className="
         absolute
-        top-3
+        top-14
         right-3
         z-[450]
         w-[calc(100%-24px)]
         sm:w-[390px]
-        max-h-[calc(100%-24px)]
+        max-h-[calc(100%-80px)]
         bg-white/98
         backdrop-blur-md
         rounded-xl
@@ -876,7 +954,7 @@ function IMDAlertPanel({
         flex-col
       "
     >
-      {/* Header */}
+      {/* HEADER */}
 
       <div
         className="
@@ -907,6 +985,7 @@ function IMDAlertPanel({
               flex
               items-center
               justify-center
+              shrink-0
             "
           >
             <AlertTriangle size={16} />
@@ -957,6 +1036,7 @@ function IMDAlertPanel({
               hover:bg-ink-50
               hover:text-ink-700
               disabled:opacity-50
+              transition
             "
           >
             <RefreshCw
@@ -982,6 +1062,7 @@ function IMDAlertPanel({
               text-ink-400
               hover:bg-ink-50
               hover:text-ink-700
+              transition
             "
           >
             <X size={15} />
@@ -989,7 +1070,7 @@ function IMDAlertPanel({
         </div>
       </div>
 
-      {/* Content */}
+      {/* CONTENT */}
 
       <div
         className="
@@ -1016,7 +1097,8 @@ function IMDAlertPanel({
               "
             />
 
-            Loading official IMD alerts...
+            Loading official IMD
+            alerts...
           </div>
         )}
 
@@ -1125,7 +1207,13 @@ function IMDAlertPanel({
               {alerts.map(
                 (alert, index) => (
                   <IMDAlertCard
-                    key={`${alert.identifier || alert.id || "alert"}-${index}`}
+                    key={`
+                      ${
+                        alert.identifier ||
+                        alert.id ||
+                        "alert"
+                      }-${index}
+                    `}
                     alert={alert}
                   />
                 )
@@ -1228,15 +1316,20 @@ function SelectedLocationCard({
 
   const weatherIsVisible =
     selected.weather &&
-    (selected.isYou ||
-      selected.weatherSharing);
+    (
+      selected.isYou ||
+      selected.weatherSharing
+    );
 
-  const initials = selected.isYou
-    ? "You"
-    : selected.name
+  const initials =
+    selected.isYou
+      ? "You"
+      : selected.name
       ? selected.name
           .split(" ")
-          .map((name) => name[0])
+          .map(
+            (name) => name[0]
+          )
           .slice(0, 2)
           .join("")
           .toUpperCase()
@@ -1257,9 +1350,10 @@ function SelectedLocationCard({
         flex
         items-start
         gap-3
+        animate-enter
       "
     >
-      {/* Avatar */}
+      {/* AVATAR */}
 
       <div
         className="
@@ -1279,7 +1373,7 @@ function SelectedLocationCard({
         {initials}
       </div>
 
-      {/* Information */}
+      {/* INFORMATION */}
 
       <div
         className="
@@ -1296,7 +1390,8 @@ function SelectedLocationCard({
         >
           {selected.isYou
             ? "Your Location"
-            : selected.name || "User"}
+            : selected.name ||
+              "User"}
         </p>
 
         <p
@@ -1311,13 +1406,20 @@ function SelectedLocationCard({
           <MapPin size={11} />
 
           {selected.isYou
-            ? getLocationText(selected)
+            ? getLocationText(
+                selected
+              )
             : "Approximate location · within 2 km"}
         </p>
 
         {weatherIsVisible ? (
           <>
-            <p className="text-sm mt-1.5">
+            <p
+              className="
+                text-sm
+                mt-1.5
+              "
+            >
               {weatherIcon?.[
                 selected.weather.icon
               ] || "🌤️"}{" "}
@@ -1360,7 +1462,7 @@ function SelectedLocationCard({
         )}
       </div>
 
-      {/* Close */}
+      {/* CLOSE */}
 
       <button
         type="button"
@@ -1387,8 +1489,12 @@ function WeatherMapLayers({
   satelliteWmsUrl,
 }) {
   return (
-    <LayersControl position="topleft">
-      {/* Normal Map */}
+    <LayersControl
+      position="topleft"
+    >
+      {/* =================================================
+          NORMAL MAP
+      ================================================= */}
 
       <LayersControl.BaseLayer
         checked
@@ -1400,7 +1506,9 @@ function WeatherMapLayers({
         />
       </LayersControl.BaseLayer>
 
-      {/* Satellite */}
+      {/* =================================================
+          ESRI SATELLITE
+      ================================================= */}
 
       <LayersControl.BaseLayer
         name="🛰️ Satellite"
@@ -1411,7 +1519,9 @@ function WeatherMapLayers({
         />
       </LayersControl.BaseLayer>
 
-      {/* Precipitation */}
+      {/* =================================================
+          PRECIPITATION
+      ================================================= */}
 
       <LayersControl.Overlay
         name="🌧️ Precipitation"
@@ -1420,26 +1530,41 @@ function WeatherMapLayers({
           attribution="© OpenWeather"
           url={`${WEATHER_BACKEND_URL}/api/weather-map/precipitation_new/{z}/{x}/{y}.png`}
           opacity={0.6}
+          zIndex={10}
         />
       </LayersControl.Overlay>
 
-      {/* IMD Satellite */}
+      {/* =================================================
+          IMD INSAT-3DS TIR1
+      ================================================= */}
 
-      <LayersControl.Overlay
-        name="🇮🇳 IMD Satellite — TIR1"
-      >
-        {satelliteWmsUrl && (
+      {satelliteWmsUrl && (
+        <LayersControl.Overlay
+          name="🇮🇳 IMD Satellite — TIR1"
+        >
           <WMSTileLayer
             url={satelliteWmsUrl}
             layers="IMG_TIR1"
+            styles="boxfill/Greyscale"
             format="image/png"
             transparent={true}
             version="1.3.0"
             opacity={0.75}
+            zIndex={20}
+            params={{
+              COLORSCALERANGE:
+                "260,921",
+
+              BELOWMINCOLOR:
+                "extend",
+
+              ABOVEMAXCOLOR:
+                "extend",
+            }}
             attribution="© MOSDAC / ISRO"
           />
-        )}
-      </LayersControl.Overlay>
+        </LayersControl.Overlay>
+      )}
     </LayersControl>
   );
 }
@@ -1484,8 +1609,11 @@ function UserMarker({
           ]}
           radius={4000}
           pathOptions={{
-            color: MAP_COLORS.circle,
+            color:
+              MAP_COLORS.circle,
+
             fillOpacity: 0.08,
+
             weight: 1,
           }}
         />
@@ -1524,10 +1652,15 @@ function FriendMarker({
           approximateCenter.lat,
           approximateCenter.lng,
         ]}
-        radius={FRIEND_RADIUS_METERS}
+        radius={
+          FRIEND_RADIUS_METERS
+        }
         pathOptions={{
-          color: MAP_COLORS.circle,
+          color:
+            MAP_COLORS.circle,
+
           fillOpacity: 0.08,
+
           weight: 1,
         }}
       />
@@ -1545,10 +1678,16 @@ function FriendMarker({
           click: () =>
             onSelect({
               ...friend,
-              latitude: coordinates.lat,
-              longitude: coordinates.lng,
+
+              latitude:
+                coordinates.lat,
+
+              longitude:
+                coordinates.lng,
+
               approximateLatitude:
                 approximateCenter.lat,
+
               approximateLongitude:
                 approximateCenter.lng,
             }),
@@ -1566,16 +1705,20 @@ export default function WeatherMap({
   user,
   friends = [],
 }) {
-  const [selected, setSelected] =
-    useState(null);
+  const [
+    selected,
+    setSelected,
+  ] = useState(null);
 
   const [
     satelliteWmsUrl,
     setSatelliteWmsUrl,
   ] = useState(null);
 
-  const [imdAlerts, setImdAlerts] =
-    useState([]);
+  const [
+    imdAlerts,
+    setImdAlerts,
+  ] = useState([]);
 
   const [
     imdAlertsLoading,
@@ -1596,38 +1739,43 @@ export default function WeatherMap({
      USER COORDINATES
   ======================================================= */
 
-  const userCoordinates = useMemo(
-    () => getCoordinates(user),
-    [user]
-  );
+  const userCoordinates =
+    useMemo(
+      () => getCoordinates(user),
+      [user]
+    );
 
-  const center = userCoordinates
-    ? [
-        userCoordinates.lat,
-        userCoordinates.lng,
-      ]
-    : DEFAULT_CENTER;
+  const center =
+    userCoordinates
+      ? [
+          userCoordinates.lat,
+          userCoordinates.lng,
+        ]
+      : DEFAULT_CENTER;
 
   /* =======================================================
      VISIBLE FRIENDS
   ======================================================= */
 
-  const visibleFriends = useMemo(() => {
-    return friends.filter((friend) => {
-      const coordinates =
-        getCoordinates(friend);
+  const visibleFriends =
+    useMemo(() => {
+      return friends.filter(
+        (friend) => {
+          const coordinates =
+            getCoordinates(friend);
 
-      return (
-        coordinates &&
-        Number.isFinite(
-          coordinates.lat
-        ) &&
-        Number.isFinite(
-          coordinates.lng
-        )
+          return (
+            coordinates &&
+            Number.isFinite(
+              coordinates.lat
+            ) &&
+            Number.isFinite(
+              coordinates.lng
+            )
+          );
+        }
       );
-    });
-  }, [friends]);
+    }, [friends]);
 
   /* =======================================================
      SATELLITE FETCH
@@ -1652,6 +1800,11 @@ export default function WeatherMap({
         const data =
           await response.json();
 
+        console.log(
+          "Latest IMD satellite:",
+          data
+        );
+
         if (
           mounted &&
           data.success &&
@@ -1671,14 +1824,18 @@ export default function WeatherMap({
 
     fetchLatestSatellite();
 
-    const interval = setInterval(
-      fetchLatestSatellite,
-      SATELLITE_REFRESH_MS
-    );
+    const interval =
+      setInterval(
+        fetchLatestSatellite,
+        SATELLITE_REFRESH_MS
+      );
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+
+      clearInterval(
+        interval
+      );
     };
   }, []);
 
@@ -1735,10 +1892,11 @@ export default function WeatherMap({
   useEffect(() => {
     fetchIMDAlerts();
 
-    const interval = setInterval(
-      fetchIMDAlerts,
-      IMD_ALERT_REFRESH_MS
-    );
+    const interval =
+      setInterval(
+        fetchIMDAlerts,
+        IMD_ALERT_REFRESH_MS
+      );
 
     return () =>
       clearInterval(interval);
@@ -1752,11 +1910,13 @@ export default function WeatherMap({
     if (!selected) return;
 
     if (selected.isYou) {
-      setSelected((current) => ({
-        ...current,
-        ...user,
-        isYou: true,
-      }));
+      setSelected(
+        (current) => ({
+          ...current,
+          ...user,
+          isYou: true,
+        })
+      );
 
       return;
     }
@@ -1772,12 +1932,18 @@ export default function WeatherMap({
     if (!updatedFriend) return;
 
     const coordinates =
-      getCoordinates(updatedFriend);
+      getCoordinates(
+        updatedFriend
+      );
 
     setSelected({
       ...updatedFriend,
-      latitude: coordinates?.lat,
-      longitude: coordinates?.lng,
+
+      latitude:
+        coordinates?.lat,
+
+      longitude:
+        coordinates?.lng,
     });
   }, [
     friends,
@@ -1790,19 +1956,22 @@ export default function WeatherMap({
      SELECTED POSITION
   ======================================================= */
 
-  const selectedPosition = useMemo(() => {
-    if (!selected) return null;
+  const selectedPosition =
+    useMemo(() => {
+      if (!selected) return null;
 
-    const coordinates =
-      getCoordinates(selected);
+      const coordinates =
+        getCoordinates(selected);
 
-    if (!coordinates) return null;
+      if (!coordinates) {
+        return null;
+      }
 
-    return [
-      coordinates.lat,
-      coordinates.lng,
-    ];
-  }, [selected]);
+      return [
+        coordinates.lat,
+        coordinates.lng,
+      ];
+    }, [selected]);
 
   /* =======================================================
      RENDER
@@ -1829,39 +1998,49 @@ export default function WeatherMap({
         zoom={DEFAULT_ZOOM}
         scrollWheelZoom={true}
         zoomControl={false}
-        className="weather-map h-full w-full"
+        className="
+          weather-map
+          h-full
+          w-full
+        "
       >
+        {/* MAP LAYERS */}
+
         <WeatherMapLayers
           satelliteWmsUrl={
             satelliteWmsUrl
           }
         />
 
-        {/* Zoom */}
+        {/* ZOOM */}
 
         <ZoomControl
           position="bottomleft"
         />
 
-        {/* My Location */}
+        {/* MY LOCATION */}
 
         <MyLocationButton />
 
-        {/* Selected Location */}
+        {/* SELECTED LOCATION */}
 
         <FlyToLocation
-          position={selectedPosition}
+          position={
+            selectedPosition
+          }
         />
 
-        {/* User */}
+        {/* USER */}
 
         <UserMarker
           user={user}
-          coordinates={userCoordinates}
+          coordinates={
+            userCoordinates
+          }
           onSelect={setSelected}
         />
 
-        {/* Friends */}
+        {/* FRIENDS */}
 
         {visibleFriends.map(
           (friend) => (
@@ -1874,39 +2053,116 @@ export default function WeatherMap({
         )}
       </MapContainer>
 
-      {/* ===================================================
+      {/* =================================================
+          MAP HEADER
+      ================================================= */}
+
+      <div
+        className="
+          absolute
+          top-3
+          left-3
+          right-3
+          z-[400]
+          flex
+          items-center
+          justify-between
+          gap-2
+          pointer-events-none
+        "
+      >
+        {/* FRIEND COUNT */}
+
+        {/* <span
+          className="
+            bg-white/95
+            backdrop-blur-sm
+            text-xs
+            font-medium
+            text-ink-600
+            px-3
+            py-1.5
+            rounded-full
+            shadow-card
+          "
+        >
+          {visibleFriends.length} friend
+          {visibleFriends.length !== 1
+            ? "s"
+            : ""}{" "}
+          shown
+        </span> */}
+
+        {/* RIGHT STATUS */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          {/* <span
+            className="
+              hidden
+              sm:flex
+              bg-white/95
+              backdrop-blur-sm
+              text-xs
+              font-medium
+              text-ink-600
+              px-3
+              py-1.5
+              rounded-full
+              shadow-card
+            "
+          >
+            📍 Live locations
+          </span> */}
+        </div>
+      </div>
+
+      {/* =================================================
           IMD ALERT PANEL
-      =================================================== */}
+      ================================================= */}
 
       {showImdAlerts && (
         <IMDAlertPanel
           alerts={imdAlerts}
-          loading={imdAlertsLoading}
-          error={imdAlertsError}
-          onRefresh={fetchIMDAlerts}
+          loading={
+            imdAlertsLoading
+          }
+          error={
+            imdAlertsError
+          }
+          onRefresh={
+            fetchIMDAlerts
+          }
           onClose={() =>
             setShowImdAlerts(false)
           }
         />
       )}
 
-      {/* ===================================================
+      {/* =================================================
           IMD ALERT BUTTON
-      =================================================== */}
+      ================================================= */}
 
       {!showImdAlerts && (
         <IMDAlertButton
           alerts={imdAlerts}
-          loading={imdAlertsLoading}
+          loading={
+            imdAlertsLoading
+          }
           onClick={() =>
             setShowImdAlerts(true)
           }
         />
       )}
 
-      {/* ===================================================
-          SELECTED LOCATION
-      =================================================== */}
+      {/* =================================================
+          SELECTED LOCATION CARD
+      ================================================= */}
 
       <SelectedLocationCard
         selected={selected}
