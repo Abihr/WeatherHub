@@ -1,3 +1,5 @@
+const https = require("https");
+const tls = require("tls");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -1443,270 +1445,497 @@ app.get(
 );
 /* =========================================================
    IMD ALERTS
-   Official IMD CAP alerts
+   Official IMD CAP alerts through WIS2
 ========================================================= */
 
-const IMD_ALERTS_URL =
-    "https://wis2box.imd.gov.in/oapi/collections/messages/items";
+const IMD_MESSAGES_HOST = "wis2box.imd.gov.in";
+
+const IMD_MESSAGES_BASE_PATH =
+    "/oapi/collections/messages/items";
+
+const IMD_CAP_METADATA_ID =
+    "urn:wmo:md:in-imd:cap_alerts";
+
+
+function fetchIMDPage(startIndex = 0, limit = 100) {
+    return new Promise((resolve, reject) => {
+
+        const systemCAs =
+            tls.getCACertificates("system");
+
+        const path =
+            `${IMD_MESSAGES_BASE_PATH}?limit=${limit}&startindex=${startIndex}`;
+
+        const options = {
+            hostname: IMD_MESSAGES_HOST,
+            path,
+            method: "GET",
+
+            headers: {
+                Accept: "application/json",
+                "User-Agent": "WeatherGPT/1.0",
+            },
+
+            ca: systemCAs,
+        };
+
+        console.log(
+            `>>> Fetching IMD page: startindex=${startIndex}`
+        );
+
+        const req = https.request(
+            options,
+            (response) => {
+
+                let data = "";
+
+                response.setEncoding("utf8");
+
+                response.on("data", (chunk) => {
+                    data += chunk;
+                });
+
+                response.on("end", () => {
+
+                    if (
+                        response.statusCode < 200 ||
+                        response.statusCode >= 300
+                    ) {
+                        reject(
+                            new Error(
+                                `IMD returned HTTP ${response.statusCode}: ${data.slice(
+                                    0,
+                                    500
+                                )}`
+                            )
+                        );
+
+                        return;
+                    }
+
+                    try {
+
+                        resolve(
+                            JSON.parse(data)
+                        );
+
+                    } catch (error) {
+
+                        reject(
+                            new Error(
+                                `Failed to parse IMD response: ${error.message}`
+                            )
+                        );
+                    }
+                });
+            }
+        );
+
+        req.on("error", reject);
+
+        req.end();
+    });
+}
+
+
+/*
+   Fetch multiple pages because the IMD messages
+   collection contains many different message types.
+*/
+async function fetchIMDMessages() {
+    const pageSize = 100;
+
+    // Search the most recent 7 days.
+    const end = new Date();
+    const start = new Date(
+        end.getTime() - 7 * 24 * 60 * 60 * 1000
+    );
+
+    const datetimeRange =
+        `${start.toISOString()}/${end.toISOString()}`;
+
+    const path =
+        `${IMD_MESSAGES_BASE_PATH}` +
+        `?limit=${pageSize}` +
+        `&datetime=${encodeURIComponent(datetimeRange)}` +
+        `&sortby=-datetime`;
+
+    console.log(
+        ">>> Fetching recent IMD messages:"
+    );
+    console.log(
+        `>>> datetime=${datetimeRange}`
+    );
+
+    const data = await new Promise((resolve, reject) => {
+        const systemCAs =
+            tls.getCACertificates("system");
+
+        const options = {
+            hostname: IMD_MESSAGES_HOST,
+            path,
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+                "User-Agent": "WeatherGPT/1.0",
+            },
+            ca: systemCAs,
+        };
+
+        const req = https.request(
+            options,
+            (response) => {
+                let body = "";
+
+                response.setEncoding("utf8");
+
+                response.on("data", chunk => {
+                    body += chunk;
+                });
+
+                response.on("end", () => {
+                    if (
+                        response.statusCode < 200 ||
+                        response.statusCode >= 300
+                    ) {
+                        reject(
+                            new Error(
+                                `IMD returned HTTP ${response.statusCode}: ${body.slice(0, 500)}`
+                            )
+                        );
+                        return;
+                    }
+
+                    try {
+                        resolve(JSON.parse(body));
+                    } catch (error) {
+                        reject(
+                            new Error(
+                                `Failed to parse IMD response: ${error.message}`
+                            )
+                        );
+                    }
+                });
+            }
+        );
+
+        req.on("error", reject);
+        req.end();
+    });
+
+    const items =
+        Array.isArray(data.features)
+            ? data.features
+            : [];
+
+    console.log(
+        `>>> IMD messages returned: ${items.length}`
+    );
+
+    const capItems = items.filter(item => {
+        return (
+            item?.properties?.metadata_id ===
+            IMD_CAP_METADATA_ID
+        );
+    });
+
+    console.log(
+        `>>> CAP alerts in result: ${capItems.length}`
+    );
+
+    return {
+        features: capItems,
+    };
+}
+
+
+function decodeBase64(value) {
+
+    try {
+
+        return Buffer
+            .from(value, "base64")
+            .toString("utf8");
+
+    } catch {
+
+        return null;
+    }
+}
 
 
 function getXmlTag(xml, tagName) {
+
     const regex = new RegExp(
         `<(?:cap:)?${tagName}[^>]*>([\\s\\S]*?)<\\/(?:cap:)?${tagName}>`,
         "i"
     );
 
-    const match = xml.match(regex);
 
-    return match
-        ? match[1].trim()
-        : null;
-}
+    const match =
+        xml.match(regex);
 
 
-function decodeBase64(value) {
-    try {
-        return Buffer.from(
-            value,
-            "base64"
-        ).toString("utf8");
-    } catch {
+    if (!match) {
         return null;
     }
+
+
+    return match[1]
+        .trim()
+        .replace(
+            /<!\[CDATA\[([\s\S]*?)\]\]>/g,
+            "$1"
+        )
+        .trim();
 }
 
 
 function parseIMDCapAlert(item) {
-    /*
-     * IMD WIS2 messages store the CAP XML
-     * inside:
-     *
-     * item.properties.content.value
-     */
+
+    const properties =
+        item?.properties;
+
+
+    if (!properties) {
+        return null;
+    }
+
+
+    const metadataId =
+        properties.metadata_id || "";
+
+
+    if (
+        metadataId !==
+        IMD_CAP_METADATA_ID
+    ) {
+        return null;
+    }
+
 
     const encoded =
-        item?.properties?.content?.value ||
-        item?.content?.value ||
-        item?.properties?.content;
+        properties?.content?.value ||
+        properties?.content;
+
 
     if (!encoded) {
         return null;
     }
 
+
     const xml =
         decodeBase64(encoded);
+
 
     if (!xml) {
         return null;
     }
 
-    const identifier =
-        getXmlTag(
-            xml,
-            "identifier"
-        );
-
-    const sender =
-        getXmlTag(
-            xml,
-            "sender"
-        );
-
-    const sent =
-        getXmlTag(
-            xml,
-            "sent"
-        );
-
-    const status =
-        getXmlTag(
-            xml,
-            "status"
-        );
-
-    const messageType =
-        getXmlTag(
-            xml,
-            "msgType"
-        );
-
-    const event =
-        getXmlTag(
-            xml,
-            "event"
-        );
-
-    const urgency =
-        getXmlTag(
-            xml,
-            "urgency"
-        );
-
-    const severity =
-        getXmlTag(
-            xml,
-            "severity"
-        );
-
-    const certainty =
-        getXmlTag(
-            xml,
-            "certainty"
-        );
-
-    const effective =
-        getXmlTag(
-            xml,
-            "effective"
-        );
-
-    const onset =
-        getXmlTag(
-            xml,
-            "onset"
-        );
-
-    const expires =
-        getXmlTag(
-            xml,
-            "expires"
-        );
-
-    const headline =
-        getXmlTag(
-            xml,
-            "headline"
-        );
-
-    const description =
-        getXmlTag(
-            xml,
-            "description"
-        );
-
-    const instruction =
-        getXmlTag(
-            xml,
-            "instruction"
-        );
-
-    const areaDescription =
-        getXmlTag(
-            xml,
-            "areaDesc"
-        );
-
-    const polygon =
-        getXmlTag(
-            xml,
-            "polygon"
-        );
 
     return {
-        identifier,
-        sender,
-        sent,
 
-        status,
-        messageType,
+        id:
+            item.id || null,
 
-        event,
 
-        urgency,
-        severity,
-        certainty,
+        identifier:
+            getXmlTag(
+                xml,
+                "identifier"
+            ),
 
-        effective,
-        onset,
-        expires,
 
-        headline,
-        description,
-        instruction,
+        sender:
+            getXmlTag(
+                xml,
+                "sender"
+            ),
 
-        area: areaDescription,
 
-        polygon,
+        sent:
+            getXmlTag(
+                xml,
+                "sent"
+            ),
 
-        source: "India Meteorological Department",
+
+        status:
+            getXmlTag(
+                xml,
+                "status"
+            ),
+
+
+        messageType:
+            getXmlTag(
+                xml,
+                "msgType"
+            ),
+
+
+        event:
+            getXmlTag(
+                xml,
+                "event"
+            ),
+
+
+        urgency:
+            getXmlTag(
+                xml,
+                "urgency"
+            ),
+
+
+        severity:
+            getXmlTag(
+                xml,
+                "severity"
+            ),
+
+
+        certainty:
+            getXmlTag(
+                xml,
+                "certainty"
+            ),
+
+
+        effective:
+            getXmlTag(
+                xml,
+                "effective"
+            ),
+
+
+        onset:
+            getXmlTag(
+                xml,
+                "onset"
+            ),
+
+
+        expires:
+            getXmlTag(
+                xml,
+                "expires"
+            ),
+
+
+        headline:
+            getXmlTag(
+                xml,
+                "headline"
+            ),
+
+
+        description:
+            getXmlTag(
+                xml,
+                "description"
+            ),
+
+
+        instruction:
+            getXmlTag(
+                xml,
+                "instruction"
+            ),
+
+
+        area:
+            getXmlTag(
+                xml,
+                "areaDesc"
+            ),
+
+
+        polygon:
+            getXmlTag(
+                xml,
+                "polygon"
+            ),
+
+
+        source:
+            "India Meteorological Department",
     };
 }
+
+
 /* =========================================================
-   GET IMD ALERTS
+   IMD ALERT API
 ========================================================= */
 
 app.get(
     "/api/imd-alerts",
     async (req, res) => {
-        try {
-            const limit =
-                Math.min(
-                    Number(req.query.limit) || 50,
-                    100
-                );
 
-            const url =
-                `${IMD_ALERTS_URL}?limit=${limit}&f=json`;
+        try {
 
             console.log(
-                "Fetching IMD alerts:",
-                url
+                "Fetching IMD CAP alerts..."
             );
 
-            const response =
-                await fetch(url);
-
-            if (!response.ok) {
-                throw new Error(
-                    `IMD alerts request failed: ${response.status}`
-                );
-            }
 
             const data =
-                await response.json();
+                await fetchIMDMessages();
 
-            /*
-             * WIS2 returns a FeatureCollection.
-             */
 
             const items =
-                data.features || [];
+                Array.isArray(
+                    data.features
+                )
+                    ? data.features
+                    : [];
+
+
+            console.log(
+                "IMD CAP records received:",
+                items.length
+            );
+
 
             const alerts = [];
+
 
             for (
                 const item of items
             ) {
+
                 const alert =
                     parseIMDCapAlert(
                         item
                     );
+
 
                 if (alert) {
                     alerts.push(alert);
                 }
             }
 
-            /*
-             * Remove expired alerts.
-             */
 
             const now =
                 Date.now();
 
+
             const activeAlerts =
                 alerts.filter(
                     (alert) => {
+
                         if (
                             !alert.expires
                         ) {
                             return true;
                         }
 
+
                         const expiry =
                             new Date(
                                 alert.expires
                             ).getTime();
+
 
                         if (
                             Number.isNaN(
@@ -1716,27 +1945,28 @@ app.get(
                             return true;
                         }
 
+
                         return (
                             expiry >= now
                         );
                     }
                 );
 
-            /*
-             * Sort newest first.
-             */
 
             activeAlerts.sort(
                 (a, b) => {
+
                     const aTime =
                         new Date(
                             a.sent || 0
                         ).getTime();
 
+
                     const bTime =
                         new Date(
                             b.sent || 0
                         ).getTime();
+
 
                     return (
                         bTime - aTime
@@ -1744,7 +1974,15 @@ app.get(
                 }
             );
 
-            res.json({
+
+            console.log(
+                "IMD CAP alerts found:",
+                activeAlerts.length
+            );
+
+
+            return res.json({
+
                 success: true,
 
                 source:
@@ -1761,12 +1999,17 @@ app.get(
             });
 
         } catch (error) {
+
             console.error(
                 "/api/imd-alerts error:",
                 error
             );
 
-            res.status(502).json({
+
+            return res.status(
+                502
+            ).json({
+
                 success: false,
 
                 error:
@@ -1774,6 +2017,10 @@ app.get(
 
                 details:
                     error.message,
+
+                cause:
+                    error.cause?.message ||
+                    null,
             });
         }
     }

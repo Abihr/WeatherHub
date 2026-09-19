@@ -21,11 +21,16 @@ import "leaflet/dist/leaflet.css";
 import {
   X,
   MapPin,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
 } from "lucide-react";
 
 import {
   weatherIcon,
 } from "../data/mockData";
+
 
 
 /* =========================================================
@@ -36,6 +41,7 @@ const WEATHER_BACKEND_URL =
   "https://weathergpt-idq6.onrender.com";
 
 
+
 /* =========================================================
    FRIEND LOCATION PRIVACY
 ========================================================= */
@@ -43,12 +49,20 @@ const WEATHER_BACKEND_URL =
 const FRIEND_RADIUS_METERS = 2000;
 
 
-/*
- * Generate a deterministic approximate location
- * for a friend.
- *
- * The friend's exact coordinates are NOT displayed.
- */
+
+/* =========================================================
+   IMD ALERT REFRESH
+========================================================= */
+
+const IMD_ALERT_REFRESH_MS =
+  5 * 60 * 1000;
+
+
+
+/* =========================================================
+   GENERATE APPROXIMATE FRIEND LOCATION
+========================================================= */
+
 function getApproximateFriendCenter(
   coordinates,
   friendId
@@ -102,6 +116,7 @@ function getApproximateFriendCenter(
 }
 
 
+
 /* =========================================================
    CUSTOM MAP PIN
 ========================================================= */
@@ -152,6 +167,7 @@ function pin(label, tone) {
 }
 
 
+
 /* =========================================================
    FLY TO SELECTED LOCATION
 ========================================================= */
@@ -174,21 +190,13 @@ function FlyTo({
 }
 
 
+
 /* =========================================================
    GET COORDINATES
 ========================================================= */
 
 function getCoordinates(item) {
   if (!item) return null;
-
-  /*
-   * Firebase structure:
-   *
-   * location: {
-   *   lat,
-   *   lng
-   * }
-   */
 
   if (
     item.location &&
@@ -202,10 +210,6 @@ function getCoordinates(item) {
       lng: item.location.lng,
     };
   }
-
-  /*
-   * Fallback to top-level Firebase fields.
-   */
 
   if (
     typeof item.latitude ===
@@ -223,6 +227,7 @@ function getCoordinates(item) {
 }
 
 
+
 /* =========================================================
    LOCATION TEXT
 ========================================================= */
@@ -232,10 +237,6 @@ function getLocationText(item) {
     return "Unknown location";
   }
 
-  /*
-   * String location
-   */
-
   if (
     typeof item.location ===
       "string" &&
@@ -243,10 +244,6 @@ function getLocationText(item) {
   ) {
     return item.location;
   }
-
-  /*
-   * location.city
-   */
 
   if (
     item.location &&
@@ -256,10 +253,6 @@ function getLocationText(item) {
   ) {
     return item.location.city;
   }
-
-  /*
-   * Weather location name
-   */
 
   if (
     item.weather?.locationName &&
@@ -280,6 +273,7 @@ function getLocationText(item) {
 
   return "Unknown location";
 }
+
 
 
 /* =========================================================
@@ -307,6 +301,7 @@ function getTemperature(
 
   return null;
 }
+
 
 
 /* =========================================================
@@ -337,10 +332,6 @@ function formatWeatherUpdatedAt(
     const diffMs =
       Date.now() -
       date.getTime();
-
-    /*
-     * Prevent weird future timestamps.
-     */
 
     if (diffMs < 0) {
       return "just now";
@@ -391,6 +382,425 @@ function formatWeatherUpdatedAt(
 }
 
 
+
+/* =========================================================
+   IMD ALERT HELPERS
+========================================================= */
+
+function getAlertSeverityClass(
+  severity
+) {
+  switch (
+    String(severity || "").toLowerCase()
+  ) {
+    case "extreme":
+      return {
+        badge:
+          "bg-red-100 text-red-700",
+        border:
+          "border-red-200",
+        icon:
+          "text-red-600",
+      };
+
+    case "severe":
+      return {
+        badge:
+          "bg-orange-100 text-orange-700",
+        border:
+          "border-orange-200",
+        icon:
+          "text-orange-600",
+      };
+
+    case "moderate":
+      return {
+        badge:
+          "bg-yellow-100 text-yellow-700",
+        border:
+          "border-yellow-200",
+        icon:
+          "text-yellow-600",
+      };
+
+    case "minor":
+      return {
+        badge:
+          "bg-blue-100 text-blue-700",
+        border:
+          "border-blue-200",
+        icon:
+          "text-blue-600",
+      };
+
+    default:
+      return {
+        badge:
+          "bg-gray-100 text-gray-700",
+        border:
+          "border-gray-200",
+        icon:
+          "text-gray-500",
+      };
+  }
+}
+
+
+
+function formatAlertExpiry(
+  expires
+) {
+  if (!expires) {
+    return "No expiry specified";
+  }
+
+  const date =
+    new Date(expires);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return expires;
+  }
+
+  return date.toLocaleString(
+    [],
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
+}
+
+
+
+/* =========================================================
+   IMD ALERT CARD
+========================================================= */
+
+function IMDAlertCard({
+  alert,
+}) {
+  const [
+    expanded,
+    setExpanded,
+  ] = useState(false);
+
+  const severity =
+    getAlertSeverityClass(
+      alert.severity
+    );
+
+  return (
+    <div
+      className={`
+        border
+        ${severity.border}
+        rounded-xl
+        p-3
+        bg-white
+      `}
+    >
+      <button
+        type="button"
+        onClick={() =>
+          setExpanded(
+            (value) => !value
+          )
+        }
+        className="
+          w-full
+          text-left
+          flex
+          items-start
+          gap-2.5
+        "
+      >
+        <AlertTriangle
+          size={17}
+          className={`
+            mt-0.5
+            shrink-0
+            ${severity.icon}
+          `}
+        />
+
+        <div className="flex-1 min-w-0">
+
+          <div
+            className="
+              flex
+              items-start
+              justify-between
+              gap-2
+            "
+          >
+            <p
+              className="
+                text-xs
+                font-semibold
+                text-ink-800
+                leading-snug
+              "
+            >
+              {alert.event ||
+                alert.headline ||
+                "Weather Alert"}
+            </p>
+
+            <span
+              className={`
+                shrink-0
+                text-[10px]
+                font-semibold
+                px-2
+                py-0.5
+                rounded-full
+                ${severity.badge}
+              `}
+            >
+              {alert.severity ||
+                "Unknown"}
+            </span>
+          </div>
+
+          {alert.headline && (
+            <p
+              className="
+                text-xs
+                text-ink-500
+                mt-1
+                leading-snug
+              "
+            >
+              {alert.headline}
+            </p>
+          )}
+
+          {alert.area && (
+            <p
+              className="
+                text-[11px]
+                text-ink-400
+                mt-1.5
+                leading-snug
+              "
+            >
+              📍 {alert.area}
+            </p>
+          )}
+
+        </div>
+
+        {expanded ? (
+          <ChevronUp
+            size={15}
+            className="
+              text-ink-400
+              shrink-0
+              mt-0.5
+            "
+          />
+        ) : (
+          <ChevronDown
+            size={15}
+            className="
+              text-ink-400
+              shrink-0
+              mt-0.5
+            "
+          />
+        )}
+      </button>
+
+
+
+      {expanded && (
+        <div
+          className="
+            mt-3
+            pt-3
+            border-t
+            border-ink-100
+            space-y-2
+          "
+        >
+
+          {alert.description && (
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-ink-400
+                "
+              >
+                Description
+              </p>
+
+              <p
+                className="
+                  text-xs
+                  text-ink-600
+                  mt-0.5
+                  leading-relaxed
+                "
+              >
+                {alert.description}
+              </p>
+            </div>
+          )}
+
+
+
+          <div
+            className="
+              grid
+              grid-cols-2
+              gap-2
+            "
+          >
+
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-ink-400
+                "
+              >
+                Urgency
+              </p>
+
+              <p
+                className="
+                  text-xs
+                  text-ink-700
+                  mt-0.5
+                "
+              >
+                {alert.urgency ||
+                  "Not specified"}
+              </p>
+            </div>
+
+
+
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-ink-400
+                "
+              >
+                Certainty
+              </p>
+
+              <p
+                className="
+                  text-xs
+                  text-ink-700
+                  mt-0.5
+                "
+              >
+                {alert.certainty ||
+                  "Not specified"}
+              </p>
+            </div>
+
+          </div>
+
+
+
+          <div>
+            <p
+              className="
+                text-[10px]
+                font-semibold
+                uppercase
+                tracking-wide
+                text-ink-400
+              "
+            >
+              Expires
+            </p>
+
+            <p
+              className="
+                text-xs
+                text-ink-700
+                mt-0.5
+              "
+            >
+              {formatAlertExpiry(
+                alert.expires
+              )}
+            </p>
+          </div>
+
+
+
+          {alert.instruction && (
+            <div>
+              <p
+                className="
+                  text-[10px]
+                  font-semibold
+                  uppercase
+                  tracking-wide
+                  text-ink-400
+                "
+              >
+                Instructions
+              </p>
+
+              <p
+                className="
+                  text-xs
+                  text-ink-600
+                  mt-0.5
+                  leading-relaxed
+                "
+              >
+                {alert.instruction}
+              </p>
+            </div>
+          )}
+
+
+
+          <p
+            className="
+              text-[10px]
+              text-ink-400
+              pt-1
+            "
+          >
+            Source: India Meteorological
+            Department
+          </p>
+
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+
 /* =========================================================
    WEATHER MAP
 ========================================================= */
@@ -399,10 +809,12 @@ export default function WeatherMap({
   user,
   friends = [],
 }) {
+
   const [
     selected,
     setSelected,
   ] = useState(null);
+
 
 
   /* =======================================================
@@ -413,6 +825,7 @@ export default function WeatherMap({
     satelliteWmsUrl,
     setSatelliteWmsUrl,
   ] = useState(null);
+
 
 
   useEffect(() => {
@@ -452,25 +865,13 @@ export default function WeatherMap({
         }
       };
 
-
-    /*
-     * Fetch immediately.
-     */
-
     fetchLatestSatellite();
-
-
-    /*
-     * Check for a newer satellite frame
-     * every 15 minutes.
-     */
 
     const interval =
       setInterval(
         fetchLatestSatellite,
         15 * 60 * 1000
       );
-
 
     return () => {
       mounted = false;
@@ -482,11 +883,103 @@ export default function WeatherMap({
   }, []);
 
 
-  /*
-   * Refresh the
-   * "Updated X minutes ago"
-   * text every minute.
-   */
+
+  /* =======================================================
+     IMD ALERTS
+  ======================================================= */
+
+  const [
+    imdAlerts,
+    setImdAlerts,
+  ] = useState([]);
+
+  const [
+    imdAlertsLoading,
+    setImdAlertsLoading,
+  ] = useState(true);
+
+  const [
+    imdAlertsError,
+    setImdAlertsError,
+  ] = useState(null);
+
+  const [
+    showImdAlerts,
+    setShowImdAlerts,
+  ] = useState(false);
+
+
+
+  const fetchIMDAlerts =
+    async () => {
+      try {
+        setImdAlertsError(null);
+
+        const response =
+          await fetch(
+            `${WEATHER_BACKEND_URL}/api/imd-alerts`
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `IMD alert request failed: ${response.status}`
+          );
+        }
+
+        const data =
+          await response.json();
+
+        if (!data.success) {
+          throw new Error(
+            data.error ||
+              "Unable to retrieve IMD alerts."
+          );
+        }
+
+        setImdAlerts(
+          Array.isArray(
+            data.alerts
+          )
+            ? data.alerts
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Failed to fetch IMD alerts:",
+          error
+        );
+
+        setImdAlertsError(
+          error.message ||
+            "Unable to load IMD alerts."
+        );
+      } finally {
+        setImdAlertsLoading(false);
+      }
+    };
+
+
+
+  useEffect(() => {
+    fetchIMDAlerts();
+
+    const interval =
+      setInterval(
+        fetchIMDAlerts,
+        IMD_ALERT_REFRESH_MS
+      );
+
+    return () =>
+      clearInterval(
+        interval
+      );
+  }, []);
+
+
+
+  /* =======================================================
+     REFRESH TIME TEXT
+  ======================================================= */
 
   const [
     ,
@@ -509,6 +1002,7 @@ export default function WeatherMap({
   }, []);
 
 
+
   /* =======================================================
      USER COORDINATES
   ======================================================= */
@@ -526,6 +1020,7 @@ export default function WeatherMap({
           22.5726,
           88.3639,
         ];
+
 
 
   /* =======================================================
@@ -555,6 +1050,7 @@ export default function WeatherMap({
     }, [friends]);
 
 
+
   /* =======================================================
      KEEP SELECTED DATA UPDATED
   ======================================================= */
@@ -567,11 +1063,6 @@ export default function WeatherMap({
       return;
     }
 
-
-    /*
-     * Selected user.
-     */
-
     if (selected.isYou) {
       setSelected(
         (current) => ({
@@ -583,11 +1074,6 @@ export default function WeatherMap({
 
       return;
     }
-
-
-    /*
-     * Selected friend.
-     */
 
     const updatedFriend =
       friends.find(
@@ -616,6 +1102,7 @@ export default function WeatherMap({
     friends,
     user,
   ]);
+
 
 
   /* =========================================================
@@ -650,9 +1137,7 @@ export default function WeatherMap({
           position="topright"
         >
 
-          {/* =================================================
-              NORMAL MAP
-          ================================================= */}
+          {/* NORMAL MAP */}
 
           <LayersControl.BaseLayer
             checked
@@ -665,9 +1150,8 @@ export default function WeatherMap({
           </LayersControl.BaseLayer>
 
 
-          {/* =================================================
-              ESRI SATELLITE
-          ================================================= */}
+
+          {/* ESRI SATELLITE */}
 
           <LayersControl.BaseLayer
             name="🛰️ Satellite"
@@ -679,9 +1163,8 @@ export default function WeatherMap({
           </LayersControl.BaseLayer>
 
 
-          {/* =================================================
-              OPENWEATHER PRECIPITATION
-          ================================================= */}
+
+          {/* OPENWEATHER PRECIPITATION */}
 
           <LayersControl.Overlay
             checked={false}
@@ -696,10 +1179,8 @@ export default function WeatherMap({
           </LayersControl.Overlay>
 
 
-          {/* =================================================
-              IMD / MOSDAC SATELLITE
-              INSAT-3DS IMG TIR1
-          ================================================= */}
+
+          {/* IMD / MOSDAC SATELLITE */}
 
           <LayersControl.Overlay
             checked={false}
@@ -733,6 +1214,7 @@ export default function WeatherMap({
         </LayersControl>
 
 
+
         {/* =================================================
             MOVE MAP TO SELECTED LOCATION
         ================================================= */}
@@ -756,6 +1238,7 @@ export default function WeatherMap({
               : null
           }
         />
+
 
 
         {/* =================================================
@@ -805,6 +1288,7 @@ export default function WeatherMap({
         )}
 
 
+
         {/* =================================================
             FRIEND LOCATIONS
             PRIVACY PROTECTED
@@ -821,17 +1305,6 @@ export default function WeatherMap({
               return null;
             }
 
-
-            /*
-             * IMPORTANT:
-             *
-             * Do NOT display the exact Firebase
-             * coordinates.
-             *
-             * Generate a deterministic approximate
-             * center instead.
-             */
-
             const approximateCenter =
               getApproximateFriendCenter(
                 coordinates,
@@ -844,15 +1317,12 @@ export default function WeatherMap({
               return null;
             }
 
-
             return (
               <div
                 key={
                   friend.id
                 }
               >
-
-                {/* 2 KM PRIVACY CIRCLE */}
 
                 <Circle
                   center={[
@@ -873,9 +1343,6 @@ export default function WeatherMap({
                   }}
                 />
 
-
-                {/* APPROXIMATE FRIEND MARKER */}
-
                 <Marker
                   position={[
                     approximateCenter.lat,
@@ -889,13 +1356,6 @@ export default function WeatherMap({
                     click: () =>
                       setSelected({
                         ...friend,
-
-                        /*
-                         * Keep the exact coordinates
-                         * internally for data/weather,
-                         * but don't use them for
-                         * visual map positioning.
-                         */
 
                         latitude:
                           coordinates.lat,
@@ -918,6 +1378,7 @@ export default function WeatherMap({
         )}
 
       </MapContainer>
+
 
 
       {/* =====================================================
@@ -960,23 +1421,454 @@ export default function WeatherMap({
         </span>
 
 
-        <span
+
+        <div
           className="
-            bg-white/95
-            backdrop-blur-sm
-            text-xs
-            font-medium
-            text-ink-600
-            px-3
-            py-1.5
-            rounded-full
-            shadow-card
+            flex
+            items-center
+            gap-2
           "
         >
-          📍 Live locations
-        </span>
+
+          {/* IMD ALERT BUTTON */}
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowImdAlerts(
+                (value) => !value
+              )
+            }
+            className="
+              bg-white/95
+              backdrop-blur-sm
+              text-xs
+              font-medium
+              text-ink-600
+              px-3
+              py-1.5
+              rounded-full
+              shadow-card
+              flex
+              items-center
+              gap-1.5
+              hover:bg-white
+              transition-colors
+            "
+          >
+
+            <AlertTriangle
+              size={13}
+              className={
+                imdAlerts.length > 0
+                  ? "text-orange-500"
+                  : "text-ink-400"
+              }
+            />
+
+            <span>
+              IMD
+            </span>
+
+            <span
+              className="
+                min-w-[18px]
+                h-[18px]
+                px-1
+                rounded-full
+                bg-orange-100
+                text-orange-700
+                text-[10px]
+                font-bold
+                flex
+                items-center
+                justify-center
+              "
+            >
+              {imdAlertsLoading
+                ? "…"
+                : imdAlerts.length}
+            </span>
+
+          </button>
+
+
+
+          {/* LIVE LOCATION */}
+
+          <span
+            className="
+              bg-white/95
+              backdrop-blur-sm
+              text-xs
+              font-medium
+              text-ink-600
+              px-3
+              py-1.5
+              rounded-full
+              shadow-card
+            "
+          >
+            📍 Live locations
+          </span>
+
+        </div>
 
       </div>
+
+
+
+      {/* =====================================================
+          IMD ALERT PANEL
+      ===================================================== */}
+
+      {showImdAlerts && (
+        <div
+          className="
+            absolute
+            top-14
+            right-3
+            z-[450]
+            w-[calc(100%-24px)]
+            sm:w-[390px]
+            max-h-[calc(100%-80px)]
+            bg-white/98
+            backdrop-blur-md
+            rounded-xl2
+            shadow-pop
+            overflow-hidden
+            flex
+            flex-col
+          "
+        >
+
+          {/* PANEL HEADER */}
+
+          <div
+            className="
+              px-4
+              py-3
+              border-b
+              border-ink-100
+              flex
+              items-center
+              justify-between
+              gap-3
+            "
+          >
+
+            <div
+              className="
+                flex
+                items-center
+                gap-2
+              "
+            >
+
+              <div
+                className="
+                  h-8
+                  w-8
+                  rounded-full
+                  bg-orange-100
+                  text-orange-600
+                  flex
+                  items-center
+                  justify-center
+                "
+              >
+                <AlertTriangle
+                  size={16}
+                />
+              </div>
+
+              <div>
+                <p
+                  className="
+                    text-sm
+                    font-semibold
+                    text-ink-800
+                  "
+                >
+                  IMD Weather Alerts
+                </p>
+
+                <p
+                  className="
+                    text-[10px]
+                    text-ink-400
+                  "
+                >
+                  India Meteorological
+                  Department
+                </p>
+              </div>
+
+            </div>
+
+
+
+            <div
+              className="
+                flex
+                items-center
+                gap-1
+              "
+            >
+
+              <button
+                type="button"
+                title="Refresh alerts"
+                onClick={
+                  fetchIMDAlerts
+                }
+                disabled={
+                  imdAlertsLoading
+                }
+                className="
+                  h-7
+                  w-7
+                  rounded-full
+                  flex
+                  items-center
+                  justify-center
+                  text-ink-400
+                  hover:bg-ink-50
+                  hover:text-ink-700
+                  disabled:opacity-50
+                "
+              >
+                <RefreshCw
+                  size={13}
+                  className={
+                    imdAlertsLoading
+                      ? "animate-spin"
+                      : ""
+                  }
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowImdAlerts(
+                    false
+                  )
+                }
+                className="
+                  h-7
+                  w-7
+                  rounded-full
+                  flex
+                  items-center
+                  justify-center
+                  text-ink-400
+                  hover:bg-ink-50
+                  hover:text-ink-700
+                "
+              >
+                <X
+                  size={15}
+                />
+              </button>
+
+            </div>
+
+          </div>
+
+
+
+          {/* ALERT CONTENT */}
+
+          <div
+            className="
+              overflow-y-auto
+              p-3
+              space-y-2
+            "
+          >
+
+            {/* LOADING */}
+
+            {imdAlertsLoading && (
+              <div
+                className="
+                  py-8
+                  text-center
+                  text-xs
+                  text-ink-400
+                "
+              >
+                <RefreshCw
+                  size={18}
+                  className="
+                    animate-spin
+                    mx-auto
+                    mb-2
+                  "
+                />
+
+                Loading official IMD
+                alerts...
+              </div>
+            )}
+
+
+
+            {/* ERROR */}
+
+            {!imdAlertsLoading &&
+              imdAlertsError && (
+                <div
+                  className="
+                    rounded-xl
+                    bg-red-50
+                    border
+                    border-red-100
+                    p-3
+                    text-xs
+                    text-red-700
+                  "
+                >
+                  <p
+                    className="
+                      font-semibold
+                    "
+                  >
+                    Unable to load IMD
+                    alerts
+                  </p>
+
+                  <p className="mt-1">
+                    {imdAlertsError}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={
+                      fetchIMDAlerts
+                    }
+                    className="
+                      mt-2
+                      font-semibold
+                      underline
+                    "
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+
+
+
+            {/* NO ALERTS */}
+
+            {!imdAlertsLoading &&
+              !imdAlertsError &&
+              imdAlerts.length ===
+                0 && (
+                <div
+                  className="
+                    py-8
+                    text-center
+                  "
+                >
+                  <div
+                    className="
+                      h-10
+                      w-10
+                      rounded-full
+                      bg-green-100
+                      text-green-600
+                      flex
+                      items-center
+                      justify-center
+                      mx-auto
+                      mb-2
+                    "
+                  >
+                    ✓
+                  </div>
+
+                  <p
+                    className="
+                      text-sm
+                      font-semibold
+                      text-ink-700
+                    "
+                  >
+                    No active alerts
+                  </p>
+
+                  <p
+                    className="
+                      text-xs
+                      text-ink-400
+                      mt-1
+                    "
+                  >
+                    No active IMD CAP alerts
+                    were returned.
+                  </p>
+                </div>
+              )}
+
+
+
+            {/* ALERT LIST */}
+
+            {!imdAlertsLoading &&
+              !imdAlertsError &&
+              imdAlerts.length >
+                0 && (
+                <>
+                  <div
+                    className="
+                      px-1
+                      pb-1
+                    "
+                  >
+                    <p
+                      className="
+                        text-[10px]
+                        text-ink-400
+                      "
+                    >
+                      {imdAlerts.length} active
+                      alert
+                      {imdAlerts.length !==
+                      1
+                        ? "s"
+                        : ""}{" "}
+                      · Official IMD data
+                    </p>
+                  </div>
+
+                  {imdAlerts.map(
+                    (
+                      alert,
+                      index
+                    ) => (
+                      <IMDAlertCard
+                        key={
+                          alert.identifier ||
+                          alert.id ||
+                          index
+                        }
+                        alert={
+                          alert
+                        }
+                      />
+                    )
+                  )}
+                </>
+              )}
+
+          </div>
+
+        </div>
+      )}
+
 
 
       {/* =====================================================
@@ -1002,9 +1894,7 @@ export default function WeatherMap({
           "
         >
 
-          {/* =================================================
-              AVATAR
-          ================================================= */}
+          {/* AVATAR */}
 
           <div
             className="
@@ -1036,9 +1926,8 @@ export default function WeatherMap({
           </div>
 
 
-          {/* =================================================
-              INFORMATION
-          ================================================= */}
+
+          {/* INFORMATION */}
 
           <div className="flex-1 min-w-0">
 
@@ -1048,6 +1937,7 @@ export default function WeatherMap({
                 : selected.name ||
                   "User"}
             </p>
+
 
 
             {/* LOCATION */}
@@ -1065,9 +1955,8 @@ export default function WeatherMap({
             </p>
 
 
-            {/* =================================================
-                WEATHER
-            ================================================= */}
+
+            {/* WEATHER */}
 
             {selected.weather &&
             (
@@ -1102,6 +1991,7 @@ export default function WeatherMap({
                 </p>
 
 
+
                 {/* UPDATED TIME */}
 
                 {selected.weatherUpdatedAt && (
@@ -1123,9 +2013,8 @@ export default function WeatherMap({
           </div>
 
 
-          {/* =================================================
-              CLOSE BUTTON
-          ================================================= */}
+
+          {/* CLOSE BUTTON */}
 
           <button
             type="button"
@@ -1147,4 +2036,3 @@ export default function WeatherMap({
     </div>
   );
 }
-
