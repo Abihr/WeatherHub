@@ -27,11 +27,11 @@ const primaryLinks = [
     label: "Map",
     icon: Map,
   },
-  {
-    to: "/railway-weather",
-    label: "Railway",
-    icon: Train,
-  },
+  // {
+  //   to: "/railway-weather",
+  //   label: "Railway",
+  //   icon: Train,
+  // },
   {
     to: "/chatbot",
     label: "Chatbot",
