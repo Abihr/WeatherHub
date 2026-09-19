@@ -1,3 +1,4 @@
+const { execFile } = require("child_process");
 const https = require("https");
 const express = require("express");
 const cors = require("cors");
@@ -1447,7 +1448,7 @@ app.get(
    Official IMD CAP alerts through WIS2
 ========================================================= */
 
-const IMD_MESSAGES_HOST = "wis2boxstdby.imd.gov.in";
+const IMD_MESSAGES_HOST = "wis2box.imd.gov.in";
 
 const IMD_MESSAGES_BASE_PATH =
     "/oapi/collections/messages/items";
@@ -1557,93 +1558,43 @@ async function fetchIMDMessages() {
         `>>> datetime=${datetimeRange}`
     );
 
-    const data = await new Promise((resolve, reject) => {
-      
+   const data = await new Promise((resolve, reject) => {
+    const url =
+        `https://${IMD_MESSAGES_HOST}${IMD_MESSAGES_BASE_PATH}` +
+        `?limit=${pageSize}` +
+        `&datetime=${encodeURIComponent(datetimeRange)}` +
+        `&sortby=-datetime`;
 
-        const options = {
-            hostname: IMD_MESSAGES_HOST,
-            path,
-            method: "GET",
-            headers: {
-                Accept: "application/json",
-                "User-Agent": "WeatherGPT/1.0",
-            },
-           
-        };
-          console.log("IMD TLS diagnostic starting...");
-
-const diagnosticOptions = {
-    hostname: IMD_MESSAGES_HOST,
-    port: 443,
-    path: "/",
-    method: "GET",
-    rejectUnauthorized: false,
-};
-
-const diagnosticReq = https.request(diagnosticOptions, (response) => {
-    const socket = response.socket;
-
-    console.log("IMD TLS authorized:", socket.authorized);
-    console.log("IMD TLS authorizationError:", socket.authorizationError);
-
-    const cert = socket.getPeerCertificate(true);
-
-    console.log("IMD TLS peer certificate:", {
-        subject: cert.subject,
-        issuer: cert.issuer,
-        valid_from: cert.valid_from,
-        valid_to: cert.valid_to,
-        fingerprint256: cert.fingerprint256,
-    });
-
-    response.resume();
-});
-
-diagnosticReq.on("error", (error) => {
-    console.error("IMD TLS diagnostic error:", error);
-});
-
-diagnosticReq.end();
-        const req = https.request(
-            options,
-            (response) => {
-                let body = "";
-
-                response.setEncoding("utf8");
-
-                response.on("data", chunk => {
-                    body += chunk;
-                });
-
-                response.on("end", () => {
-                    if (
-                        response.statusCode < 200 ||
-                        response.statusCode >= 300
-                    ) {
-                        reject(
-                            new Error(
-                                `IMD returned HTTP ${response.statusCode}: ${body.slice(0, 500)}`
-                            )
-                        );
-                        return;
-                    }
-
-                    try {
-                        resolve(JSON.parse(body));
-                    } catch (error) {
-                        reject(
-                            new Error(
-                                `Failed to parse IMD response: ${error.message}`
-                            )
-                        );
-                    }
-                });
+    execFile(
+        "curl",
+        [
+            "--silent",
+            "--show-error",
+            "--fail",
+            "--location",
+            url,
+        ],
+        {
+            maxBuffer: 20 * 1024 * 1024,
+        },
+        (error, stdout, stderr) => {
+            if (error) {
+                reject(new Error(
+                    `IMD curl request failed: ${stderr || error.message}`
+                ));
+                return;
             }
-        );
 
-        req.on("error", reject);
-        req.end();
-    });
+            try {
+                resolve(JSON.parse(stdout));
+            } catch (parseError) {
+                reject(new Error(
+                    `Failed to parse IMD response: ${parseError.message}`
+                ));
+            }
+        }
+    );
+});
 
     const items =
         Array.isArray(data.features)
