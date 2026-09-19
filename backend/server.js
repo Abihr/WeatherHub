@@ -1570,7 +1570,40 @@ async function fetchIMDMessages() {
             },
            
         };
+          console.log("IMD TLS diagnostic starting...");
 
+const diagnosticOptions = {
+    hostname: IMD_MESSAGES_HOST,
+    port: 443,
+    path: "/",
+    method: "GET",
+    rejectUnauthorized: false,
+};
+
+const diagnosticReq = https.request(diagnosticOptions, (response) => {
+    const socket = response.socket;
+
+    console.log("IMD TLS authorized:", socket.authorized);
+    console.log("IMD TLS authorizationError:", socket.authorizationError);
+
+    const cert = socket.getPeerCertificate(true);
+
+    console.log("IMD TLS peer certificate:", {
+        subject: cert.subject,
+        issuer: cert.issuer,
+        valid_from: cert.valid_from,
+        valid_to: cert.valid_to,
+        fingerprint256: cert.fingerprint256,
+    });
+
+    response.resume();
+});
+
+diagnosticReq.on("error", (error) => {
+    console.error("IMD TLS diagnostic error:", error);
+});
+
+diagnosticReq.end();
         const req = https.request(
             options,
             (response) => {
