@@ -1447,7 +1447,7 @@ app.get(
    Official IMD CAP alerts through WIS2
 ========================================================= */
 
-const IMD_MESSAGES_HOST = "wis2box.imd.gov.in";
+const IMD_MESSAGES_HOST = "wis2boxstdby.imd.gov.in";
 
 const IMD_MESSAGES_BASE_PATH =
     "/oapi/collections/messages/items";
