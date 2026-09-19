@@ -1,6 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { MapPin, RefreshCw } from "lucide-react";
+
 import { useApp } from "../context/AppContext";
+import { useLanguage } from "../context/LanguageContext";
+
 import WeatherCard from "../components/WeatherCard";
 import { weatherIcon } from "../data/mockData";
 import EmptyState from "../components/EmptyState";
@@ -11,7 +14,10 @@ function getLocationText(friend) {
   if (!friend) return "Unknown location";
 
   // If location is already a string
-  if (typeof friend.location === "string" && friend.location.trim()) {
+  if (
+    typeof friend.location === "string" &&
+    friend.location.trim()
+  ) {
     return friend.location;
   }
 
@@ -33,10 +39,16 @@ function getLocationText(friend) {
   }
 
   // Fallback to latitude / longitude
-  const lat = friend.latitude ?? friend.location?.lat;
-  const lng = friend.longitude ?? friend.location?.lng;
+  const lat =
+    friend.latitude ?? friend.location?.lat;
 
-  if (typeof lat === "number" && typeof lng === "number") {
+  const lng =
+    friend.longitude ?? friend.location?.lng;
+
+  if (
+    typeof lat === "number" &&
+    typeof lng === "number"
+  ) {
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   }
 
@@ -46,12 +58,12 @@ function getLocationText(friend) {
 function getTemperature(weather) {
   if (!weather) return null;
 
-  // Your Firebase structure uses "temperature"
+  // Current Firebase structure
   if (typeof weather.temperature === "number") {
     return weather.temperature;
   }
 
-  // Fallback in case some older data uses "temp"
+  // Fallback for older data
   if (typeof weather.temp === "number") {
     return weather.temp;
   }
@@ -67,28 +79,32 @@ export default function Home() {
     locating,
   } = useApp();
 
+  const { t } = useLanguage();
+
   const navigate = useNavigate();
 
-  // Show Firebase friends directly.
-  // No distanceKm / nearby calculation.
+  // Show Firebase friends directly
   const friends = friendsList.slice(0, 4);
-  console.log("🏠 HOME FORECAST:", user?.forecast);
+
+  console.log(
+    "🏠 HOME FORECAST:",
+    user?.forecast
+  );
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10 flex flex-col gap-6">
 
-      {/* ------------------------------------------------ */}
-      {/* DESKTOP GREETING */}
-      {/* ------------------------------------------------ */}
-
+      {/* =================================================
+          DESKTOP GREETING
+      ================================================= */}
       <div className="hidden md:flex items-center justify-between">
         <div>
           <p className="text-sm text-ink-400">
-            {getGreeting()},
+            {t[getGreeting()] || "Good Morning"},
           </p>
 
           <h1 className="text-2xl font-display font-extrabold text-ink-900">
-            {user?.name || "User"}
+            {user?.name || t.user || "User"}
           </h1>
         </div>
 
@@ -109,21 +125,24 @@ export default function Home() {
         >
           <RefreshCw
             size={14}
-            className={locating ? "animate-spin" : ""}
+            className={
+              locating ? "animate-spin" : ""
+            }
           />
 
-          {locating ? "Updating..." : "Refresh location"}
+          {locating
+            ? t.updating || "Updating..."
+            : t.refreshLocation || "Refresh location"}
         </button>
       </div>
 
-      {/* ------------------------------------------------ */}
-      {/* YOUR WEATHER */}
-      {/* ------------------------------------------------ */}
-
+      {/* =================================================
+          YOUR WEATHER
+      ================================================= */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display font-semibold text-ink-800">
-            Your Weather
+            {t.todaysWeather || "Your Weather"}
           </h2>
 
           <button
@@ -139,35 +158,42 @@ export default function Home() {
           >
             <RefreshCw
               size={12}
-              className={locating ? "animate-spin" : ""}
+              className={
+                locating ? "animate-spin" : ""
+              }
             />
 
-            {locating ? "Updating..." : "Refresh"}
+            {locating
+              ? t.updating || "Updating..."
+              : t.refresh || "Refresh"}
           </button>
         </div>
 
         <WeatherCard
-          location={user?.location || "Your Location"}
+          location={
+            user?.location ||
+            t.yourLocation ||
+            "Your Location"
+          }
           weather={user?.weather}
           locating={locating}
         />
       </div>
 
-      {/* ------------------------------------------------ */}
-      {/* 7 days forecast */}
-      {/* ------------------------------------------------ */}
-
-      <ForecastUI weatherData={user?.forecast} 
+      {/* =================================================
+          7 DAYS FORECAST
+      ================================================= */}
+      <ForecastUI
+        weatherData={user?.forecast}
       />
 
-      {/* ------------------------------------------------ */}
-      {/* MY FRIENDS */}
-      {/* ------------------------------------------------ */}
-
+      {/* =================================================
+          MY FRIENDS
+      ================================================= */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display font-semibold text-ink-800">
-            Friends Weather
+            {t.friendsWeather || "Friends Weather"}
           </h2>
 
           <button
@@ -179,27 +205,36 @@ export default function Home() {
               hover:text-sky-700
             "
           >
-            View all
+            {t.viewAll || "View all"}
           </button>
         </div>
 
         {friends.length === 0 ? (
           <EmptyState
             icon="👥"
-            title="No friends yet"
-            message="Add friends to see their weather here."
+            title={
+              t.noFriendsYet ||
+              "No friends yet"
+            }
+            message={
+              t.addFriendsWeather ||
+              "Add friends to see their weather here."
+            }
           />
         ) : (
           <div className="flex flex-col gap-3">
             {friends.map((friend) => {
-              const locationText = getLocationText(friend);
-              const temperature = getTemperature(friend.weather);
+              const locationText =
+                getLocationText(friend);
+
+              const temperature =
+                getTemperature(friend.weather);
 
               return (
                 <div
                   key={friend.id}
                   className="
-                    rounded-xl2
+                    rounded-xl
                     bg-white
                     shadow-card
                     p-4
@@ -210,7 +245,6 @@ export default function Home() {
                   "
                 >
                   {/* FRIEND AVATAR */}
-
                   <div
                     className="
                       h-11 w-11
@@ -235,10 +269,11 @@ export default function Home() {
                   </div>
 
                   {/* FRIEND INFORMATION */}
-
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink-800 truncate">
-                      {friend.name || "User"}
+                      {friend.name ||
+                        t.user ||
+                        "User"}
                     </p>
 
                     <p className="text-xs text-ink-400 flex items-center gap-1 truncate">
@@ -251,30 +286,36 @@ export default function Home() {
                   </div>
 
                   {/* FRIEND WEATHER */}
-
-                  {friend.weatherSharing && friend.weather ? (
+                  {friend.weatherSharing &&
+                  friend.weather ? (
                     <div className="text-right shrink-0">
                       <p className="text-lg leading-none">
-                        {weatherIcon[friend.weather.icon] || "🌤️"}{" "}
+                        {weatherIcon[
+                          friend.weather.icon
+                        ] || "🌤️"}{" "}
+
                         {temperature !== null
                           ? `${temperature}°C`
                           : "--"}
                       </p>
 
                       <p className="text-[10px] text-ink-400 mt-1">
-                        {friend.weather.condition || "Weather"}
+                        {friend.weather.condition ||
+                          t.weather ||
+                          "Weather"}
                       </p>
                     </div>
                   ) : (
                     <p className="text-xs text-ink-400 shrink-0">
-                      🔒 Hidden
+                      🔒 {t.hidden || "Hidden"}
                     </p>
                   )}
 
-                  {/* VIEW FRIENDS */}
-
+                  {/* VIEW FRIEND */}
                   <button
-                    onClick={() => navigate("/friends")}
+                    onClick={() =>
+                      navigate("/friends")
+                    }
                     className="
                       text-xs
                       font-medium
@@ -287,7 +328,7 @@ export default function Home() {
                       shrink-0
                     "
                   >
-                    View
+                    {t.view || "View"}
                   </button>
                 </div>
               );

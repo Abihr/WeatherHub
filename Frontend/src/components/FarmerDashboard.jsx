@@ -1,6 +1,4 @@
-
-import React, { useEffect, useRef, useState } from "react";
-
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Sprout,
   Droplets,
@@ -19,2350 +17,1298 @@ import {
   Bell,
 } from "lucide-react";
 
+import { useLanguage } from "../context/LanguageContext";
 import {
   getGreeting,
   getGreetingRefreshDelay,
 } from "../utils/greeting";
 
 // ============================================================
-// MOCK DATA
+// LANGUAGE HELPERS
 // ============================================================
 
-const MOCK_FARMER_DATA = {
-  farmDetails: {
-    name: "Green Valley Farm",
-    location: "Pune, Maharashtra",
-    area: "12 Acres",
-    soilType: "Black Soil",
-    crops: ["Wheat", "Sugarcane", "Cotton"],
+const localeMap = {
+  en: "en-IN",
+  hi: "hi-IN",
+  mr: "mr-IN",
+  ta: "ta-IN",
+  te: "te-IN",
+  bn: "bn-IN",
+};
+
+const cropTranslationMap = {
+  Wheat: {
+    en: "Wheat",
+    hi: "गेहूँ",
+    mr: "गहू",
+    ta: "கோதுமை",
+    te: "గోధుమ",
+    bn: "গম",
   },
-
-  weatherForecast: {
-    today: {
-      temp: 32.45,
-      humidity: 65,
-      rainfall: 0,
-      windSpeed: 8,
-      condition: "Sunny",
-    },
-
-    week: [
-      {
-        day: "Mon",
-        temp: 32,
-        rain: 0,
-        condition: "Sunny",
-      },
-      {
-        day: "Tue",
-        temp: 30,
-        rain: 5,
-        condition: "Partly Cloudy",
-      },
-      {
-        day: "Wed",
-        temp: 28,
-        rain: 15,
-        condition: "Light Rain",
-      },
-      {
-        day: "Thu",
-        temp: 26,
-        rain: 45,
-        condition: "Heavy Rain",
-      },
-      {
-        day: "Fri",
-        temp: 27,
-        rain: 20,
-        condition: "Cloudy",
-      },
-      {
-        day: "Sat",
-        temp: 29,
-        rain: 0,
-        condition: "Sunny",
-      },
-      {
-        day: "Sun",
-        temp: 31,
-        rain: 0,
-        condition: "Sunny",
-      },
-    ],
+  Sugarcane: {
+    en: "Sugarcane",
+    hi: "गन्ना",
+    mr: "ऊस",
+    ta: "கரும்பு",
+    te: "చెరకు",
+    bn: "আখ",
   },
-
-  cropRecommendations: [
-    {
-      crop: "Wheat",
-      action: "Sowing",
-      timing: "Next 3 days",
-      confidence: "85%",
-      recommendation:
-        "Good time for sowing as rainfall is expected.",
-    },
-    {
-      crop: "Sugarcane",
-      action: "Harvesting",
-      timing: "Next 5-7 days",
-      confidence: "72%",
-      recommendation:
-        "Wait for 2 days. Heavy rain expected on Thursday.",
-    },
-    {
-      crop: "Cotton",
-      action: "Irrigation",
-      timing: "Today",
-      confidence: "90%",
-      recommendation:
-        "High temperature. Irrigate today before 10 AM.",
-    },
-  ],
-
-  yieldPrediction: {
-    wheat: {
-      predicted: "4.2 tons/acre",
-      lastYear: "3.8 tons/acre",
-      change: "+10.5%",
-    },
-
-    sugarcane: {
-      predicted: "42 tons/acre",
-      lastYear: "38 tons/acre",
-      change: "+10.5%",
-    },
-
-    cotton: {
-      predicted: "2.8 tons/acre",
-      lastYear: "2.5 tons/acre",
-      change: "+12%",
-    },
+  Cotton: {
+    en: "Cotton",
+    hi: "कपास",
+    mr: "कापूस",
+    ta: "பருத்தி",
+    te: "పత్తి",
+    bn: "তুলা",
   },
 };
 
-// ============================================================
-// HARDCODED FARMER RISKS
-// ============================================================
+const conditionTranslationMap = {
+  Sunny: "sunny",
+  Cloudy: "cloudy",
+  Rainy: "rainy",
+  Windy: "windy",
+  Stormy: "stormy",
+  Clear: "clear",
+  "Partly Cloudy": "partlyCloudy",
+};
 
-const MOCK_CROP_RISKS = [
-  {
-    crop: "Wheat",
-    type: "Rainfall Risk",
-    severity: "Medium",
-    message:
-      "Rainfall is expected during the coming days.",
-    action:
-      "Monitor soil moisture and avoid unnecessary irrigation.",
-  },
-  {
-    crop: "Sugarcane",
-    type: "Heavy Rain Risk",
-    severity: "High",
-    message:
-      "Heavy rainfall is expected on Thursday.",
-    action:
-      "Check field drainage and avoid harvesting during heavy rain.",
-  },
-  {
-    crop: "Cotton",
-    type: "Temperature Risk",
-    severity: "Medium",
-    message:
-      "High temperature may increase water requirements.",
-    action:
-      "Check soil moisture and irrigate if required.",
-  },
-];
-
-// ============================================================
-// COMPONENT
-// ============================================================
-
-const FarmerDashboard = () => {
-  // ----------------------------------------------------------
-  // Farmer data
-  // ----------------------------------------------------------
-
-  const [farmerData, setFarmerData] =
-    useState(MOCK_FARMER_DATA);
-
-  // ----------------------------------------------------------
-  // Hardcoded farmer weather/risk data
-  // ----------------------------------------------------------
-
-  const [farmerWeather, setFarmerWeather] = useState(
-    MOCK_FARMER_DATA.weatherForecast.today
-  );
-
-  const [cropRisks, setCropRisks] =
-    useState(MOCK_CROP_RISKS);
-
-  // ----------------------------------------------------------
-  // Crop recommendations
-  // ----------------------------------------------------------
-
-  const [cropRecommendations, setCropRecommendations] =
-    useState(MOCK_FARMER_DATA.cropRecommendations);
-
-  // ----------------------------------------------------------
-  // UI state
-  // ----------------------------------------------------------
-
-  const [loading, setLoading] = useState(false);
-
-  const [error, setError] = useState("");
-
-  const [notificationPermission, setNotificationPermission] =
-    useState(
-      typeof Notification === "undefined"
-        ? "unsupported"
-        : Notification.permission
-    );
-
-  const notificationPermissionRef = useRef(
-    notificationPermission
-  );
-
-  const notifiedAlerts = useRef(new Set());
-
-  const [selectedCrop, setSelectedCrop] =
-    useState("all");
-
-  // ==========================================================
-  // PHONE NOTIFICATIONS
-  // ==========================================================
-
-  const requestPhoneNotifications = async () => {
-    if (typeof Notification === "undefined") {
-      setNotificationPermission("unsupported");
-      return;
-    }
-
-    const permission =
-      await Notification.requestPermission();
-
-    notificationPermissionRef.current = permission;
-
-    setNotificationPermission(permission);
-
-    if (permission === "granted") {
-      new Notification("Farmer alerts enabled", {
-        body:
-          "You will be notified about new high-priority crop risks.",
-      });
-    }
-  };
-
-  // ==========================================================
-  // NOTIFY HIGH SEVERITY ALERTS
-  // ==========================================================
-
-  const notifyHighSeverityAlerts = (risks) => {
-    if (
-      notificationPermissionRef.current !== "granted" ||
-      typeof Notification === "undefined"
-    ) {
-      return;
-    }
-
-    risks
-      .filter((risk) =>
-        ["High", "Critical"].includes(risk.severity)
-      )
-      .forEach((risk) => {
-        const alertKey = `${risk.crop}:${risk.type}:${risk.message}`;
-
-        if (notifiedAlerts.current.has(alertKey)) {
-          return;
-        }
-
-        notifiedAlerts.current.add(alertKey);
-
-        new Notification(
-          `${risk.severity} crop alert: ${risk.crop}`,
-          {
-            body: `${risk.message} ${risk.action}`,
-            tag: alertKey,
-          }
-        );
-      });
-  };
-
-  // ==========================================================
-  // TASK PLANNER
-  // ==========================================================
-
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      label: "Irrigate cotton before 10 AM",
-      crop: "Cotton",
-      due: "Today",
-      done: false,
-    },
-    {
-      id: 2,
-      label: "Inspect wheat for fungal infection",
-      crop: "Wheat",
-      due: "Today",
-      done: false,
-    },
-    {
-      id: 3,
-      label: "Review sugarcane harvest timing",
-      crop: "Sugarcane",
-      due: "Tomorrow",
-      done: false,
-    },
-  ]);
-
-  // ==========================================================
-  // GREETING
-  // ==========================================================
-
-  const [currentGreeting, setCurrentGreeting] =
-    useState(getGreeting());
-
-  // ==========================================================
-  // WEATHER ICON
-  // ==========================================================
-
-  const getWeatherIcon = (condition) => {
-    if (!condition) {
-      return <Sun size={24} />;
-    }
-
-    const normalizedCondition =
-      condition.toLowerCase();
-
-    if (
-      normalizedCondition.includes("rain") ||
-      normalizedCondition.includes("drizzle") ||
-      normalizedCondition.includes("thunder")
-    ) {
-      return <CloudRain size={24} />;
-    }
-
-    if (normalizedCondition.includes("cloud")) {
-      return <Cloud size={24} />;
-    }
-
-    return <Sun size={24} />;
-  };
-
-  // ==========================================================
-  // PRIORITY COLOR
-  // ==========================================================
-
-  const getPriorityColor = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case "high":
-        return "bg-red-100 text-red-700 border-red-200";
-
-      case "medium":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
-
-      case "low":
-        return "bg-green-100 text-green-700 border-green-200";
-
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
-  };
-
-  // ==========================================================
-  // CROP RECOMMENDATION ENGINE
-  // ==========================================================
-
-  const generateCropRecommendation = (
-    weather,
+const getCropName = (crop, language) => {
+  return (
+    cropTranslationMap[crop]?.[language] ||
+    cropTranslationMap[crop]?.en ||
     crop
-  ) => {
-    if (!weather || !crop) {
-      return null;
-    }
+  );
+};
 
-    const temperature = Number(
-      weather.temperature ?? weather.temp ?? 0
-    );
+const getConditionName = (condition, t) => {
+  const key = conditionTranslationMap[condition];
 
-    const humidity = Number(
-      weather.humidity ?? 0
-    );
+  return key && t[key] ? t[key] : condition;
+};
 
-    const rainfall = Number(
-      weather.rainfall ?? weather.rain ?? 0
-    );
+const getLocale = (language) => {
+  return localeMap[language] || "en-IN";
+};
 
-    const windSpeed = Number(
-      weather.windSpeed ?? 0
-    );
+// ============================================================
+// RECOMMENDATION ENGINE
+// ============================================================
 
-    const normalizedCrop =
-      crop.toLowerCase();
+const generateCropRecommendation = (crop, weather, t) => {
+  const rainfall = Number(weather?.rainfall || 0);
+  const temperature = Number(weather?.temperature || 0);
+  const humidity = Number(weather?.humidity || 0);
+  const windSpeed = Number(weather?.windSpeed || 0);
 
-    if (normalizedCrop === "wheat") {
-      if (rainfall > 10) {
-        return {
-          crop,
-          action: "Monitor Field",
-          timing: "Today",
-          confidence: "88%",
-          recommendation:
-            "Rainfall is present. Avoid unnecessary irrigation and monitor the field for excess moisture.",
-        };
-      }
+  // ----------------------------------------------------------
+  // WHEAT
+  // ----------------------------------------------------------
 
-      if (temperature >= 30) {
-        return {
-          crop,
-          action: "Irrigation",
-          timing: "Today",
-          confidence: "86%",
-          recommendation:
-            "Temperature is relatively high. Check soil moisture and irrigate if the field is dry.",
-        };
-      }
-
+  if (crop === "Wheat") {
+    if (rainfall > 10) {
       return {
-        crop,
-        action: "Crop Monitoring",
-        timing: "Today",
-        confidence: "82%",
-        recommendation:
-          "Current weather conditions are suitable. Continue regular crop monitoring.",
+        action: t.checkDrainage,
+        message: t.significantRainfall,
+        timing: t.next3Days,
+        icon: CloudRain,
       };
     }
 
-    if (normalizedCrop === "sugarcane") {
-      if (rainfall > 20) {
-        return {
-          crop,
-          action: "Check Drainage",
-          timing: "Today",
-          confidence: "91%",
-          recommendation:
-            "Heavy rainfall is detected. Check field drainage and avoid additional irrigation.",
-        };
-      }
-
-      if (temperature >= 35) {
-        return {
-          crop,
-          action: "Irrigation",
-          timing: "Today",
-          confidence: "87%",
-          recommendation:
-            "High temperature may increase water demand. Check soil moisture and irrigate if required.",
-        };
-      }
-
+    if (temperature >= 32) {
       return {
-        crop,
-        action: "Crop Monitoring",
-        timing: "Today",
-        confidence: "83%",
-        recommendation:
-          "Weather conditions are currently suitable. Continue normal crop monitoring.",
+        action: t.monitorField,
+        message: t.highTemperatureDetected,
+        timing: t.next3Days,
+        icon: Thermometer,
       };
     }
 
-    if (normalizedCrop === "cotton") {
-      if (humidity >= 80) {
-        return {
-          crop,
-          action: "Disease Monitoring",
-          timing: "Today",
-          confidence: "92%",
-          recommendation:
-            "High humidity can increase disease risk. Inspect cotton plants for fungal infections and leaf damage.",
-        };
-      }
-
-      if (temperature >= 35) {
-        return {
-          crop,
-          action: "Irrigation",
-          timing: "Today",
-          confidence: "89%",
-          recommendation:
-            "High temperature may increase water requirements. Check soil moisture and irrigate if necessary.",
-        };
-      }
-
-      if (rainfall > 20) {
-        return {
-          crop,
-          action: "Monitor Drainage",
-          timing: "Today",
-          confidence: "87%",
-          recommendation:
-            "Significant rainfall is present. Monitor field drainage and avoid unnecessary irrigation.",
-        };
-      }
-
+    if (humidity >= 80) {
       return {
-        crop,
-        action: "Crop Monitoring",
-        timing: "Today",
-        confidence: "84%",
-        recommendation:
-          "Current weather is favorable. Continue monitoring cotton growth and soil moisture.",
+        action: t.diseaseMonitoring,
+        message: t.highHumidityDisease,
+        timing: t.next3Days,
+        icon: AlertTriangle,
       };
     }
 
-    if (normalizedCrop === "maize") {
-      if (temperature >= 35) {
-        return {
-          crop,
-          action: "Irrigation",
-          timing: "Today",
-          confidence: "88%",
-          recommendation:
-            "High temperature may cause increased water demand. Check soil moisture and irrigate if required.",
-        };
-      }
+    return {
+      action: t.cropMonitoring,
+      message: t.suitableWeather,
+      timing: t.next5to7Days,
+      icon: Sprout,
+    };
+  }
 
-      if (humidity >= 80) {
-        return {
-          crop,
-          action: "Disease Monitoring",
-          timing: "Today",
-          confidence: "89%",
-          recommendation:
-            "High humidity can increase fungal disease risk. Inspect maize leaves and stems.",
-        };
-      }
+  // ----------------------------------------------------------
+  // SUGARCANE
+  // ----------------------------------------------------------
 
-      if (rainfall > 20) {
-        return {
-          crop,
-          action: "Check Drainage",
-          timing: "Today",
-          confidence: "86%",
-          recommendation:
-            "Heavy rainfall is present. Monitor drainage and avoid additional irrigation.",
-        };
-      }
-
+  if (crop === "Sugarcane") {
+    if (rainfall > 15) {
       return {
-        crop,
-        action: "Crop Monitoring",
-        timing: "Today",
-        confidence: "82%",
-        recommendation:
-          "Weather conditions are currently suitable for maize. Continue normal monitoring.",
-      };
-    }
-
-    if (rainfall > 20) {
-      return {
-        crop,
-        action: "Check Drainage",
-        timing: "Today",
-        confidence: "80%",
-        recommendation:
-          "Heavy rainfall detected. Monitor drainage and avoid unnecessary irrigation.",
+        action: t.checkDrainage,
+        message: t.heavyRainfall,
+        timing: t.next3Days,
+        icon: CloudRain,
       };
     }
 
     if (temperature >= 35) {
       return {
-        crop,
-        action: "Irrigation",
-        timing: "Today",
-        confidence: "80%",
-        recommendation:
-          "High temperature detected. Check soil moisture and irrigate if required.",
+        action: t.irrigation,
+        message: t.highTemperatureWaterRequirement,
+        timing: t.next3Days,
+        icon: Droplets,
       };
     }
 
-    if (windSpeed >= 10) {
+    if (windSpeed >= 25) {
       return {
-        crop,
-        action: "Monitor Field",
-        timing: "Today",
-        confidence: "75%",
-        recommendation:
-          "Higher wind speeds are present. Monitor crops for physical damage.",
+        action: t.monitorField,
+        message: t.higherWind,
+        timing: t.next3Days,
+        icon: Wind,
       };
     }
 
     return {
-      crop,
-      action: "Crop Monitoring",
-      timing: "Today",
-      confidence: "78%",
-      recommendation:
-        "Current weather conditions look favorable. Continue normal farm monitoring.",
+      action: t.cropMonitoring,
+      message: t.currentWeatherSuitable,
+      timing: t.next5to7Days,
+      icon: Sprout,
     };
+  }
+
+  // ----------------------------------------------------------
+  // COTTON
+  // ----------------------------------------------------------
+
+  if (crop === "Cotton") {
+    if (rainfall > 10) {
+      return {
+        action: t.checkDrainage,
+        message: t.rainfallDetected,
+        timing: t.next3Days,
+        icon: CloudRain,
+      };
+    }
+
+    if (temperature >= 35) {
+      return {
+        action: t.irrigation,
+        message: t.highTemperatureWater,
+        timing: t.next3Days,
+        icon: Droplets,
+      };
+    }
+
+    if (humidity >= 80) {
+      return {
+        action: t.diseaseMonitoring,
+        message: t.highHumidityDisease,
+        timing: t.next3Days,
+        icon: AlertTriangle,
+      };
+    }
+
+    return {
+      action: t.cropMonitoring,
+      message: t.favorableWeather,
+      timing: t.next5to7Days,
+      icon: Sprout,
+    };
+  }
+
+  // ----------------------------------------------------------
+  // DEFAULT
+  // ----------------------------------------------------------
+
+  return {
+    action: t.monitorField,
+    message: t.normalMonitoring,
+    timing: t.next5to7Days,
+    icon: Sprout,
+  };
+};
+
+// ============================================================
+// WEATHER ICON
+// ============================================================
+
+const WeatherIcon = ({ condition, size = 24 }) => {
+  if (condition === "Rainy" || condition === "Stormy") {
+    return <CloudRain size={size} />;
+  }
+
+  if (condition === "Cloudy" || condition === "Partly Cloudy") {
+    return <Cloud size={size} />;
+  }
+
+  return <Sun size={size} />;
+};
+
+// ============================================================
+// FARMER DASHBOARD
+// ============================================================
+
+export default function Farmer() {
+  const { t, language } = useLanguage();
+
+  // ==========================================================
+  // DEMO FARM DATA
+  // ==========================================================
+
+  const farm = {
+    name: "Green Valley Farm",
+    location: "Pune, Maharashtra",
+    area: "12 Acres",
+    soil: "Black Soil",
+    crops: ["Wheat", "Sugarcane", "Cotton"],
+  };
+
+  const weatherToday = {
+    temperature: 32.45,
+    humidity: 65,
+    rainfall: 0,
+    windSpeed: 8,
+    condition: "Sunny",
+  };
+
+  const weekForecast = [
+    {
+      day: "Mon",
+      temperature: 32,
+      rainfall: 0,
+      condition: "Sunny",
+    },
+    {
+      day: "Tue",
+      temperature: 31,
+      rainfall: 4,
+      condition: "Partly Cloudy",
+    },
+    {
+      day: "Wed",
+      temperature: 30,
+      rainfall: 8,
+      condition: "Cloudy",
+    },
+    {
+      day: "Thu",
+      temperature: 28,
+      rainfall: 22,
+      condition: "Rainy",
+    },
+    {
+      day: "Fri",
+      temperature: 29,
+      rainfall: 12,
+      condition: "Rainy",
+    },
+    {
+      day: "Sat",
+      temperature: 31,
+      rainfall: 4,
+      condition: "Partly Cloudy",
+    },
+    {
+      day: "Sun",
+      temperature: 33,
+      rainfall: 0,
+      condition: "Sunny",
+    },
+  ];
+
+  // ==========================================================
+  // STATE
+  // ==========================================================
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [selectedCrop, setSelectedCrop] = useState("All");
+
+  const [completedTasks, setCompletedTasks] = useState([]);
+
+  const [notificationPermission, setNotificationPermission] =
+    useState(() => {
+      if (typeof Notification === "undefined") {
+        return "unsupported";
+      }
+
+      return Notification.permission;
+    });
+
+  const [currentGreeting, setCurrentGreeting] = useState("");
+
+  // ==========================================================
+  // GREETING
+  // ==========================================================
+
+  const updateGreeting = () => {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+      setCurrentGreeting(t.greeting_morning || getGreeting());
+    } else if (hour < 17) {
+      setCurrentGreeting(
+        t.greeting_afternoon || getGreeting()
+      );
+    } else {
+      setCurrentGreeting(
+        t.greeting_evening || getGreeting()
+      );
+    }
+  };
+
+  useEffect(() => {
+    updateGreeting();
+
+    const delay = getGreetingRefreshDelay
+      ? getGreetingRefreshDelay()
+      : 60000;
+
+    const timer = setTimeout(() => {
+      updateGreeting();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [language]);
+
+  // ==========================================================
+  // DATE
+  // ==========================================================
+
+  const todayDate = useMemo(() => {
+    return new Date().toLocaleDateString(getLocale(language), {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }, [language]);
+
+  // ==========================================================
+  // WEATHER-BASED ALERTS
+  // ==========================================================
+
+  const farmerAlerts = useMemo(() => {
+    const alerts = [];
+
+    const {
+      temperature,
+      humidity,
+      rainfall,
+      windSpeed,
+    } = weatherToday;
+
+    if (rainfall > 10) {
+      alerts.push({
+        id: "rainfall",
+        title: t.heavyRainfall,
+        message: t.significantRainfall,
+        type: "rain",
+        icon: CloudRain,
+      });
+    }
+
+    if (temperature >= 35) {
+      alerts.push({
+        id: "temperature",
+        title: t.highTemperatureDetected,
+        message: t.highTemperatureWater,
+        type: "temperature",
+        icon: Thermometer,
+      });
+    }
+
+    if (humidity >= 80) {
+      alerts.push({
+        id: "humidity",
+        title: t.highHumidityDisease,
+        message: t.diseaseMonitoring,
+        type: "humidity",
+        icon: Droplets,
+      });
+    }
+
+    if (windSpeed >= 25) {
+      alerts.push({
+        id: "wind",
+        title: t.higherWind,
+        message: t.monitorField,
+        type: "wind",
+        icon: Wind,
+      });
+    }
+
+    return alerts;
+  }, [weatherToday, t]);
+
+  // ==========================================================
+  // CROP RECOMMENDATIONS
+  // ==========================================================
+
+  const cropRecommendations = useMemo(() => {
+    return farm.crops.map((crop) => ({
+      crop,
+      ...generateCropRecommendation(
+        crop,
+        weatherToday,
+        t
+      ),
+    }));
+  }, [t]);
+
+  const visibleRecommendations = useMemo(() => {
+    if (selectedCrop === "All") {
+      return cropRecommendations;
+    }
+
+    return cropRecommendations.filter(
+      (item) => item.crop === selectedCrop
+    );
+  }, [selectedCrop, cropRecommendations]);
+
+  // ==========================================================
+  // TASKS
+  // ==========================================================
+
+  const tasks = [
+    {
+      id: "cotton",
+      title: t.irrigateCotton,
+      icon: Droplets,
+    },
+    {
+      id: "wheat",
+      title: t.inspectWheat,
+      icon: Sprout,
+    },
+    {
+      id: "sugarcane",
+      title: t.reviewSugarcane,
+      icon: Tractor,
+    },
+  ];
+
+  const toggleTask = (id) => {
+    setCompletedTasks((previous) => {
+      if (previous.includes(id)) {
+        return previous.filter((item) => item !== id);
+      }
+
+      return [...previous, id];
+    });
   };
 
   // ==========================================================
-  // REFRESH DATA
+  // REFRESH
   // ==========================================================
 
-  const fetchFarmerData = async () => {
-    setLoading(true);
-    setError("");
+  const handleRefresh = () => {
+    if (refreshing) return;
 
-    // No API call.
-    // Everything is predefined for the demo.
+    setRefreshing(true);
 
     setTimeout(() => {
-      setFarmerData(MOCK_FARMER_DATA);
-
-      setFarmerWeather(
-        MOCK_FARMER_DATA.weatherForecast.today
-      );
-
-      setCropRisks(MOCK_CROP_RISKS);
-
-      setCropRecommendations(
-        MOCK_FARMER_DATA.cropRecommendations
-      );
-
-      notifyHighSeverityAlerts(
-        MOCK_CROP_RISKS
-      );
-
-      setLoading(false);
-    }, 400);
+      setRefreshing(false);
+    }, 1200);
   };
 
   // ==========================================================
-  // REFRESH BUTTON
+  // NOTIFICATIONS
   // ==========================================================
 
-  const refreshData = () => {
-    fetchFarmerData();
-  };
+  const enableNotifications = async () => {
+    if (typeof Notification === "undefined") {
+      setNotificationPermission("unsupported");
+      return;
+    }
 
-  // ==========================================================
-  // FILTER RECOMMENDATIONS
-  // ==========================================================
+    try {
+      const permission = await Notification.requestPermission();
 
-  const filteredRecommendations =
-    selectedCrop === "all"
-      ? cropRecommendations
-      : cropRecommendations.filter(
-          (recommendation) =>
-            recommendation.crop === selectedCrop
-        );
+      setNotificationPermission(permission);
 
-  // ==========================================================
-  // FILTER RISKS
-  // ==========================================================
-
-  const filteredRisks =
-    selectedCrop === "all"
-      ? cropRisks
-      : cropRisks.filter(
-          (risk) => risk.crop === selectedCrop
-        );
-
-  // ==========================================================
-  // TASK TOGGLE
-  // ==========================================================
-
-  const toggleTask = (taskId) => {
-    setTasks((previousTasks) =>
-      previousTasks.map((task) =>
-        task.id === taskId
-          ? {
-              ...task,
-              done: !task.done,
-            }
-          : task
-      )
-    );
-  };
-
-  // ==========================================================
-  // COMPLETED TASKS
-  // ==========================================================
-
-  const completedTasks =
-    tasks.filter((task) => task.done).length;
-
-  // ==========================================================
-  // GREETING REFRESH
-  // ==========================================================
-
-  useEffect(() => {
-    let timeoutId;
-
-    const updateGreeting = () => {
-      setCurrentGreeting(getGreeting());
-
-      timeoutId = setTimeout(
-        updateGreeting,
-        getGreetingRefreshDelay()
+      if (permission === "granted") {
+        new Notification("WeatherHub", {
+          body: t.farmerAlerts,
+        });
+      }
+    } catch (error) {
+      console.error(
+        "Notification permission error:",
+        error
       );
-    };
-
-    timeoutId = setTimeout(
-      updateGreeting,
-      getGreetingRefreshDelay()
-    );
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, []);
+    }
+  };
 
   // ==========================================================
-  // INITIAL DEMO DATA
+  // YIELD DATA
   // ==========================================================
 
-  useEffect(() => {
-    setFarmerWeather(
-      MOCK_FARMER_DATA.weatherForecast.today
-    );
-
-    setCropRisks(MOCK_CROP_RISKS);
-
-    setCropRecommendations(
-      MOCK_FARMER_DATA.cropRecommendations
-    );
-
-    notifyHighSeverityAlerts(MOCK_CROP_RISKS);
-  }, []);
-
-  // ==========================================================
-  // CREATE ALERTS FROM RISKS
-  // ==========================================================
-
-  const generatedAlerts = filteredRisks.map(
-    (risk, index) => ({
-      id: index,
-      type: risk.type,
-      message: risk.message,
-      priority: risk.severity,
-      action: risk.action,
-      crop: risk.crop,
-    })
-  );
+  const yieldData = [
+    {
+      crop: "Wheat",
+      current: 92,
+      previous: 86,
+      unit: "%",
+    },
+    {
+      crop: "Sugarcane",
+      current: 88,
+      previous: 82,
+      unit: "%",
+    },
+    {
+      crop: "Cotton",
+      current: 95,
+      previous: 89,
+      unit: "%",
+    },
+  ];
 
   // ==========================================================
   // RENDER
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-ink-50/50 p-6">
-
-      {/* =====================================================
-          HEADER
+    <div className="min-h-screen bg-sky-wash">
+      {/* ======================================================
+          HERO
       ====================================================== */}
 
-      <section className="mb-8">
-        <p className="text-sm text-ink-400">
-          {new Date().toLocaleDateString("en-IN", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
+      <section className="mx-auto w-full max-w-7xl px-4 pb-5 pt-5 sm:px-6 md:pt-8 lg:px-8">
+        <div className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-sky-600">
+                <Calendar size={16} />
+                <span>{todayDate}</span>
+              </div>
 
-        <h2 className="text-3xl font-bold text-ink-800 mt-1">
-          {currentGreeting}, Farmer
-        </h2>
+              <h1 className="text-2xl font-bold tracking-tight text-ink-800 sm:text-3xl">
+                {currentGreeting}, Farmer
+              </h1>
 
-        <p className="mt-1 text-sm text-ink-500">
-          Here is your farm plan and weather outlook.
-        </p>
+              <p className="mt-2 max-w-2xl text-sm text-ink-500 sm:text-base">
+                {t.farmerSubtitle}
+              </p>
+            </div>
+
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-green-50 text-green-600">
+              <Sprout size={28} />
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* =====================================================
-          DASHBOARD HEADER
+      {/* ======================================================
+          MAIN CONTENT
       ====================================================== */}
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <main className="mx-auto w-full max-w-7xl space-y-5 px-4 pb-10 sm:px-6 lg:px-8">
+        {/* ====================================================
+            DASHBOARD HEADER
+        ==================================================== */}
 
-        <div>
-          <h2 className="text-2xl font-bold text-ink-800">
-            Farmer Dashboard
-          </h2>
-
-          <p className="text-sm text-ink-500 mt-1">
-            Smart weather insights for your farm
-          </p>
-        </div>
-
-        <button
-          onClick={refreshData}
-          disabled={loading}
-          className="
-            flex
-            items-center
-            justify-center
-            gap-2
-            px-4
-            py-2
-            rounded-xl
-            bg-white
-            border
-            border-slate-200
-            text-sm
-            font-medium
-            text-ink-700
-            hover:bg-slate-50
-            disabled:opacity-50
-            transition
-          "
-        >
-          <RefreshCw
-            size={16}
-            className={
-              loading ? "animate-spin" : ""
-            }
-          />
-
-          {loading
-            ? "Refreshing..."
-            : "Refresh"}
-        </button>
-      </div>
-
-      {/* =====================================================
-          FARM OVERVIEW
-      ====================================================== */}
-
-      <div
-        className="
-          grid
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-4
-          gap-4
-          mb-8
-        "
-      >
-
-        {/* FARM NAME */}
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            border
-            border-slate-100
-            p-5
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              mb-4
-            "
-          >
-            <div
-              className="
-                w-10
-                h-10
-                rounded-xl
-                bg-green-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-              <Sprout
-                size={20}
-                className="text-green-600"
-              />
-            </div>
-          </div>
-
-          <p className="text-xs text-ink-400">
-            Farm
-          </p>
-
-          <h3
-            className="
-              text-lg
-              font-semibold
-              text-ink-800
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.name}
-          </h3>
-
-          <p
-            className="
-              text-xs
-              text-ink-500
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.location}
-          </p>
-        </div>
-
-        {/* AREA */}
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            border
-            border-slate-100
-            p-5
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              w-10
-              h-10
-              rounded-xl
-              bg-blue-100
-              flex
-              items-center
-              justify-center
-              mb-4
-            "
-          >
-            <Tractor
-              size={20}
-              className="text-blue-600"
-            />
-          </div>
-
-          <p className="text-xs text-ink-400">
-            Farm Area
-          </p>
-
-          <h3
-            className="
-              text-lg
-              font-semibold
-              text-ink-800
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.area}
-          </h3>
-
-          <p
-            className="
-              text-xs
-              text-ink-500
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.soilType}
-          </p>
-        </div>
-
-        {/* CROPS */}
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            border
-            border-slate-100
-            p-5
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              w-10
-              h-10
-              rounded-xl
-              bg-emerald-100
-              flex
-              items-center
-              justify-center
-              mb-4
-            "
-          >
-            <Sprout
-              size={20}
-              className="text-emerald-600"
-            />
-          </div>
-
-          <p className="text-xs text-ink-400">
-            Active Crops
-          </p>
-
-          <h3
-            className="
-              text-lg
-              font-semibold
-              text-ink-800
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.crops.length}
-          </h3>
-
-          <p
-            className="
-              text-xs
-              text-ink-500
-              mt-1
-            "
-          >
-            {farmerData.farmDetails.crops.join(
-              ", "
-            )}
-          </p>
-        </div>
-
-        {/* TODAY WEATHER */}
-
-        <div
-          className="
-            bg-white
-            rounded-2xl
-            border
-            border-slate-100
-            p-5
-            shadow-sm
-          "
-        >
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              mb-4
-            "
-          >
-            <div
-              className="
-                w-10
-                h-10
-                rounded-xl
-                bg-orange-100
-                flex
-                items-center
-                justify-center
-              "
-            >
-              {getWeatherIcon(
-                farmerData.weatherForecast.today.condition
-              )}
-            </div>
-
-            <span
-              className="
-                text-xs
-                font-medium
-                text-green-600
-              "
-            >
-              Live
-            </span>
-          </div>
-
-          <p className="text-xs text-ink-400">
-            Today's Weather
-          </p>
-
-          <h3
-            className="
-              text-2xl
-              font-bold
-              text-ink-800
-              mt-1
-            "
-          >
-            {Math.round(
-              farmerData.weatherForecast.today.temp
-            )}
-            °C
-          </h3>
-
-          <p
-            className="
-              text-xs
-              text-ink-500
-              mt-1
-            "
-          >
-            {farmerData.weatherForecast.today.condition}
-          </p>
-        </div>
-      </div>
-
-      {/* =====================================================
-          WEATHER FORECAST
-      ====================================================== */}
-
-      <section className="mb-8">
-
-        <div className="flex items-center justify-between mb-4">
-
+        <section className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3
-              className="
-                text-xl
-                font-bold
-                text-ink-800
-              "
-            >
-              Weather Forecast
-            </h3>
+            <h2 className="text-xl font-bold text-ink-800">
+              {t.farmerDashboard}
+            </h2>
 
-            <p
-              className="
-                text-sm
-                text-ink-500
-                mt-1
-              "
-            >
-              Seven-day weather outlook
+            <p className="mt-1 text-sm text-ink-500">
+              {t.smartWeatherInsights}
             </p>
           </div>
 
-        </div>
-
-        <div
-          className="
-            grid
-            grid-cols-2
-            sm:grid-cols-4
-            lg:grid-cols-7
-            gap-3
-          "
-        >
-          {farmerData.weatherForecast.week.map(
-            (day, index) => (
-              <div
-                key={index}
-                className="
-                  bg-white
-                  rounded-2xl
-                  border
-                  border-slate-100
-                  p-4
-                  text-center
-                  shadow-sm
-                "
-              >
-                <p
-                  className="
-                    text-xs
-                    font-semibold
-                    text-ink-500
-                  "
-                >
-                  {day.day}
-                </p>
-
-                <div
-                  className="
-                    flex
-                    justify-center
-                    my-4
-                    text-sky-500
-                  "
-                >
-                  {getWeatherIcon(day.condition)}
-                </div>
-
-                <p
-                  className="
-                    text-lg
-                    font-bold
-                    text-ink-800
-                  "
-                >
-                  {day.temp}°C
-                </p>
-
-                <p
-                  className="
-                    text-xs
-                    text-sky-600
-                    mt-1
-                  "
-                >
-                  {day.rain} mm
-                </p>
-
-                <p
-                  className="
-                    text-[11px]
-                    text-ink-400
-                    mt-1
-                  "
-                >
-                  {day.condition}
-                </p>
-              </div>
-            )
-          )}
-        </div>
-      </section>
-
-      {/* =====================================================
-          PHONE ALERTS
-      ====================================================== */}
-
-      <section className="mb-8">
-
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-
-          <div
-            className="
-              flex
-              flex-col
-              sm:flex-row
-              sm:items-center
-              sm:justify-between
-              gap-4
-            "
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-sky-100 bg-white px-4 py-2.5 text-sm font-medium text-sky-600 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
+            <RefreshCw
+              size={17}
+              className={
+                refreshing ? "animate-spin" : ""
+              }
+            />
 
-            <div className="flex items-start gap-3">
+            {refreshing
+              ? t.refreshing
+              : t.refresh}
+          </button>
+        </section>
 
-              <div
-                className="
-                  w-10
-                  h-10
-                  rounded-xl
-                  bg-amber-100
-                  flex
-                  items-center
-                  justify-center
-                "
-              >
-                <Bell
-                  size={20}
-                  className="text-amber-600"
-                />
+        {/* ====================================================
+            FARM OVERVIEW
+        ==================================================== */}
+
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Farm */}
+
+          <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                <Sprout size={20} />
+              </div>
+
+              <span className="text-xs font-medium text-green-600">
+                {t.live}
+              </span>
+            </div>
+
+            <p className="text-xs font-medium text-ink-400">
+              {t.farm}
+            </p>
+
+            <h3 className="mt-1 text-base font-bold text-ink-800">
+              {farm.name}
+            </h3>
+
+            <p className="mt-1 text-xs text-ink-400">
+              {farm.location}
+            </p>
+          </div>
+
+          {/* Farm Area */}
+
+          <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+              <TrendingUp size={20} />
+            </div>
+
+            <p className="text-xs font-medium text-ink-400">
+              {t.farmArea}
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-ink-800">
+              {farm.area}
+            </h3>
+
+            <p className="mt-1 text-xs text-ink-400">
+              {farm.soil}
+            </p>
+          </div>
+
+          {/* Crops */}
+
+          <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <Sprout size={20} />
+            </div>
+
+            <p className="text-xs font-medium text-ink-400">
+              {t.activeCrops}
+            </p>
+
+            <h3 className="mt-1 text-2xl font-bold text-ink-800">
+              {farm.crops.length}
+            </h3>
+
+            <p className="mt-1 truncate text-xs text-ink-400">
+              {farm.crops
+                .map((crop) =>
+                  getCropName(crop, language)
+                )
+                .join(", ")}
+            </p>
+          </div>
+
+          {/* Weather */}
+
+          <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-yellow-50 text-yellow-600">
+                <Sun size={20} />
+              </div>
+
+              <span className="text-xs font-medium text-green-600">
+                {t.live}
+              </span>
+            </div>
+
+            <p className="text-xs font-medium text-ink-400">
+              {t.todaysWeather}
+            </p>
+
+            <div className="mt-1 flex items-center gap-2">
+              <h3 className="text-2xl font-bold text-ink-800">
+                {Math.round(
+                  weatherToday.temperature
+                )}
+                °C
+              </h3>
+
+              <WeatherIcon
+                condition={weatherToday.condition}
+                size={22}
+              />
+            </div>
+
+            <p className="mt-1 text-xs text-ink-400">
+              {getConditionName(
+                weatherToday.condition,
+                t
+              )}
+            </p>
+          </div>
+        </section>
+
+        {/* ====================================================
+            WEATHER FORECAST
+        ==================================================== */}
+
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-bold text-ink-800">
+              {t.weatherForecast}
+            </h2>
+
+            <p className="mt-1 text-sm text-ink-400">
+              {t.sevenDayOutlook}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {weekForecast.map((day, index) => {
+              const dayKey =
+                day.day.toLowerCase();
+
+              const translatedDay =
+                t[dayKey] || day.day;
+
+              return (
+                <div
+                  key={`${day.day}-${index}`}
+                  className={`rounded-2xl border p-4 text-center ${
+                    index === 0
+                      ? "border-sky-200 bg-sky-50"
+                      : "border-sky-100 bg-white"
+                  }`}
+                >
+                  <p className="text-xs font-semibold text-ink-500">
+                    {index === 0
+                      ? t.today
+                      : translatedDay}
+                  </p>
+
+                  <div className="my-3 flex justify-center text-sky-500">
+                    <WeatherIcon
+                      condition={day.condition}
+                      size={25}
+                    />
+                  </div>
+
+                  <p className="text-lg font-bold text-ink-800">
+                    {day.temperature}°C
+                  </p>
+
+                  <p className="mt-1 text-xs text-sky-500">
+                    {day.rainfall} mm
+                  </p>
+
+                  <p className="mt-1 text-[11px] text-ink-400">
+                    {getConditionName(
+                      day.condition,
+                      t
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ====================================================
+            PHONE ALERTS
+        ==================================================== */}
+
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <Bell size={21} />
               </div>
 
               <div>
-                <h3 className="font-semibold text-ink-800">
-                  Phone alerts for crop risks
-                </h3>
+                <h2 className="font-bold text-ink-800">
+                  {t.phoneAlerts}
+                </h2>
 
-                <p className="text-sm text-ink-500 mt-1">
-                  Get notified when new high-priority
-                  farmer alerts are detected.
+                <p className="mt-1 max-w-2xl text-sm text-ink-400">
+                  {t.phoneAlertsDescription}
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={requestPhoneNotifications}
-              disabled={
-                notificationPermission ===
-                "unsupported"
-              }
-              className="
-                inline-flex
-                items-center
-                justify-center
-                gap-2
-                px-4
-                py-2
-                rounded-xl
-                bg-amber-500
-                text-white
-                text-sm
-                font-medium
-                hover:bg-amber-600
-                disabled:opacity-50
-              "
-            >
-              <Bell size={16} />
+            <div className="shrink-0">
+              {notificationPermission ===
+                "granted" && (
+                <div className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-600">
+                  <CheckCircle size={16} />
+                  {t.alertsEnabled}
+                </div>
+              )}
 
-              {notificationPermission === "granted"
-                ? "Alerts enabled"
-                : notificationPermission === "denied"
-                ? "Allow in browser settings"
-                : notificationPermission ===
-                  "unsupported"
-                ? "Not supported"
-                : "Enable phone alerts"}
-            </button>
+              {notificationPermission ===
+                "denied" && (
+                <div className="rounded-xl bg-orange-50 px-3 py-2 text-xs font-medium text-orange-600">
+                  {t.allowBrowserSettings}
+                </div>
+              )}
+
+              {notificationPermission ===
+                "unsupported" && (
+                <div className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-medium text-ink-400">
+                  {t.notSupported}
+                </div>
+              )}
+
+              {notificationPermission ===
+                "default" && (
+                <button
+                  type="button"
+                  onClick={
+                    enableNotifications
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700"
+                >
+                  <Bell size={16} />
+                  {t.enablePhoneAlerts}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* =====================================================
-          ALERTS
-      ====================================================== */}
+        {/* ====================================================
+            FARMER ALERTS
+        ==================================================== */}
 
-      <section className="mb-8">
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-bold text-ink-800">
+              {t.farmerAlerts}
+            </h2>
 
-        <div className="flex items-center justify-between mb-4">
-
-          <div>
-            <h3
-              className="
-                text-xl
-                font-bold
-                text-ink-800
-              "
-            >
-              Farmer Alerts
-            </h3>
-
-            <p
-              className="
-                text-sm
-                text-ink-500
-                mt-1
-              "
-            >
-              Weather-based crop risks
+            <p className="mt-1 text-sm text-ink-400">
+              {t.weatherBasedCropRisks}
             </p>
           </div>
 
-          <AlertTriangle
-            size={20}
-            className="text-orange-500"
-          />
-        </div>
+          {farmerAlerts.length === 0 ? (
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-5">
+              <div className="flex items-start gap-3">
+                <CheckCircle
+                  size={21}
+                  className="mt-0.5 shrink-0 text-green-600"
+                />
 
-        {loading && cropRisks.length === 0 ? (
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-6
-              text-center
-              text-sm
-              text-ink-500
-            "
-          >
-            Loading farmer alerts...
-          </div>
-        ) : generatedAlerts.length === 0 ? (
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-green-200
-              p-6
-              flex
-              items-center
-              gap-3
-            "
-          >
-            <CheckCircle
-              size={22}
-              className="text-green-600"
-            />
+                <div>
+                  <h3 className="font-semibold text-green-700">
+                    {t.noActiveCropRisks}
+                  </h3>
 
-            <div>
-              <p
-                className="
-                  font-semibold
-                  text-green-700
-                "
-              >
-                No active crop risks
-              </p>
-
-              <p
-                className="
-                  text-sm
-                  text-ink-500
-                  mt-1
-                "
-              >
-                Current weather conditions look
-                favorable.
-              </p>
+                  <p className="mt-1 text-sm text-green-600">
+                    {t.favorableConditions}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {farmerAlerts.map((alert) => {
+                const Icon = alert.icon;
 
-            {generatedAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className="
-                  bg-white
-                  rounded-2xl
-                  border
-                  border-slate-100
-                  p-5
-                  shadow-sm
-                "
-              >
-                <div
-                  className="
-                    flex
-                    flex-col
-                    sm:flex-row
-                    sm:items-start
-                    sm:justify-between
-                    gap-3
-                  "
-                >
-
+                return (
                   <div
-                    className="
-                      flex
-                      items-start
-                      gap-3
-                    "
+                    key={alert.id}
+                    className="rounded-2xl border border-orange-100 bg-orange-50 p-5"
                   >
-                    <div
-                      className="
-                        w-10
-                        h-10
-                        rounded-xl
-                        bg-orange-100
-                        flex
-                        items-center
-                        justify-center
-                        flex-shrink-0
-                      "
-                    >
-                      <AlertTriangle
-                        size={20}
-                        className="text-orange-600"
-                      />
-                    </div>
-
-                    <div>
-
-                      <div
-                        className="
-                          flex
-                          flex-wrap
-                          items-center
-                          gap-2
-                        "
-                      >
-                        <h4
-                          className="
-                            font-semibold
-                            text-ink-800
-                          "
-                        >
-                          {alert.type}
-                        </h4>
-
-                        <span
-                          className="
-                            text-xs
-                            px-2
-                            py-1
-                            rounded-full
-                            bg-green-50
-                            text-green-700
-                          "
-                        >
-                          {alert.crop}
-                        </span>
+                    <div className="flex gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-orange-500">
+                        <Icon size={19} />
                       </div>
 
-                      <p
-                        className="
-                          text-sm
-                          text-ink-600
-                          mt-1
-                        "
-                      >
-                        {alert.message}
-                      </p>
+                      <div>
+                        <h3 className="font-semibold text-ink-800">
+                          {alert.title}
+                        </h3>
 
-                      {alert.action && (
-                        <p
-                          className="
-                            text-xs
-                            text-ink-500
-                            mt-2
-                          "
-                        >
-                          <strong>
-                            Recommended action:
-                          </strong>{" "}
-                          {alert.action}
+                        <p className="mt-1 text-sm text-ink-500">
+                          {alert.message}
                         </p>
-                      )}
+
+                        <p className="mt-3 text-xs font-medium text-orange-600">
+                          {t.recommendedAction}{" "}
+                          {alert.type ===
+                            "rain" &&
+                            t.checkDrainage}
+
+                          {alert.type ===
+                            "temperature" &&
+                            t.irrigation}
+
+                          {alert.type ===
+                            "humidity" &&
+                            t.diseaseMonitoring}
+
+                          {alert.type ===
+                            "wind" &&
+                            t.monitorField}
+                        </p>
+                      </div>
                     </div>
                   </div>
-
-                  <span
-                    className={`
-                      inline-flex
-                      items-center
-                      justify-center
-                      px-3
-                      py-1
-                      rounded-full
-                      border
-                      text-xs
-                      font-medium
-                      ${getPriorityColor(
-                        alert.priority
-                      )}
-                    `}
-                  >
-                    {alert.priority}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* =====================================================
-          FIELD CONDITIONS + TASK PLANNER
-      ====================================================== */}
-
-      <div
-        className="
-          grid
-          grid-cols-1
-          lg:grid-cols-2
-          gap-6
-          mb-8
-        "
-      >
-
-        {/* FIELD CONDITIONS */}
-
-        <section>
-
-          <h3
-            className="
-              text-xl
-              font-bold
-              text-ink-800
-              mb-4
-            "
-          >
-            Field Conditions
-          </h3>
-
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-5
-              shadow-sm
-            "
-          >
-
-            <div
-              className="
-                grid
-                grid-cols-2
-                gap-4
-              "
-            >
-
-              {/* HUMIDITY */}
-
-              <div
-                className="
-                  rounded-xl
-                  bg-sky-50
-                  p-4
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-sky-600
-                    mb-2
-                  "
-                >
-                  <Droplets size={18} />
-
-                  <span className="text-xs">
-                    Humidity
-                  </span>
-                </div>
-
-                <p
-                  className="
-                    text-xl
-                    font-bold
-                    text-ink-800
-                  "
-                >
-                  {farmerWeather?.humidity ??
-                    farmerData.weatherForecast.today
-                      .humidity}
-                  %
-                </p>
-              </div>
-
-              {/* TEMPERATURE */}
-
-              <div
-                className="
-                  rounded-xl
-                  bg-orange-50
-                  p-4
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-orange-600
-                    mb-2
-                  "
-                >
-                  <Thermometer size={18} />
-
-                  <span className="text-xs">
-                    Temperature
-                  </span>
-                </div>
-
-                <p
-                  className="
-                    text-xl
-                    font-bold
-                    text-ink-800
-                  "
-                >
-                  {Math.round(
-                    farmerWeather?.temp ??
-                      farmerData.weatherForecast.today
-                        .temp
-                  )}{" "}
-                  °C
-                </p>
-              </div>
-
-              {/* WIND */}
-
-              <div
-                className="
-                  rounded-xl
-                  bg-slate-50
-                  p-4
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-slate-600
-                    mb-2
-                  "
-                >
-                  <Wind size={18} />
-
-                  <span className="text-xs">
-                    Wind
-                  </span>
-                </div>
-
-                <p
-                  className="
-                    text-xl
-                    font-bold
-                    text-ink-800
-                  "
-                >
-                  {farmerWeather?.windSpeed ??
-                    farmerData.weatherForecast.today
-                      .windSpeed}{" "}
-                  m/s
-                </p>
-              </div>
-
-              {/* RAINFALL */}
-
-              <div
-                className="
-                  rounded-xl
-                  bg-blue-50
-                  p-4
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-blue-600
-                    mb-2
-                  "
-                >
-                  <CloudRain size={18} />
-
-                  <span className="text-xs">
-                    Rainfall
-                  </span>
-                </div>
-
-                <p
-                  className="
-                    text-xl
-                    font-bold
-                    text-ink-800
-                  "
-                >
-                  {farmerWeather?.rainfall ??
-                    farmerData.weatherForecast.today
-                      .rainfall}{" "}
-                  mm
-                </p>
-              </div>
+                );
+              })}
             </div>
-
-            <div
-              className="
-                mt-4
-                p-4
-                rounded-xl
-                bg-green-50
-                border
-                border-green-100
-              "
-            >
-              <p
-                className="
-                  text-sm
-                  font-medium
-                  text-green-700
-                "
-              >
-                Current condition
-              </p>
-
-              <p
-                className="
-                  text-xs
-                  text-green-600
-                  mt-1
-                "
-              >
-                {farmerWeather?.condition ??
-                  farmerData.weatherForecast.today
-                    .condition}
-              </p>
-            </div>
-          </div>
+          )}
         </section>
 
-        {/* TASK PLANNER */}
+        {/* ====================================================
+            FIELD CONDITIONS
+        ==================================================== */}
 
-        <section>
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-bold text-ink-800">
+              {t.fieldConditions}
+            </h2>
+          </div>
 
-          <div
-            className="
-              flex
-              items-center
-              justify-between
-              mb-4
-            "
-          >
-            <h3
-              className="
-                text-xl
-                font-bold
-                text-ink-800
-              "
-            >
-              Task Planner
-            </h3>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-2xl bg-sky-50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sky-600">
+                <Droplets size={18} />
+                <span className="text-xs font-medium">
+                  {t.humidity}
+                </span>
+              </div>
 
-            <span
-              className="
-                text-xs
-                font-medium
-                text-green-600
-              "
-            >
-              {completedTasks}/{tasks.length}{" "}
-              completed
+              <p className="text-2xl font-bold text-ink-800">
+                {weatherToday.humidity}%
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-orange-50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-orange-600">
+                <Thermometer size={18} />
+                <span className="text-xs font-medium">
+                  {t.temperature}
+                </span>
+              </div>
+
+              <p className="text-2xl font-bold text-ink-800">
+                {Math.round(
+                  weatherToday.temperature
+                )}
+                °C
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-blue-50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-blue-600">
+                <Wind size={18} />
+                <span className="text-xs font-medium">
+                  {t.wind}
+                </span>
+              </div>
+
+              <p className="text-2xl font-bold text-ink-800">
+                {weatherToday.windSpeed}
+                <span className="ml-1 text-sm font-medium">
+                  km/h
+                </span>
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-green-50 p-4">
+              <div className="mb-3 flex items-center gap-2 text-green-600">
+                <CloudRain size={18} />
+                <span className="text-xs font-medium">
+                  {t.rainfall}
+                </span>
+              </div>
+
+              <p className="text-2xl font-bold text-ink-800">
+                {weatherToday.rainfall}
+                <span className="ml-1 text-sm font-medium">
+                  mm
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
+            <Sun size={18} />
+            <span>
+              <strong>
+                {t.currentCondition}:
+              </strong>{" "}
+              {getConditionName(
+                weatherToday.condition,
+                t
+              )}
             </span>
           </div>
+        </section>
 
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-5
-              shadow-sm
-            "
-          >
-            <div className="space-y-3">
+        {/* ====================================================
+            TASK PLANNER
+        ==================================================== */}
 
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className={`
-                    flex
-                    items-center
-                    gap-3
-                    p-3
-                    rounded-xl
-                    border
-                    transition
-                    ${
-                      task.done
-                        ? "bg-green-50 border-green-100"
-                        : "bg-slate-50 border-slate-100"
-                    }
-                  `}
-                >
-                  <button
-                    onClick={() =>
-                      toggleTask(task.id)
-                    }
-                    className="flex-shrink-0"
-                  >
-                    {task.done ? (
-                      <CheckCircle
-                        size={20}
-                        className="text-green-600"
-                      />
-                    ) : (
-                      <Clock
-                        size={20}
-                        className="text-slate-400"
-                      />
-                    )}
-                  </button>
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-ink-800">
+                {t.taskPlanner}
+              </h2>
 
-                  <div className="flex-1">
+              <p className="mt-1 text-sm text-ink-400">
+                {completedTasks.length}/{tasks.length}{" "}
+                {t.completed}
+              </p>
+            </div>
 
-                    <p
-                      className={`
-                        text-sm
-                        font-medium
-                        ${
-                          task.done
-                            ? "text-green-700 line-through"
-                            : "text-ink-700"
-                        }
-                      `}
-                    >
-                      {task.label}
-                    </p>
-
-                    <div
-                      className="
-                        flex
-                        items-center
-                        gap-2
-                        mt-1
-                      "
-                    >
-                      <span
-                        className="
-                          text-[11px]
-                          text-ink-400
-                        "
-                      >
-                        {task.crop}
-                      </span>
-
-                      <span
-                        className="
-                          text-[11px]
-                          text-ink-400
-                        "
-                      >
-                        •
-                      </span>
-
-                      <span
-                        className="
-                          text-[11px]
-                          text-ink-400
-                        "
-                      >
-                        {task.due}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+              <Calendar size={19} />
             </div>
           </div>
-        </section>
-      </div>
 
-      {/* =====================================================
-          CROP RECOMMENDATIONS
-      ====================================================== */}
+          <div className="space-y-3">
+            {tasks.map((task) => {
+              const Icon = task.icon;
 
-      <section className="mb-8">
+              const completed =
+                completedTasks.includes(task.id);
 
-        <div
-          className="
-            flex
-            flex-col
-            sm:flex-row
-            sm:items-center
-            sm:justify-between
-            gap-4
-            mb-4
-          "
-        >
-
-          <div>
-            <h3
-              className="
-                text-xl
-                font-bold
-                text-ink-800
-              "
-            >
-              Crop Recommendations
-            </h3>
-
-            <p
-              className="
-                text-sm
-                text-ink-500
-                mt-1
-              "
-            >
-              Suggested farm activities
-            </p>
-          </div>
-
-          {/* CROP FILTER */}
-
-          <div
-            className="
-              flex
-              flex-wrap
-              gap-2
-            "
-          >
-            <button
-              onClick={() => setSelectedCrop("all")}
-              className={`
-                px-3
-                py-1.5
-                rounded-lg
-                text-xs
-                font-medium
-                transition
-                ${
-                  selectedCrop === "all"
-                    ? "bg-green-600 text-white"
-                    : "bg-white text-ink-600 border border-slate-200"
-                }
-              `}
-            >
-              All Crops
-            </button>
-
-            {farmerData.farmDetails.crops.map(
-              (crop) => (
+              return (
                 <button
-                  key={crop}
+                  key={task.id}
+                  type="button"
                   onClick={() =>
-                    setSelectedCrop(crop)
+                    toggleTask(task.id)
                   }
-                  className={`
-                    px-3
-                    py-1.5
-                    rounded-lg
-                    text-xs
-                    font-medium
-                    transition
-                    ${
-                      selectedCrop === crop
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-ink-600 border border-slate-200"
-                    }
-                  `}
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                    completed
+                      ? "border-green-100 bg-green-50"
+                      : "border-sky-100 bg-white hover:bg-sky-50"
+                  }`}
                 >
-                  {crop}
-                </button>
-              )
-            )}
-          </div>
-        </div>
-
-        <div
-          className="
-            grid
-            grid-cols-1
-            md:grid-cols-2
-            lg:grid-cols-3
-            gap-4
-          "
-        >
-          {filteredRecommendations.map(
-            (recommendation, index) => (
-              <div
-                key={index}
-                className="
-                  bg-white
-                  rounded-2xl
-                  border
-                  border-slate-100
-                  p-5
-                  shadow-sm
-                "
-              >
-                <div
-                  className="
-                    flex
-                    items-start
-                    justify-between
-                    gap-3
-                  "
-                >
-                  <div>
-                    <p
-                      className="
-                        text-xs
-                        text-ink-400
-                      "
-                    >
-                      {recommendation.crop}
-                    </p>
-
-                    <h4
-                      className="
-                        text-lg
-                        font-semibold
-                        text-ink-800
-                        mt-1
-                      "
-                    >
-                      {recommendation.action}
-                    </h4>
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                      completed
+                        ? "bg-green-100 text-green-600"
+                        : "bg-sky-50 text-sky-600"
+                    }`}
+                  >
+                    {completed ? (
+                      <CheckCircle size={19} />
+                    ) : (
+                      <Icon size={19} />
+                    )}
                   </div>
 
                   <span
-                    className="
-                      text-xs
-                      font-semibold
-                      text-green-600
-                      bg-green-50
-                      px-2
-                      py-1
-                      rounded-full
-                    "
+                    className={`flex-1 text-sm font-medium ${
+                      completed
+                        ? "text-green-700 line-through"
+                        : "text-ink-700"
+                    }`}
                   >
-                    {recommendation.confidence}
+                    {task.title}
                   </span>
-                </div>
 
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    mt-4
-                    text-xs
-                    text-ink-500
-                  "
-                >
-                  <Calendar size={14} />
-
-                  {recommendation.timing}
-                </div>
-
-                <p
-                  className="
-                    text-sm
-                    text-ink-600
-                    mt-3
-                    leading-relaxed
-                  "
-                >
-                  {recommendation.recommendation}
-                </p>
-              </div>
-            )
-          )}
-        </div>
-      </section>
-
-      {/* =====================================================
-          YIELD PREDICTION
-      ====================================================== */}
-
-      <section>
-
-        <div className="mb-4">
-
-          <h3
-            className="
-              text-xl
-              font-bold
-              text-ink-800
-            "
-          >
-            Yield Prediction
-          </h3>
-
-          <p
-            className="
-              text-sm
-              text-ink-500
-              mt-1
-            "
-          >
-            Expected yield compared with last year
-          </p>
-        </div>
-
-        <div
-          className="
-            grid
-            grid-cols-1
-            md:grid-cols-3
-            gap-4
-          "
-        >
-
-          {/* WHEAT */}
-
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-5
-              shadow-sm
-            "
-          >
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                mb-4
-              "
-            >
-              <Sprout
-                size={18}
-                className="text-green-600"
-              />
-
-              <h4
-                className="
-                  font-semibold
-                  text-ink-800
-                "
-              >
-                Wheat
-              </h4>
-            </div>
-
-            <p
-              className="
-                text-2xl
-                font-bold
-                text-ink-800
-              "
-            >
-              {farmerData.yieldPrediction.wheat.predicted}
-            </p>
-
-            <p
-              className="
-                text-xs
-                text-ink-400
-                mt-1
-              "
-            >
-              Last year:{" "}
-              {farmerData.yieldPrediction.wheat.lastYear}
-            </p>
-
-            <div
-              className="
-                flex
-                items-center
-                gap-1
-                mt-3
-                text-green-600
-                text-sm
-                font-medium
-              "
-            >
-              <TrendingUp size={16} />
-
-              {farmerData.yieldPrediction.wheat.change}
-            </div>
+                  {!completed && (
+                    <Clock
+                      size={17}
+                      className="shrink-0 text-ink-300"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
+        </section>
 
-          {/* SUGARCANE */}
+        {/* ====================================================
+            CROP RECOMMENDATIONS
+        ==================================================== */}
 
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-5
-              shadow-sm
-            "
-          >
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                mb-4
-              "
-            >
-              <Sprout
-                size={18}
-                className="text-green-600"
-              />
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-ink-800">
+                {t.cropRecommendations}
+              </h2>
 
-              <h4
-                className="
-                  font-semibold
-                  text-ink-800
-                "
-              >
-                Sugarcane
-              </h4>
+              <p className="mt-1 text-sm text-ink-400">
+                {t.suggestedFarmActivities}
+              </p>
             </div>
 
-            <p
-              className="
-                text-2xl
-                font-bold
-                text-ink-800
-              "
-            >
-              {farmerData.yieldPrediction.sugarcane.predicted}
-            </p>
-
-            <p
-              className="
-                text-xs
-                text-ink-400
-                mt-1
-              "
-            >
-              Last year:{" "}
-              {farmerData.yieldPrediction.sugarcane.lastYear}
-            </p>
-
-            <div
-              className="
-                flex
-                items-center
-                gap-1
-                mt-3
-                text-green-600
-                text-sm
-                font-medium
-              "
-            >
-              <TrendingUp size={16} />
-
-              {
-                farmerData.yieldPrediction
-                  .sugarcane.change
+            <select
+              value={selectedCrop}
+              onChange={(event) =>
+                setSelectedCrop(
+                  event.target.value
+                )
               }
-            </div>
+              className="rounded-xl border border-sky-100 bg-white px-3 py-2 text-sm text-ink-700 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+            >
+              <option value="All">
+                {t.allCrops}
+              </option>
+
+              {farm.crops.map((crop) => (
+                <option
+                  key={crop}
+                  value={crop}
+                >
+                  {getCropName(
+                    crop,
+                    language
+                  )}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* COTTON */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {visibleRecommendations.map(
+              (recommendation) => {
+                const Icon =
+                  recommendation.icon;
 
-          <div
-            className="
-              bg-white
-              rounded-2xl
-              border
-              border-slate-100
-              p-5
-              shadow-sm
-            "
-          >
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                mb-4
-              "
-            >
-              <Sprout
-                size={18}
-                className="text-green-600"
-              />
+                return (
+                  <div
+                    key={recommendation.crop}
+                    className="rounded-2xl border border-sky-100 bg-sky-50/50 p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-green-600 shadow-sm">
+                          <Icon size={20} />
+                        </div>
 
-              <h4
-                className="
-                  font-semibold
-                  text-ink-800
-                "
-              >
-                Cotton
-              </h4>
-            </div>
+                        <div>
+                          <h3 className="font-bold text-ink-800">
+                            {getCropName(
+                              recommendation.crop,
+                              language
+                            )}
+                          </h3>
 
-            <p
-              className="
-                text-2xl
-                font-bold
-                text-ink-800
-              "
-            >
-              {farmerData.yieldPrediction.cotton.predicted}
-            </p>
+                          <p className="text-xs text-ink-400">
+                            {
+                              recommendation.timing
+                            }
+                          </p>
+                        </div>
+                      </div>
 
-            <p
-              className="
-                text-xs
-                text-ink-400
-                mt-1
-              "
-            >
-              Last year:{" "}
-              {farmerData.yieldPrediction.cotton.lastYear}
-            </p>
+                      <Sprout
+                        size={18}
+                        className="text-green-500"
+                      />
+                    </div>
 
-            <div
-              className="
-                flex
-                items-center
-                gap-1
-                mt-3
-                text-green-600
-                text-sm
-                font-medium
-              "
-            >
-              <TrendingUp size={16} />
+                    <div className="mt-4">
+                      <p className="text-sm font-semibold text-sky-700">
+                        {recommendation.action}
+                      </p>
 
-              {farmerData.yieldPrediction.cotton.change}
-            </div>
+                      <p className="mt-2 text-sm leading-6 text-ink-500">
+                        {recommendation.message}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* ====================================================
+            YIELD PREDICTION
+        ==================================================== */}
+
+        <section className="rounded-3xl border border-sky-100 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-5">
+            <h2 className="text-lg font-bold text-ink-800">
+              {t.yieldPrediction}
+            </h2>
+
+            <p className="mt-1 text-sm text-ink-400">
+              {t.expectedYield}
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {yieldData.map((item) => {
+              const difference =
+                item.current -
+                item.previous;
+
+              return (
+                <div
+                  key={item.crop}
+                  className="rounded-2xl border border-sky-100 p-5"
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-ink-800">
+                      {getCropName(
+                        item.crop,
+                        language
+                      )}
+                    </h3>
+
+                    <TrendingUp
+                      size={18}
+                      className="text-green-600"
+                    />
+                  </div>
+
+                  <div className="mt-5">
+                    <p className="text-xs text-ink-400">
+                      {t.expectedYield}
+                    </p>
+
+                    <div className="mt-1 flex items-end gap-2">
+                      <span className="text-3xl font-bold text-ink-800">
+                        {item.current}
+                        {item.unit}
+                      </span>
+
+                      <span className="mb-1 text-xs font-semibold text-green-600">
+                        +{difference}
+                        {item.unit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between border-t border-sky-50 pt-3">
+                    <span className="text-xs text-ink-400">
+                      {t.lastYear}
+                    </span>
+
+                    <span className="text-sm font-semibold text-ink-600">
+                      {item.previous}
+                      {item.unit}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </main>
     </div>
   );
-};
-
-export default FarmerDashboard;
-
+}
