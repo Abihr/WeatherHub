@@ -1,5 +1,4 @@
 const https = require("https");
-const tls = require("tls");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -1460,24 +1459,15 @@ const IMD_CAP_METADATA_ID =
 function fetchIMDPage(startIndex = 0, limit = 100) {
     return new Promise((resolve, reject) => {
 
-        const systemCAs =
-            tls.getCACertificates("system");
-
-        const path =
-            `${IMD_MESSAGES_BASE_PATH}?limit=${limit}&startindex=${startIndex}`;
-
-        const options = {
-            hostname: IMD_MESSAGES_HOST,
-            path,
-            method: "GET",
-
-            headers: {
-                Accept: "application/json",
-                "User-Agent": "WeatherGPT/1.0",
-            },
-
-            ca: systemCAs,
-        };
+       const options = {
+    hostname: IMD_MESSAGES_HOST,
+    path,
+    method: "GET",
+    headers: {
+        Accept: "application/json",
+        "User-Agent": "WeatherGPT/1.0",
+    },
+};
 
         console.log(
             `>>> Fetching IMD page: startindex=${startIndex}`
@@ -1568,8 +1558,7 @@ async function fetchIMDMessages() {
     );
 
     const data = await new Promise((resolve, reject) => {
-        const systemCAs =
-            tls.getCACertificates("system");
+      
 
         const options = {
             hostname: IMD_MESSAGES_HOST,
@@ -1579,7 +1568,7 @@ async function fetchIMDMessages() {
                 Accept: "application/json",
                 "User-Agent": "WeatherGPT/1.0",
             },
-            ca: systemCAs,
+           
         };
 
         const req = https.request(
