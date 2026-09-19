@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const Groq = require("groq-sdk");
+const nodePath = require("path");
 
 const {
     getAgricultureData,
@@ -1564,16 +1565,17 @@ async function fetchIMDMessages() {
         `?limit=${pageSize}` +
         `&datetime=${encodeURIComponent(datetimeRange)}` +
         `&sortby=-datetime`;
-
-    execFile(
-        "curl",
-        [
-            "--silent",
-            "--show-error",
-            "--fail",
-            "--location",
-            url,
-        ],
+execFile(
+    "curl",
+    [
+        "--silent",
+        "--show-error",
+        "--fail",
+        "--location",
+        "--cacert",
+nodePath.join(__dirname, "..", "certs", "imd-ca-bundle.pem"),
+        url,
+    ],
         {
             maxBuffer: 20 * 1024 * 1024,
         },
