@@ -15,8 +15,8 @@ import {
 
 import { useApp } from "../context/AppContext";
 import { useLanguage } from "../context/LanguageContext";
-
 import LanguageSetter from "./LanguageSetter";
+
 import logo from "../assets/logo_simple.png";
 import { getGreeting } from "../utils/greeting";
 
@@ -142,7 +142,6 @@ export default function Navbar() {
         "
       >
         {/* Logo + Greeting */}
-
         <div className="flex items-center gap-2 min-w-0">
           <span
             className="
@@ -191,15 +190,44 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Right Controls */}
+        {/* =================================================
+            MOBILE RIGHT CONTROLS
+            Agriculture → Language → Alerts → Profile
+        ================================================== */}
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+
+          {/* Agriculture */}
+          <button
+            type="button"
+            onClick={toggleAgriculture}
+            aria-label={t.agriculture}
+            aria-pressed={agricultureMode}
+            className={`
+              h-10 w-10
+              rounded-xl
+              flex items-center justify-center
+              transition-all
+              active:scale-95
+              ${
+                agricultureMode
+                  ? "bg-green-100 text-green-600 shadow-sm"
+                  : "bg-white text-ink-500 border border-sky-100 hover:bg-green-50 hover:text-green-600"
+              }
+            `}
+          >
+            <Sprout
+              size={19}
+              strokeWidth={
+                agricultureMode ? 2.5 : 2
+              }
+            />
+          </button>
+
           {/* Language */}
-
           <LanguageSetter variant="dropdown" />
 
           {/* Alerts */}
-
           <button
             type="button"
             onClick={() => navigate("/alerts")}
@@ -238,7 +266,6 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
-
           <button
             type="button"
             onClick={() => navigate("/profile")}
@@ -283,7 +310,6 @@ export default function Navbar() {
         "
       >
         {/* Logo + Greeting */}
-
         <div className="flex items-center gap-2 shrink-0">
           <span
             className="
@@ -364,13 +390,11 @@ export default function Navbar() {
                 const label = t[translationKey];
 
                 // Agriculture hidden when OFF
-
                 if (agriculture && !agricultureMode) {
                   return null;
                 }
 
                 // Agriculture toggle button
-
                 if (agriculture) {
                   return (
                     <div
@@ -401,7 +425,6 @@ export default function Navbar() {
                       </button>
 
                       {/* Tooltip */}
-
                       <div
                         className="
                           absolute
@@ -429,7 +452,6 @@ export default function Navbar() {
                 }
 
                 // Normal navigation
-
                 return (
                   <NavLink
                     key={to}
@@ -466,8 +488,8 @@ export default function Navbar() {
         ================================================== */}
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Agriculture Icon Toggle */}
 
+          {/* Agriculture Icon Toggle */}
           <div className="relative group">
             <button
               type="button"
@@ -499,7 +521,6 @@ export default function Navbar() {
             </button>
 
             {/* Tooltip */}
-
             <div
               className="
                 pointer-events-none
@@ -530,11 +551,9 @@ export default function Navbar() {
           </div>
 
           {/* Language */}
-
           <LanguageSetter variant="dropdown" />
 
           {/* Alerts */}
-
           <button
             type="button"
             onClick={() => navigate("/alerts")}
@@ -574,7 +593,6 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
-
           <button
             type="button"
             onClick={() => navigate("/profile")}
