@@ -1,4 +1,6 @@
+
 import React, { useEffect, useMemo, useState } from "react";
+
 import {
   Sprout,
   Droplets,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useLanguage } from "../context/LanguageContext";
+
 import {
   getGreeting,
   getGreetingRefreshDelay,
@@ -45,6 +48,7 @@ const cropTranslationMap = {
     te: "గోధుమ",
     bn: "গম",
   },
+
   Sugarcane: {
     en: "Sugarcane",
     hi: "गन्ना",
@@ -53,6 +57,7 @@ const cropTranslationMap = {
     te: "చెరకు",
     bn: "আখ",
   },
+
   Cotton: {
     en: "Cotton",
     hi: "कपास",
@@ -347,20 +352,9 @@ export default function Farmer() {
   // ==========================================================
 
   const updateGreeting = () => {
-    const hour = new Date().getHours();
-
-    if (hour < 12) {
-      setCurrentGreeting(t.greeting_morning || getGreeting());
-    } else if (hour < 17) {
-      setCurrentGreeting(
-        t.greeting_afternoon || getGreeting()
-      );
-    } else {
-      setCurrentGreeting(
-        t.greeting_evening || getGreeting()
-      );
-    }
-  };
+  const greetingKey = getGreeting();
+  setCurrentGreeting(t[greetingKey] || greetingKey);
+};
 
   useEffect(() => {
     updateGreeting();
@@ -374,19 +368,22 @@ export default function Farmer() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [language]);
+  }, [language, t]);
 
   // ==========================================================
   // DATE
   // ==========================================================
 
   const todayDate = useMemo(() => {
-    return new Date().toLocaleDateString(getLocale(language), {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return new Date().toLocaleDateString(
+      getLocale(language),
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }
+    );
   }, [language]);
 
   // ==========================================================
@@ -444,7 +441,7 @@ export default function Farmer() {
     }
 
     return alerts;
-  }, [weatherToday, t]);
+  }, [t]);
 
   // ==========================================================
   // CROP RECOMMENDATIONS
@@ -496,7 +493,9 @@ export default function Farmer() {
   const toggleTask = (id) => {
     setCompletedTasks((previous) => {
       if (previous.includes(id)) {
-        return previous.filter((item) => item !== id);
+        return previous.filter(
+          (item) => item !== id
+        );
       }
 
       return [...previous, id];
@@ -528,7 +527,8 @@ export default function Farmer() {
     }
 
     try {
-      const permission = await Notification.requestPermission();
+      const permission =
+        await Notification.requestPermission();
 
       setNotificationPermission(permission);
 
@@ -586,6 +586,7 @@ export default function Farmer() {
             <div>
               <div className="mb-2 flex items-center gap-2 text-sm font-medium text-sky-600">
                 <Calendar size={16} />
+
                 <span>{todayDate}</span>
               </div>
 
@@ -986,6 +987,7 @@ export default function Farmer() {
             <div className="rounded-2xl bg-sky-50 p-4">
               <div className="mb-3 flex items-center gap-2 text-sky-600">
                 <Droplets size={18} />
+
                 <span className="text-xs font-medium">
                   {t.humidity}
                 </span>
@@ -999,6 +1001,7 @@ export default function Farmer() {
             <div className="rounded-2xl bg-orange-50 p-4">
               <div className="mb-3 flex items-center gap-2 text-orange-600">
                 <Thermometer size={18} />
+
                 <span className="text-xs font-medium">
                   {t.temperature}
                 </span>
@@ -1015,6 +1018,7 @@ export default function Farmer() {
             <div className="rounded-2xl bg-blue-50 p-4">
               <div className="mb-3 flex items-center gap-2 text-blue-600">
                 <Wind size={18} />
+
                 <span className="text-xs font-medium">
                   {t.wind}
                 </span>
@@ -1022,6 +1026,7 @@ export default function Farmer() {
 
               <p className="text-2xl font-bold text-ink-800">
                 {weatherToday.windSpeed}
+
                 <span className="ml-1 text-sm font-medium">
                   km/h
                 </span>
@@ -1031,6 +1036,7 @@ export default function Farmer() {
             <div className="rounded-2xl bg-green-50 p-4">
               <div className="mb-3 flex items-center gap-2 text-green-600">
                 <CloudRain size={18} />
+
                 <span className="text-xs font-medium">
                   {t.rainfall}
                 </span>
@@ -1038,6 +1044,7 @@ export default function Farmer() {
 
               <p className="text-2xl font-bold text-ink-800">
                 {weatherToday.rainfall}
+
                 <span className="ml-1 text-sm font-medium">
                   mm
                 </span>
@@ -1047,6 +1054,7 @@ export default function Farmer() {
 
           <div className="mt-4 flex items-center gap-2 rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-green-700">
             <Sun size={18} />
+
             <span>
               <strong>
                 {t.currentCondition}:
@@ -1071,8 +1079,8 @@ export default function Farmer() {
               </h2>
 
               <p className="mt-1 text-sm text-ink-400">
-                {completedTasks.length}/{tasks.length}{" "}
-                {t.completed}
+                {completedTasks.length}/
+                {tasks.length} {t.completed}
               </p>
             </div>
 
@@ -1086,7 +1094,9 @@ export default function Farmer() {
               const Icon = task.icon;
 
               const completed =
-                completedTasks.includes(task.id);
+                completedTasks.includes(
+                  task.id
+                );
 
               return (
                 <button
@@ -1221,11 +1231,15 @@ export default function Farmer() {
 
                     <div className="mt-4">
                       <p className="text-sm font-semibold text-sky-700">
-                        {recommendation.action}
+                        {
+                          recommendation.action
+                        }
                       </p>
 
                       <p className="mt-2 text-sm leading-6 text-ink-500">
-                        {recommendation.message}
+                        {
+                          recommendation.message
+                        }
                       </p>
                     </div>
                   </div>

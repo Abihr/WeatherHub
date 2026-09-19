@@ -596,26 +596,39 @@ app.get("/api/railway_weather", async (req, res) => {
         }
 
         const url =
-            `https://api.open-meteo.com/v1/forecast` +
-            `?latitude=${encodeURIComponent(latitude)}` +
-            `&longitude=${encodeURIComponent(longitude)}` +
-            `&current=` +
-            `temperature_2m,` +
-            `relative_humidity_2m,` +
-            `apparent_temperature,` +
-            `precipitation,` +
-            `rain,` +
-            `weather_code,` +
-            `wind_speed_10m` +
-            `&hourly=` +
-            `temperature_2m,` +
-            `precipitation_probability,` +
-            `precipitation,` +
-            `rain,` +
-            `weather_code,` +
-            `wind_speed_10m` +
-            `&timezone=Asia%2FKolkata` +
-            `&forecast_days=1`;
+               `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${latitude}` +
+    `&longitude=${longitude}` +
+    `&timezone=auto` +
+    `&forecast_days=7` +
+
+    `&current=` +
+    `temperature_2m,` +
+    `relative_humidity_2m,` +
+    `apparent_temperature,` +
+    `weather_code,` +
+    `is_day` +
+
+    `&hourly=` +
+    `temperature_2m,` +
+    `relative_humidity_2m,` +
+    `rain,` +
+    `showers,` +
+    `precipitation,` +
+    `precipitation_probability,` +
+    `weather_code,` +
+    `cloud_cover,` +
+    `wind_speed_10m,` +
+    `wind_gusts_10m,` +
+    `cape,` +
+    `is_day` +
+
+    `&daily=` +
+    `temperature_2m_max,` +
+    `temperature_2m_min,` +
+    `rain_sum,` +
+    `precipitation_probability_max,` +
+    `weather_code`;
 
         console.log(
             "🚆 Railway weather request:",
