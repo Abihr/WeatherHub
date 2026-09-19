@@ -526,28 +526,48 @@ export default function Chatbot() {
     // IMPORTANT:
     // Never send latitude / longitude for friends.
     // ----------------------------------------------------
-
+    console.log("FRIENDS LIST:", friendsList);
     const friendContext = (friendsList || [])
-      .filter((friend) => !friend?.isBlocked)
-      .map((friend) => ({
-        id: friend.id,
-        name: friend.name,
-        username: friend.username,
+  .filter((friend) => !friend?.isBlocked)
+  .map((friend) => ({
+    id: friend.id,
 
-        location:
-          friend.locationSharing !== "off" ? friend.locationText || null : null,
+    name: friend.name,
 
-        locationSharing: friend.locationSharing || "off",
+    username: friend.username,
 
-        weatherSharing: friend.weatherSharing === true,
-      }));
+    location:
+      friend.locationSharing !== "off"
+        ? friend.locationText || null
+        : null,
 
-    setMessages((previous) => [...previous, userMessage]);
+    latitude:
+      friend.locationSharing !== "off"
+        ? friend.latitude ?? null
+        : null,
 
-    setInput("");
-    setLoading(true);
-    setVoiceError("");
+    longitude:
+      friend.locationSharing !== "off"
+        ? friend.longitude ?? null
+        : null,
 
+    locationSharing:
+      friend.locationSharing || "off",
+
+    weatherSharing:
+      friend.weatherSharing === true,
+  }));
+
+setMessages((previous) => [
+  ...previous,
+  userMessage,
+]);
+
+setInput("");
+
+setLoading(true);
+
+setVoiceError("");
     // ----------------------------------------------------
     // Current user location
     //
