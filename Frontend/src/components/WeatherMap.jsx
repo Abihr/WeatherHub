@@ -67,7 +67,10 @@ function getCoordinates(item) {
     };
   }
 
-  if (typeof item.latitude === "number" && typeof item.longitude === "number") {
+  if (
+    typeof item.latitude === "number" &&
+    typeof item.longitude === "number"
+  ) {
     return {
       lat: item.latitude,
       lng: item.longitude,
@@ -84,7 +87,10 @@ function getCoordinates(item) {
 function getLocationText(item) {
   if (!item) return "Unknown location";
 
-  if (typeof item.location === "string" && item.location.trim()) {
+  if (
+    typeof item.location === "string" &&
+    item.location.trim()
+  ) {
     return item.location;
   }
 
@@ -138,7 +144,9 @@ function formatWeatherUpdatedAt(timestamp) {
   if (!timestamp) return null;
 
   try {
-    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = timestamp?.toDate
+      ? timestamp.toDate()
+      : new Date(timestamp);
 
     if (Number.isNaN(date.getTime())) {
       return null;
@@ -146,7 +154,9 @@ function formatWeatherUpdatedAt(timestamp) {
 
     const diffMs = Date.now() - date.getTime();
 
-    if (diffMs < 0) return "just now";
+    if (diffMs < 0) {
+      return "just now";
+    }
 
     const diffMinutes = Math.floor(diffMs / 60000);
 
@@ -200,15 +210,21 @@ function getApproximateFriendCenter(coordinates, friendId) {
 
   const randomLat = ((seed % 1000) / 1000) * 2 - 1;
 
-  const randomLng = (((seed >> 10) % 1000) / 1000) * 2 - 1;
+  const randomLng =
+    (((seed >> 10) % 1000) / 1000) * 2 - 1;
 
   const maxOffsetKm = 1.5;
 
-  const latOffset = (randomLat * maxOffsetKm) / 111;
+  const latOffset =
+    (randomLat * maxOffsetKm) / 111;
 
-  const longitudeFactor = Math.cos((coordinates.lat * Math.PI) / 180);
+  const longitudeFactor = Math.cos(
+    (coordinates.lat * Math.PI) / 180
+  );
 
-  const lngOffset = (randomLng * maxOffsetKm) / (111 * longitudeFactor);
+  const lngOffset =
+    (randomLng * maxOffsetKm) /
+    (111 * longitudeFactor);
 
   return {
     lat: coordinates.lat + latOffset,
@@ -221,7 +237,10 @@ function getApproximateFriendCenter(coordinates, friendId) {
 ========================================================= */
 
 function createMapPin(label, type = "friend") {
-  const background = type === "you" ? MAP_COLORS.user : MAP_COLORS.friend;
+  const background =
+    type === "you"
+      ? MAP_COLORS.user
+      : MAP_COLORS.friend;
 
   return L.divIcon({
     className: "weather-map-pin",
@@ -271,11 +290,196 @@ function FlyToLocation({ position }) {
 
     const currentZoom = map.getZoom();
 
-    map.setView(position, currentZoom < 8 ? 9 : currentZoom, {
-      animate: true,
-      duration: 0.6,
-    });
+    map.setView(
+      position,
+      currentZoom < 8 ? 9 : currentZoom,
+      {
+        animate: true,
+        duration: 0.6,
+      }
+    );
   }, [map, position]);
+
+  return null;
+}
+
+/* =========================================================
+   MY LOCATION BUTTON
+========================================================= */
+
+function MyLocationButton() {
+  const map = useMap();
+
+  const [locating, setLocating] = useState(false);
+
+  const handleMyLocation = () => {
+    if (!navigator.geolocation) {
+      alert(
+        "Geolocation is not supported by your browser."
+      );
+      return;
+    }
+
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (location) => {
+        const {
+          latitude,
+          longitude,
+        } = location.coords;
+
+        map.flyTo(
+          [latitude, longitude],
+          13,
+          {
+            animate: true,
+            duration: 1.2,
+          }
+        );
+
+        setLocating(false);
+      },
+
+      (error) => {
+        console.error(
+          "Location error:",
+          error
+        );
+
+        setLocating(false);
+
+        if (
+          error.code ===
+          error.PERMISSION_DENIED
+        ) {
+          alert(
+            "Location access was denied. Please allow location permission."
+          );
+        } else if (
+          error.code ===
+          error.TIMEOUT
+        ) {
+          alert(
+            "Location request timed out. Please try again."
+          );
+        } else {
+          alert(
+            "Unable to get your location. Please try again."
+          );
+        }
+      },
+
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 30000,
+      }
+    );
+  };
+
+  useEffect(() => {
+    const corner =
+      map._controlCorners?.bottomright;
+
+    if (!corner) return;
+
+    const container = L.DomUtil.create(
+      "div",
+      "leaflet-control weather-my-location-control"
+    );
+
+    const button = L.DomUtil.create(
+      "button",
+      "weather-my-location-button",
+      container
+    );
+
+    button.type = "button";
+    button.title = "My Location";
+    button.setAttribute(
+      "aria-label",
+      "My Location"
+    );
+
+    L.DomEvent.disableClickPropagation(
+      container
+    );
+
+    L.DomEvent.disableScrollPropagation(
+      container
+    );
+
+    const handleClick = () => {
+      handleMyLocation();
+    };
+
+    L.DomEvent.on(
+      button,
+      "click",
+      handleClick
+    );
+
+    corner.appendChild(container);
+
+    return () => {
+      L.DomEvent.off(
+        button,
+        "click",
+        handleClick
+      );
+
+      if (corner.contains(container)) {
+        corner.removeChild(container);
+      }
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const button = map
+      .getContainer()
+      .querySelector(
+        ".weather-my-location-button"
+      );
+
+    if (!button) return;
+
+    button.innerHTML = "";
+
+    const icon = document.createElement("div");
+
+    icon.innerHTML = `
+      <svg
+        width="19"
+        height="19"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M20 10c0 4.993-8 12-8 12S4 14.993 4 10a8 8 0 1 1 16 0Z"
+        ></path>
+
+        <circle
+          cx="12"
+          cy="10"
+          r="3"
+        ></circle>
+      </svg>
+    `;
+
+    button.appendChild(icon);
+
+    button.disabled = locating;
+
+    button.classList.toggle(
+      "is-locating",
+      locating
+    );
+  }, [map, locating]);
 
   return null;
 }
@@ -285,7 +489,9 @@ function FlyToLocation({ position }) {
 ========================================================= */
 
 function getAlertSeverityClass(severity) {
-  switch (String(severity || "").toLowerCase()) {
+  switch (
+    String(severity || "").toLowerCase()
+  ) {
     case "extreme":
       return {
         badge: "bg-red-100 text-red-700",
@@ -352,9 +558,13 @@ function formatAlertExpiry(expires) {
 ========================================================= */
 
 function IMDAlertCard({ alert }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] =
+    useState(false);
 
-  const severity = getAlertSeverityClass(alert.severity);
+  const severity =
+    getAlertSeverityClass(
+      alert.severity
+    );
 
   return (
     <div
@@ -368,7 +578,11 @@ function IMDAlertCard({ alert }) {
     >
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() =>
+          setExpanded(
+            (value) => !value
+          )
+        }
         className="
           w-full
           text-left
@@ -403,7 +617,9 @@ function IMDAlertCard({ alert }) {
                 leading-snug
               "
             >
-              {alert.event || alert.headline || "Weather Alert"}
+              {alert.event ||
+                alert.headline ||
+                "Weather Alert"}
             </p>
 
             <span
@@ -417,7 +633,8 @@ function IMDAlertCard({ alert }) {
                 ${severity.badge}
               `}
             >
-              {alert.severity || "Unknown"}
+              {alert.severity ||
+                "Unknown"}
             </span>
           </div>
 
@@ -530,7 +747,8 @@ function IMDAlertCard({ alert }) {
                   mt-1
                 "
               >
-                {alert.urgency || "Not specified"}
+                {alert.urgency ||
+                  "Not specified"}
               </p>
             </div>
 
@@ -554,7 +772,8 @@ function IMDAlertCard({ alert }) {
                   mt-1
                 "
               >
-                {alert.certainty || "Not specified"}
+                {alert.certainty ||
+                  "Not specified"}
               </p>
             </div>
           </div>
@@ -579,7 +798,9 @@ function IMDAlertCard({ alert }) {
                 mt-1
               "
             >
-              {formatAlertExpiry(alert.expires)}
+              {formatAlertExpiry(
+                alert.expires
+              )}
             </p>
           </div>
 
@@ -616,7 +837,8 @@ function IMDAlertCard({ alert }) {
               text-ink-400
             "
           >
-            Source: India Meteorological Department
+            Source: India Meteorological
+            Department
           </p>
         </div>
       )}
@@ -628,7 +850,13 @@ function IMDAlertCard({ alert }) {
    IMD ALERT PANEL
 ========================================================= */
 
-function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
+function IMDAlertPanel({
+  alerts,
+  loading,
+  error,
+  onRefresh,
+  onClose,
+}) {
   return (
     <div
       className="
@@ -649,6 +877,7 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
       "
     >
       {/* Header */}
+
       <div
         className="
           px-4
@@ -730,7 +959,14 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
               disabled:opacity-50
             "
           >
-            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            <RefreshCw
+              size={13}
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
+            />
           </button>
 
           <button
@@ -754,6 +990,7 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
       </div>
 
       {/* Content */}
+
       <div
         className="
           overflow-y-auto
@@ -778,6 +1015,7 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
                 mb-2
               "
             />
+
             Loading official IMD alerts...
           </div>
         )}
@@ -794,9 +1032,13 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
               text-red-700
             "
           >
-            <p className="font-semibold">Unable to load IMD alerts</p>
+            <p className="font-semibold">
+              Unable to load IMD alerts
+            </p>
 
-            <p className="mt-1">{error}</p>
+            <p className="mt-1">
+              {error}
+            </p>
 
             <button
               type="button"
@@ -812,15 +1054,17 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
           </div>
         )}
 
-        {!loading && !error && alerts.length === 0 && (
-          <div
-            className="
+        {!loading &&
+          !error &&
+          alerts.length === 0 && (
+            <div
+              className="
                 py-8
                 text-center
               "
-          >
-            <div
-              className="
+            >
+              <div
+                className="
                   h-10
                   w-10
                   rounded-full
@@ -832,54 +1076,62 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
                   mx-auto
                   mb-2
                 "
-            >
-              ✓
-            </div>
+              >
+                ✓
+              </div>
 
-            <p
-              className="
+              <p
+                className="
                   text-sm
                   font-semibold
                   text-ink-700
                 "
-            >
-              No active alerts
-            </p>
+              >
+                No active alerts
+              </p>
 
-            <p
-              className="
+              <p
+                className="
                   text-xs
                   text-ink-400
                   mt-1
                 "
-            >
-              No active IMD CAP alerts were returned.
-            </p>
-          </div>
-        )}
+              >
+                No active IMD CAP alerts
+                were returned.
+              </p>
+            </div>
+          )}
 
-        {!loading && !error && alerts.length > 0 && (
-          <>
-            <p
-              className="
+        {!loading &&
+          !error &&
+          alerts.length > 0 && (
+            <>
+              <p
+                className="
                   px-1
                   pb-1
                   text-[10px]
                   text-ink-400
                 "
-            >
-              {alerts.length} active alert
-              {alerts.length !== 1 ? "s" : ""} · Official IMD data
-            </p>
+              >
+                {alerts.length} active alert
+                {alerts.length !== 1
+                  ? "s"
+                  : ""}{" "}
+                · Official IMD data
+              </p>
 
-            {alerts.map((alert, index) => (
-              <IMDAlertCard
-                key={alert.identifier || alert.id || index}
-                alert={alert}
-              />
-            ))}
-          </>
-        )}
+              {alerts.map(
+                (alert, index) => (
+                  <IMDAlertCard
+                    key={`${alert.identifier || alert.id || "alert"}-${index}`}
+                    alert={alert}
+                  />
+                )
+              )}
+            </>
+          )}
       </div>
     </div>
   );
@@ -889,7 +1141,11 @@ function IMDAlertPanel({ alerts, loading, error, onRefresh, onClose }) {
    IMD ALERT BUTTON
 ========================================================= */
 
-function IMDAlertButton({ alerts, loading, onClick }) {
+function IMDAlertButton({
+  alerts,
+  loading,
+  onClick,
+}) {
   return (
     <div
       className="
@@ -922,7 +1178,11 @@ function IMDAlertButton({ alerts, loading, onClick }) {
       >
         <AlertTriangle
           size={13}
-          className={alerts.length > 0 ? "text-orange-500" : "text-ink-400"}
+          className={
+            alerts.length > 0
+              ? "text-orange-500"
+              : "text-ink-400"
+          }
         />
 
         <span>IMD</span>
@@ -942,7 +1202,9 @@ function IMDAlertButton({ alerts, loading, onClick }) {
             justify-center
           "
         >
-          {loading ? "…" : alerts.length}
+          {loading
+            ? "…"
+            : alerts.length}
         </span>
       </button>
     </div>
@@ -953,13 +1215,21 @@ function IMDAlertButton({ alerts, loading, onClick }) {
    SELECTED LOCATION CARD
 ========================================================= */
 
-function SelectedLocationCard({ selected, onClose }) {
+function SelectedLocationCard({
+  selected,
+  onClose,
+}) {
   if (!selected) return null;
 
-  const temperature = getTemperature(selected.weather);
+  const temperature =
+    getTemperature(
+      selected.weather
+    );
 
   const weatherIsVisible =
-    selected.weather && (selected.isYou || selected.weatherSharing);
+    selected.weather &&
+    (selected.isYou ||
+      selected.weatherSharing);
 
   const initials = selected.isYou
     ? "You"
@@ -990,6 +1260,7 @@ function SelectedLocationCard({ selected, onClose }) {
       "
     >
       {/* Avatar */}
+
       <div
         className="
           h-10
@@ -1009,6 +1280,7 @@ function SelectedLocationCard({ selected, onClose }) {
       </div>
 
       {/* Information */}
+
       <div
         className="
           flex-1
@@ -1022,7 +1294,9 @@ function SelectedLocationCard({ selected, onClose }) {
             text-ink-800
           "
         >
-          {selected.isYou ? "Your Location" : selected.name || "User"}
+          {selected.isYou
+            ? "Your Location"
+            : selected.name || "User"}
         </p>
 
         <p
@@ -1044,10 +1318,18 @@ function SelectedLocationCard({ selected, onClose }) {
         {weatherIsVisible ? (
           <>
             <p className="text-sm mt-1.5">
-              {weatherIcon?.[selected.weather.icon] || "🌤️"}{" "}
-              {temperature !== null ? `${temperature}°C` : "--"}
+              {weatherIcon?.[
+                selected.weather.icon
+              ] || "🌤️"}{" "}
+
+              {temperature !== null
+                ? `${temperature}°C`
+                : "--"}
+
               {" · "}
-              {selected.weather.condition || "Weather unavailable"}
+
+              {selected.weather.condition ||
+                "Weather unavailable"}
             </p>
 
             {selected.weatherUpdatedAt && (
@@ -1058,7 +1340,10 @@ function SelectedLocationCard({ selected, onClose }) {
                   mt-1
                 "
               >
-                🕐 Updated {formatWeatherUpdatedAt(selected.weatherUpdatedAt)}
+                🕐 Updated{" "}
+                {formatWeatherUpdatedAt(
+                  selected.weatherUpdatedAt
+                )}
               </p>
             )}
           </>
@@ -1076,6 +1361,7 @@ function SelectedLocationCard({ selected, onClose }) {
       </div>
 
       {/* Close */}
+
       <button
         type="button"
         onClick={onClose}
@@ -1097,10 +1383,13 @@ function SelectedLocationCard({ selected, onClose }) {
    MAP LAYERS
 ========================================================= */
 
-function WeatherMapLayers({ satelliteWmsUrl }) {
+function WeatherMapLayers({
+  satelliteWmsUrl,
+}) {
   return (
     <LayersControl position="topleft">
-      {/* Map */}
+      {/* Normal Map */}
+
       <LayersControl.BaseLayer
         checked
         name="🗺️ Map"
@@ -1112,6 +1401,7 @@ function WeatherMapLayers({ satelliteWmsUrl }) {
       </LayersControl.BaseLayer>
 
       {/* Satellite */}
+
       <LayersControl.BaseLayer
         name="🛰️ Satellite"
       >
@@ -1122,6 +1412,7 @@ function WeatherMapLayers({ satelliteWmsUrl }) {
       </LayersControl.BaseLayer>
 
       {/* Precipitation */}
+
       <LayersControl.Overlay
         name="🌧️ Precipitation"
       >
@@ -1133,6 +1424,7 @@ function WeatherMapLayers({ satelliteWmsUrl }) {
       </LayersControl.Overlay>
 
       {/* IMD Satellite */}
+
       <LayersControl.Overlay
         name="🇮🇳 IMD Satellite — TIR1"
       >
@@ -1151,18 +1443,29 @@ function WeatherMapLayers({ satelliteWmsUrl }) {
     </LayersControl>
   );
 }
+
 /* =========================================================
    USER MARKER
 ========================================================= */
 
-function UserMarker({ user, coordinates, onSelect }) {
+function UserMarker({
+  user,
+  coordinates,
+  onSelect,
+}) {
   if (!coordinates) return null;
 
   return (
     <>
       <Marker
-        position={[coordinates.lat, coordinates.lng]}
-        icon={createMapPin("👤", "you")}
+        position={[
+          coordinates.lat,
+          coordinates.lng,
+        ]}
+        icon={createMapPin(
+          "👤",
+          "you"
+        )}
         eventHandlers={{
           click: () =>
             onSelect({
@@ -1172,9 +1475,13 @@ function UserMarker({ user, coordinates, onSelect }) {
         }}
       />
 
-      {user.locationSharing !== "exact" && (
+      {user.locationSharing !==
+        "exact" && (
         <Circle
-          center={[coordinates.lat, coordinates.lng]}
+          center={[
+            coordinates.lat,
+            coordinates.lng,
+          ]}
           radius={4000}
           pathOptions={{
             color: MAP_COLORS.circle,
@@ -1191,19 +1498,32 @@ function UserMarker({ user, coordinates, onSelect }) {
    FRIEND MARKER
 ========================================================= */
 
-function FriendMarker({ friend, onSelect }) {
-  const coordinates = getCoordinates(friend);
+function FriendMarker({
+  friend,
+  onSelect,
+}) {
+  const coordinates =
+    getCoordinates(friend);
 
   if (!coordinates) return null;
 
-  const approximateCenter = getApproximateFriendCenter(coordinates, friend.id);
+  const approximateCenter =
+    getApproximateFriendCenter(
+      coordinates,
+      friend.id
+    );
 
-  if (!approximateCenter) return null;
+  if (!approximateCenter) {
+    return null;
+  }
 
   return (
-    <div>
+    <>
       <Circle
-        center={[approximateCenter.lat, approximateCenter.lng]}
+        center={[
+          approximateCenter.lat,
+          approximateCenter.lng,
+        ]}
         radius={FRIEND_RADIUS_METERS}
         pathOptions={{
           color: MAP_COLORS.circle,
@@ -1213,20 +1533,28 @@ function FriendMarker({ friend, onSelect }) {
       />
 
       <Marker
-        position={[approximateCenter.lat, approximateCenter.lng]}
-        icon={createMapPin("👥", "friend")}
+        position={[
+          approximateCenter.lat,
+          approximateCenter.lng,
+        ]}
+        icon={createMapPin(
+          "👥",
+          "friend"
+        )}
         eventHandlers={{
           click: () =>
             onSelect({
               ...friend,
               latitude: coordinates.lat,
               longitude: coordinates.lng,
-              approximateLatitude: approximateCenter.lat,
-              approximateLongitude: approximateCenter.lng,
+              approximateLatitude:
+                approximateCenter.lat,
+              approximateLongitude:
+                approximateCenter.lng,
             }),
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -1234,27 +1562,50 @@ function FriendMarker({ friend, onSelect }) {
    MAIN WEATHER MAP
 ========================================================= */
 
-export default function WeatherMap({ user, friends = [] }) {
-  const [selected, setSelected] = useState(null);
+export default function WeatherMap({
+  user,
+  friends = [],
+}) {
+  const [selected, setSelected] =
+    useState(null);
 
-  const [satelliteWmsUrl, setSatelliteWmsUrl] = useState(null);
+  const [
+    satelliteWmsUrl,
+    setSatelliteWmsUrl,
+  ] = useState(null);
 
-  const [imdAlerts, setImdAlerts] = useState([]);
+  const [imdAlerts, setImdAlerts] =
+    useState([]);
 
-  const [imdAlertsLoading, setImdAlertsLoading] = useState(true);
+  const [
+    imdAlertsLoading,
+    setImdAlertsLoading,
+  ] = useState(true);
 
-  const [imdAlertsError, setImdAlertsError] = useState(null);
+  const [
+    imdAlertsError,
+    setImdAlertsError,
+  ] = useState(null);
 
-  const [showImdAlerts, setShowImdAlerts] = useState(false);
+  const [
+    showImdAlerts,
+    setShowImdAlerts,
+  ] = useState(false);
 
   /* =======================================================
      USER COORDINATES
   ======================================================= */
 
-  const userCoordinates = useMemo(() => getCoordinates(user), [user]);
+  const userCoordinates = useMemo(
+    () => getCoordinates(user),
+    [user]
+  );
 
   const center = userCoordinates
-    ? [userCoordinates.lat, userCoordinates.lng]
+    ? [
+        userCoordinates.lat,
+        userCoordinates.lng,
+      ]
     : DEFAULT_CENTER;
 
   /* =======================================================
@@ -1263,12 +1614,17 @@ export default function WeatherMap({ user, friends = [] }) {
 
   const visibleFriends = useMemo(() => {
     return friends.filter((friend) => {
-      const coordinates = getCoordinates(friend);
+      const coordinates =
+        getCoordinates(friend);
 
       return (
         coordinates &&
-        Number.isFinite(coordinates.lat) &&
-        Number.isFinite(coordinates.lng)
+        Number.isFinite(
+          coordinates.lat
+        ) &&
+        Number.isFinite(
+          coordinates.lng
+        )
       );
     });
   }, [friends]);
@@ -1282,27 +1638,43 @@ export default function WeatherMap({ user, friends = [] }) {
 
     async function fetchLatestSatellite() {
       try {
-        const response = await fetch(
-          `${WEATHER_BACKEND_URL}/api/imd-satellite/latest`,
-        );
+        const response =
+          await fetch(
+            `${WEATHER_BACKEND_URL}/api/imd-satellite/latest`
+          );
 
         if (!response.ok) {
-          throw new Error(`Satellite request failed: ${response.status}`);
+          throw new Error(
+            `Satellite request failed: ${response.status}`
+          );
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        if (mounted && data.success && data.wmsUrl) {
-          setSatelliteWmsUrl(data.wmsUrl);
+        if (
+          mounted &&
+          data.success &&
+          data.wmsUrl
+        ) {
+          setSatelliteWmsUrl(
+            data.wmsUrl
+          );
         }
       } catch (error) {
-        console.error("Failed to fetch IMD satellite:", error);
+        console.error(
+          "Failed to fetch IMD satellite:",
+          error
+        );
       }
     }
 
     fetchLatestSatellite();
 
-    const interval = setInterval(fetchLatestSatellite, SATELLITE_REFRESH_MS);
+    const interval = setInterval(
+      fetchLatestSatellite,
+      SATELLITE_REFRESH_MS
+    );
 
     return () => {
       mounted = false;
@@ -1319,23 +1691,42 @@ export default function WeatherMap({ user, friends = [] }) {
       setImdAlertsError(null);
       setImdAlertsLoading(true);
 
-      const response = await fetch(`${WEATHER_BACKEND_URL}/api/imd-alerts`);
+      const response =
+        await fetch(
+          `${WEATHER_BACKEND_URL}/api/imd-alerts`
+        );
 
       if (!response.ok) {
-        throw new Error(`IMD alert request failed: ${response.status}`);
+        throw new Error(
+          `IMD alert request failed: ${response.status}`
+        );
       }
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!data.success) {
-        throw new Error(data.error || "Unable to retrieve IMD alerts.");
+        throw new Error(
+          data.error ||
+            "Unable to retrieve IMD alerts."
+        );
       }
 
-      setImdAlerts(Array.isArray(data.alerts) ? data.alerts : []);
+      setImdAlerts(
+        Array.isArray(data.alerts)
+          ? data.alerts
+          : []
+      );
     } catch (error) {
-      console.error("Failed to fetch IMD alerts:", error);
+      console.error(
+        "Failed to fetch IMD alerts:",
+        error
+      );
 
-      setImdAlertsError(error.message || "Unable to load IMD alerts.");
+      setImdAlertsError(
+        error.message ||
+          "Unable to load IMD alerts."
+      );
     } finally {
       setImdAlertsLoading(false);
     }
@@ -1344,9 +1735,13 @@ export default function WeatherMap({ user, friends = [] }) {
   useEffect(() => {
     fetchIMDAlerts();
 
-    const interval = setInterval(fetchIMDAlerts, IMD_ALERT_REFRESH_MS);
+    const interval = setInterval(
+      fetchIMDAlerts,
+      IMD_ALERT_REFRESH_MS
+    );
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, []);
 
   /* =======================================================
@@ -1368,18 +1763,28 @@ export default function WeatherMap({ user, friends = [] }) {
 
     if (!selected.id) return;
 
-    const updatedFriend = friends.find((friend) => friend.id === selected.id);
+    const updatedFriend =
+      friends.find(
+        (friend) =>
+          friend.id === selected.id
+      );
 
     if (!updatedFriend) return;
 
-    const coordinates = getCoordinates(updatedFriend);
+    const coordinates =
+      getCoordinates(updatedFriend);
 
     setSelected({
       ...updatedFriend,
       latitude: coordinates?.lat,
       longitude: coordinates?.lng,
     });
-  }, [friends, user, selected?.id, selected?.isYou]);
+  }, [
+    friends,
+    user,
+    selected?.id,
+    selected?.isYou,
+  ]);
 
   /* =======================================================
      SELECTED POSITION
@@ -1388,11 +1793,15 @@ export default function WeatherMap({ user, friends = [] }) {
   const selectedPosition = useMemo(() => {
     if (!selected) return null;
 
-    const coordinates = getCoordinates(selected);
+    const coordinates =
+      getCoordinates(selected);
 
     if (!coordinates) return null;
 
-    return [coordinates.lat, coordinates.lng];
+    return [
+      coordinates.lat,
+      coordinates.lng,
+    ];
   }, [selected]);
 
   /* =======================================================
@@ -1422,11 +1831,47 @@ export default function WeatherMap({ user, friends = [] }) {
         zoomControl={false}
         className="weather-map h-full w-full"
       >
-        {/* Layers → top-left */}
-        <WeatherMapLayers satelliteWmsUrl={satelliteWmsUrl} />
-        {/* Zoom → bottom-left */}
-        <ZoomControl position="bottomleft" />
-        ...
+        <WeatherMapLayers
+          satelliteWmsUrl={
+            satelliteWmsUrl
+          }
+        />
+
+        {/* Zoom */}
+
+        <ZoomControl
+          position="bottomleft"
+        />
+
+        {/* My Location */}
+
+        <MyLocationButton />
+
+        {/* Selected Location */}
+
+        <FlyToLocation
+          position={selectedPosition}
+        />
+
+        {/* User */}
+
+        <UserMarker
+          user={user}
+          coordinates={userCoordinates}
+          onSelect={setSelected}
+        />
+
+        {/* Friends */}
+
+        {visibleFriends.map(
+          (friend) => (
+            <FriendMarker
+              key={friend.id}
+              friend={friend}
+              onSelect={setSelected}
+            />
+          )
+        )}
       </MapContainer>
 
       {/* ===================================================
@@ -1439,7 +1884,9 @@ export default function WeatherMap({ user, friends = [] }) {
           loading={imdAlertsLoading}
           error={imdAlertsError}
           onRefresh={fetchIMDAlerts}
-          onClose={() => setShowImdAlerts(false)}
+          onClose={() =>
+            setShowImdAlerts(false)
+          }
         />
       )}
 
@@ -1451,7 +1898,9 @@ export default function WeatherMap({ user, friends = [] }) {
         <IMDAlertButton
           alerts={imdAlerts}
           loading={imdAlertsLoading}
-          onClick={() => setShowImdAlerts(true)}
+          onClick={() =>
+            setShowImdAlerts(true)
+          }
         />
       )}
 
@@ -1461,7 +1910,9 @@ export default function WeatherMap({ user, friends = [] }) {
 
       <SelectedLocationCard
         selected={selected}
-        onClose={() => setSelected(null)}
+        onClose={() =>
+          setSelected(null)
+        }
       />
     </div>
   );
