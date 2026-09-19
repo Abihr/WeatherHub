@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -14,8 +15,8 @@ import {
 import { auth, db } from "./firebase/firebase";
 
 import { AppProvider } from "./context/AppContext";
+import { LanguageProvider } from "./context/LanguageContext";
 
-import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
 import BottomNav from "./components/BottomNav";
 import ToastStack from "./components/Toast";
@@ -36,80 +37,29 @@ import Farmer from "./pages/Farmer";
 
 function AppShell() {
   return (
-    <div className="min-h-screen bg-sky-wash flex">
-      <Sidebar />
+    <div className="min-h-screen bg-sky-wash">
+      <Navbar />
 
-      <div className="flex-1 min-w-0">
-        <Navbar />
-
+      <main className="min-w-0">
         <div className="animate-page-enter">
           <Routes>
             <Route path="/" element={<Home />} />
-
             <Route path="/friends" element={<Friends />} />
-
-            <Route
-              path="/requests"
-              element={<FriendRequests />}
-            />
-
-            <Route
-              path="/compare"
-              element={<Compare />}
-            />
-
-            <Route
-              path="/map"
-              element={<MapPage />}
-            />
-
-            <Route
-              path="/alerts"
-              element={<Alerts />}
-            />
-
-            <Route
-              path="/profile"
-              element={<Profile />}
-            />
-
-            <Route
-              path="/blocked"
-              element={<BlockedUsers />}
-            />
-
-            <Route
-              path="/settings"
-              element={<Settings />}
-            />
-
-            <Route
-              path="/chatbot"
-              element={<Chatbot />}
-            />
-
-            <Route
-              path="/Frontend"
-              element={<Chatbot />}
-            />
-
-            <Route
-              path="/railway-weather"
-              element={<RailwayWeather />}
-            />
-
-            <Route
-              path="/railway"
-              element={<RailwayWeather />}
-            />
-
-            <Route
-              path="/farmer"
-              element={<Farmer />}
-            />
+            <Route path="/requests" element={<FriendRequests />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/blocked" element={<BlockedUsers />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/chatbot" element={<Chatbot />} />
+            <Route path="/Frontend" element={<Chatbot />} />
+            <Route path="/railway-weather" element={<RailwayWeather />} />
+            <Route path="/railway" element={<RailwayWeather />} />
+            <Route path="/farmer" element={<Farmer />} />
           </Routes>
         </div>
-      </div>
+      </main>
 
       <BottomNav />
 
@@ -122,241 +72,261 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
- 
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(
-    auth,
-    async (currentUser) => {
-      try {
-        if (currentUser) {
-          // =====================================================
-          // FIREBASE AUTH UID
-          // =====================================================
-          const userRef = doc(
-            db,
-            "users",
-            currentUser.uid
-          );
+  // ===========================================================
+  // FIREBASE AUTH SESSION
+  // ===========================================================
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (currentUser) => {
+        try {
+          if (currentUser) {
+            // =================================================
+            // FIREBASE AUTH UID
+            // =================================================
+            const userRef = doc(
+              db,
+              "users",
+              currentUser.uid
+            );
 
-          // =====================================================
-          // GET FIRESTORE PROFILE
-          // =====================================================
-          const userSnapshot = await getDoc(userRef);
+            // =================================================
+            // GET FIRESTORE PROFILE
+            // =================================================
+            const userSnapshot = await getDoc(userRef);
 
-          let profileData = {};
+            let profileData = {};
 
-          // =====================================================
-          // EXISTING USER
-          // =====================================================
-          if (userSnapshot.exists()) {
-            profileData = userSnapshot.data();
+            // =================================================
+            // EXISTING USER
+            // =================================================
+            if (userSnapshot.exists()) {
+              profileData = userSnapshot.data();
 
-            await setDoc(
-              userRef,
-              {
+              await setDoc(
+                userRef,
+                {
+                  uid: currentUser.uid,
+
+                  name:
+                    currentUser.displayName ||
+                    profileData.name ||
+                    "",
+
+                  email:
+                    currentUser.email ||
+                    profileData.email ||
+                    "",
+
+                  photoURL:
+                    currentUser.photoURL ||
+                    profileData.photoURL ||
+                    "",
+
+                  lastLogin: serverTimestamp(),
+                },
+                {
+                  merge: true,
+                }
+              );
+
+              console.log(
+                "✅ Existing user synced:",
+                currentUser.uid
+              );
+
+              console.log(
+                "✅ Public User ID:",
+                profileData.userId ||
+                  profileData.username ||
+                  "Not set"
+              );
+            }
+
+            // =================================================
+            // FIRESTORE PROFILE DOES NOT EXIST
+            // =================================================
+            else {
+              profileData = {
                 uid: currentUser.uid,
 
                 name:
-                  currentUser.displayName ||
-                  profileData.name ||
-                  "",
+                  currentUser.displayName || "",
 
                 email:
-                  currentUser.email ||
-                  profileData.email ||
-                  "",
+                  currentUser.email || "",
 
                 photoURL:
-                  currentUser.photoURL ||
-                  profileData.photoURL ||
-                  "",
+                  currentUser.photoURL || "",
 
-                lastLogin: serverTimestamp(),
-              },
-              {
-                merge: true,
-              }
-            );
+                userId: "",
+                username: "",
+              };
 
-            console.log(
-              "✅ Existing user synced:",
-              currentUser.uid
-            );
+              await setDoc(
+                userRef,
+                {
+                  uid: currentUser.uid,
 
-            console.log(
-              "✅ Public User ID:",
-              profileData.userId ||
-                profileData.username ||
-                "Not set"
-            );
-          }
+                  name:
+                    currentUser.displayName || "",
 
-          // =====================================================
-          // FIRESTORE PROFILE DOES NOT EXIST
-          // =====================================================
-          else {
-            profileData = {
+                  email:
+                    currentUser.email || "",
+
+                  photoURL:
+                    currentUser.photoURL || "",
+
+                  lastLogin: serverTimestamp(),
+                },
+                {
+                  merge: true,
+                }
+              );
+
+              console.log(
+                "⚠️ Firestore profile created for existing Auth user:",
+                currentUser.uid
+              );
+
+              console.log(
+                "⚠️ This user does not have a public User ID yet."
+              );
+            }
+
+            // =================================================
+            // COMBINE AUTH USER + FIRESTORE PROFILE
+            // =================================================
+            const combinedUser = {
+              ...currentUser,
+
+              // Firebase UID
+              id: currentUser.uid,
               uid: currentUser.uid,
-              name: currentUser.displayName || "",
-              email: currentUser.email || "",
-              photoURL: currentUser.photoURL || "",
-              userId: "",
-              username: "",
+
+              // Public User ID
+              userId:
+                profileData.userId ||
+                profileData.username ||
+                "",
+
+              // Backward compatibility
+              username:
+                profileData.username ||
+                profileData.userId ||
+                "",
+
+              // Firestore profile
+              name:
+                profileData.name ||
+                currentUser.displayName ||
+                "",
+
+              email:
+                profileData.email ||
+                currentUser.email ||
+                "",
+
+              photoURL:
+                profileData.photoURL ||
+                currentUser.photoURL ||
+                "",
+
+              // Keep complete Firestore profile
+              ...profileData,
+
+              // Make sure these values win
+              id: currentUser.uid,
+              uid: currentUser.uid,
+
+              userId:
+                profileData.userId ||
+                profileData.username ||
+                "",
+
+              username:
+                profileData.username ||
+                profileData.userId ||
+                "",
             };
 
-            await setDoc(
-              userRef,
-              {
-                uid: currentUser.uid,
-                name: currentUser.displayName || "",
-                email: currentUser.email || "",
-                photoURL: currentUser.photoURL || "",
-                lastLogin: serverTimestamp(),
-              },
-              {
-                merge: true,
-              }
+            console.log(
+              "👤 App User:",
+              combinedUser
             );
 
             console.log(
-              "⚠️ Firestore profile created for existing Auth user:",
-              currentUser.uid
+              "🆔 Public User ID:",
+              combinedUser.userId
             );
 
-            console.log(
-              "⚠️ This user does not have a public User ID yet."
-            );
+            setUser(combinedUser);
+          } else {
+            setUser(null);
           }
-
-          // =====================================================
-          // IMPORTANT:
-          // COMBINE FIREBASE AUTH USER + FIRESTORE PROFILE
-          // =====================================================
-          const combinedUser = {
-            ...currentUser,
-
-            // Firebase UID
-            id: currentUser.uid,
-            uid: currentUser.uid,
-
-            // Public User ID
-            userId:
-              profileData.userId ||
-              profileData.username ||
-              "",
-
-            // Backward compatibility
-            username:
-              profileData.username ||
-              profileData.userId ||
-              "",
-
-            // Firestore profile data
-            name:
-              profileData.name ||
-              currentUser.displayName ||
-              "",
-
-            email:
-              profileData.email ||
-              currentUser.email ||
-              "",
-
-            photoURL:
-              profileData.photoURL ||
-              currentUser.photoURL ||
-              "",
-
-            // Keep complete Firestore profile available
-            ...profileData,
-
-            // Make sure these values win
-            id: currentUser.uid,
-            uid: currentUser.uid,
-
-            userId:
-              profileData.userId ||
-              profileData.username ||
-              "",
-
-            username:
-              profileData.username ||
-              profileData.userId ||
-              "",
-          };
-
-          console.log(
-            "👤 App User:",
-            combinedUser
+        } catch (error) {
+          console.error(
+            "Error syncing user data:",
+            error
           );
 
-          console.log(
-            "🆔 Public User ID:",
-            combinedUser.userId
-          );
-
-          setUser(combinedUser);
-        } else {
-          setUser(null);
+          setUser(currentUser);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
+      },
+
+      (error) => {
         console.error(
-          "Error syncing user data:",
+          "Firebase auth error:",
           error
         );
 
-        setUser(currentUser);
-      } finally {
+        setUser(null);
         setLoading(false);
       }
-    },
-    (error) => {
-      console.error(
-        "Firebase auth error:",
-        error
-      );
+    );
 
-      setUser(null);
-      setLoading(false);
-    }
-  );
+    return () => unsubscribe();
+  }, []);
 
-  return () => unsubscribe();
-}, []);
-
-
-
-  // =====================================================
+  // ===========================================================
   // FIREBASE SESSION CHECK
-  // =====================================================
-
+  // ===========================================================
   if (loading) {
     return (
-      <div className="min-h-screen bg-sky-wash flex items-center justify-center">
-        <p className="text-sm text-ink-400">
-          Loading WeatherHub...
-        </p>
-      </div>
+      <LanguageProvider>
+        <div className="min-h-screen bg-sky-wash flex items-center justify-center">
+          <p className="text-sm text-ink-400">
+            Loading WeatherHub...
+          </p>
+        </div>
+      </LanguageProvider>
     );
   }
 
-  // =====================================================
+  // ===========================================================
   // LOGGED OUT
-  // =====================================================
-
+  // ===========================================================
   if (!user) {
-    return <Login />;
+    return (
+      <LanguageProvider>
+        <Login />
+      </LanguageProvider>
+    );
   }
 
-  // =====================================================
+  // ===========================================================
   // LOGGED IN
-  // =====================================================
-
+  // ===========================================================
   return (
-    <AppProvider firebaseUser={user}>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
-    </AppProvider>
+    <LanguageProvider>
+      <AppProvider firebaseUser={user}>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </AppProvider>
+    </LanguageProvider>
   );
 }
+
