@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 
-import { useNavigate, NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
 
 import {
   Home,
@@ -18,7 +18,11 @@ import { useLanguage } from "../context/LanguageContext";
 import LanguageSetter from "./LanguageSetter";
 
 import logo from "../assets/logo_simple.png";
-import { getGreeting } from "../utils/greeting";
+
+import {
+  getGreeting,
+  getGreetingRefreshDelay,
+} from "../utils/greeting";
 
 const primaryLinks = [
   {
@@ -59,6 +63,34 @@ export default function Navbar() {
   const { user, alerts } = useApp();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  // =========================================================
+  // GREETING
+  // =========================================================
+
+  const [greetingKey, setGreetingKey] = useState(() =>
+    getGreeting()
+  );
+
+  useEffect(() => {
+    let timer;
+
+    const updateGreeting = () => {
+      setGreetingKey(getGreeting());
+
+      const delay = getGreetingRefreshDelay();
+
+      timer = window.setTimeout(updateGreeting, delay);
+    };
+
+    const initialDelay = getGreetingRefreshDelay();
+
+    timer = window.setTimeout(updateGreeting, initialDelay);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   // =========================================================
   // AGRICULTURE MODE
@@ -111,11 +143,19 @@ export default function Navbar() {
       new Event("agricultureModeChanged")
     );
 
-    // ON → open Agriculture page
     if (newValue) {
       navigate("/farmer");
     }
   };
+
+  // =========================================================
+  // TRANSLATED GREETING
+  // =========================================================
+
+  const greetingText =
+    t[greetingKey] ||
+    t.greeting_night ||
+    "Good Night";
 
   return (
     <header
@@ -142,6 +182,7 @@ export default function Navbar() {
         "
       >
         {/* Logo + Greeting */}
+
         <div className="flex items-center gap-2 min-w-0">
           <span
             className="
@@ -171,7 +212,7 @@ export default function Navbar() {
 
           <div className="min-w-0">
             <p className="text-[11px] text-ink-400 leading-none">
-              {getGreeting()}
+              {greetingText}
             </p>
 
             <p
@@ -192,16 +233,15 @@ export default function Navbar() {
 
         {/* =================================================
             MOBILE RIGHT CONTROLS
-            Agriculture → Language → Alerts → Profile
         ================================================== */}
 
         <div className="flex items-center gap-1.5 shrink-0">
-
           {/* Agriculture */}
+
           <button
             type="button"
             onClick={toggleAgriculture}
-            aria-label={t.agriculture}
+            aria-label={t.agriculture || "Agriculture"}
             aria-pressed={agricultureMode}
             className={`
               h-10 w-10
@@ -218,20 +258,20 @@ export default function Navbar() {
           >
             <Sprout
               size={19}
-              strokeWidth={
-                agricultureMode ? 2.5 : 2
-              }
+              strokeWidth={agricultureMode ? 2.5 : 2}
             />
           </button>
 
           {/* Language */}
+
           <LanguageSetter variant="dropdown" />
 
           {/* Alerts */}
+
           <button
             type="button"
             onClick={() => navigate("/alerts")}
-            aria-label={t.alerts}
+            aria-label={t.alerts || "Alerts"}
             className="
               relative
               h-10 w-10
@@ -266,10 +306,11 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
+
           <button
             type="button"
             onClick={() => navigate("/profile")}
-            aria-label={t.profile}
+            aria-label={t.profile || "Profile"}
             className="
               h-10 w-10
               rounded-full
@@ -310,6 +351,7 @@ export default function Navbar() {
         "
       >
         {/* Logo + Greeting */}
+
         <div className="flex items-center gap-2 shrink-0">
           <span
             className="
@@ -339,7 +381,7 @@ export default function Navbar() {
 
           <div className="hidden lg:block">
             <p className="text-[11px] text-ink-400 leading-none">
-              {getGreeting()}
+              {greetingText}
             </p>
 
             <p
@@ -387,14 +429,21 @@ export default function Navbar() {
                 end,
                 agriculture,
               }) => {
-                const label = t[translationKey];
+                const label =
+                  t[translationKey] ||
+                  translationKey;
 
                 // Agriculture hidden when OFF
-                if (agriculture && !agricultureMode) {
+
+                if (
+                  agriculture &&
+                  !agricultureMode
+                ) {
                   return null;
                 }
 
-                // Agriculture toggle button
+                // Agriculture toggle
+
                 if (agriculture) {
                   return (
                     <div
@@ -425,6 +474,7 @@ export default function Navbar() {
                       </button>
 
                       {/* Tooltip */}
+
                       <div
                         className="
                           absolute
@@ -452,6 +502,7 @@ export default function Navbar() {
                 }
 
                 // Normal navigation
+
                 return (
                   <NavLink
                     key={to}
@@ -484,17 +535,19 @@ export default function Navbar() {
 
         {/* =================================================
             RIGHT CONTROLS
-            Agriculture → Language → Alerts → Profile
         ================================================== */}
 
         <div className="flex items-center gap-2 shrink-0">
-
           {/* Agriculture Icon Toggle */}
+
           <div className="relative group">
             <button
               type="button"
               onClick={toggleAgriculture}
-              aria-label={t.agriculture}
+              aria-label={
+                t.agriculture ||
+                "Agriculture"
+              }
               aria-pressed={agricultureMode}
               className={`
                 h-10
@@ -521,6 +574,7 @@ export default function Navbar() {
             </button>
 
             {/* Tooltip */}
+
             <div
               className="
                 pointer-events-none
@@ -551,13 +605,15 @@ export default function Navbar() {
           </div>
 
           {/* Language */}
+
           <LanguageSetter variant="dropdown" />
 
           {/* Alerts */}
+
           <button
             type="button"
             onClick={() => navigate("/alerts")}
-            aria-label={t.alerts}
+            aria-label={t.alerts || "Alerts"}
             className="
               relative
               h-10 w-10
@@ -593,10 +649,13 @@ export default function Navbar() {
           </button>
 
           {/* Profile */}
+
           <button
             type="button"
             onClick={() => navigate("/profile")}
-            aria-label={t.profile}
+            aria-label={
+              t.profile || "Profile"
+            }
             className="
               h-10 w-10
               rounded-full

@@ -19,6 +19,7 @@ export default function WeatherCard({
     // =========================================================
     // LOADING STATE
     // =========================================================
+
     if (locating) {
         return (
             <div className="rounded-xl3 p-6 bg-white shadow-card">
@@ -38,73 +39,170 @@ export default function WeatherCard({
     // =========================================================
     // NO WEATHER DATA
     // =========================================================
+
     if (!weather) return null;
+
+    // =========================================================
+    // SUPPORT BOTH:
+    //
+    // weather = actual weather object
+    //
+    // OR
+    //
+    // weather = { current: {...} }
+    // =========================================================
+
+    const currentWeather = weather.current ?? weather;
 
     // =========================================================
     // TEMPERATURE
     // =========================================================
+
     const temperature =
-        weather.temperature ??
-        weather.temp ??
+        currentWeather.temperature ??
+        currentWeather.temp ??
         "--";
 
     // =========================================================
     // LOCATION
     // =========================================================
+
     const locationText =
         typeof location === "string"
             ? location
             : location?.city ||
-              weather?.locationName ||
+              currentWeather.locationName ||
+              currentWeather.location?.name ||
               t.unknownLocation ||
               "Unknown location";
 
     // =========================================================
+    // WEATHER CODE
+    // =========================================================
+
+    const weatherCode =
+        currentWeather.weatherCode ??
+        currentWeather.weather_code ??
+        currentWeather.code ??
+        null;
+
+    // =========================================================
+    // DAY / NIGHT
+    // =========================================================
+    //
+    // Open-Meteo:
+    // 1 = Day
+    // 0 = Night
+    //
+    // IMPORTANT:
+    // Never use || because 0 is a valid value.
+    // =========================================================
+
+    let isDay = null;
+
+    const rawIsDay =
+        currentWeather.is_day ??
+        currentWeather.isDay;
+
+    if (
+        rawIsDay !== undefined &&
+        rawIsDay !== null &&
+        rawIsDay !== ""
+    ) {
+        const numericIsDay = Number(rawIsDay);
+
+        if (numericIsDay === 0 || numericIsDay === 1) {
+            isDay = numericIsDay;
+        }
+    }
+
+    // =========================================================
+    // OPENWEATHER FALLBACK
+    // =========================================================
+
+    const weatherIcon =
+        currentWeather.icon ??
+        currentWeather.weatherIcon ??
+        currentWeather.openWeatherIcon ??
+        null;
+
+    if (isDay === null && weatherIcon) {
+        const iconString = String(weatherIcon).toLowerCase();
+
+        if (iconString.endsWith("d")) {
+            isDay = 1;
+        } else if (iconString.endsWith("n")) {
+            isDay = 0;
+        }
+    }
+
+    // =========================================================
     // WEATHER VISUAL DATA
     // =========================================================
+
     const weatherForVisual = {
-        ...weather,
+        ...currentWeather,
 
-        // OpenWeather icon
-        icon: weather.icon,
+        // Weather code
+        weatherCode,
 
-        // Support WeatherVisual condition detection
+        // Day/night
+        // 0 remains 0
+        is_day: isDay,
+
+        // Compatibility
+        isDay,
+
+        // Icons
+        icon: weatherIcon,
+        weatherIcon,
+
+        // Condition
         condition:
-            weather.condition ||
-            weather.main ||
-            weather.weatherMain ||
+            currentWeather.condition ||
+            currentWeather.main ||
+            currentWeather.weatherMain ||
             "",
-
-        // Open-Meteo support
-        weatherCode:
-            weather.weatherCode ??
-            weather.weather_code ??
-            weather.code,
-
-        // Day/night support
-        is_day:
-            weather.is_day ??
-            weather.isDay ??
-            weather.isNight,
     };
+
+    // =========================================================
+    // DEBUG
+    // =========================================================
+
+    console.log("🌤️ WEATHER CARD");
+
+    console.log("Original weather:", weather);
+
+    console.log("Current weather:", currentWeather);
+
+    console.log("Weather visual:", weatherForVisual);
+
+    console.log("is_day:", weatherForVisual.is_day);
+
+    console.log("isDay:", weatherForVisual.isDay);
+
+    console.log("weatherCode:", weatherForVisual.weatherCode);
 
     // =========================================================
     // WEATHER CONDITION
     // =========================================================
+
     const condition =
-        weather.condition ||
-        weather.main ||
+        currentWeather.condition ||
+        currentWeather.main ||
+        currentWeather.weatherMain ||
         t.unknown ||
         "Unknown";
 
     // =========================================================
-    // COMPACT WEATHER CARD
+    // COMPACT CARD
     // =========================================================
+
     if (size === "compact") {
         return (
             <div className="rounded-xl2 bg-sky-50 px-4 py-3 flex items-center gap-3">
 
-                {/* Small weather visual */}
+                {/* Weather visual */}
                 <div className="w-16 h-16 flex items-center justify-center shrink-0">
                     <WeatherVisual
                         weather={weatherForVisual}
@@ -120,10 +218,10 @@ export default function WeatherCard({
 
                     <p className="text-xs text-ink-400">
                         {t.humidity || "Humidity"}{" "}
-                        {weather.humidity ?? "--"}%
+                        {currentWeather.humidity ?? "--"}%
                         {" · "}
                         {t.wind || "Wind"}{" "}
-                        {weather.wind ?? "--"} km/h
+                        {currentWeather.wind ?? "--"} km/h
                     </p>
                 </div>
 
@@ -136,30 +234,38 @@ export default function WeatherCard({
     }
 
     // =========================================================
-    // HERO WEATHER CARD
+    // HERO CARD
     // =========================================================
-    return (
-        <div className="
-            rounded-xl3
-            p-6 sm:p-7
-            bg-hero-gradient
-            text-white
-            shadow-pop
-            relative
-            overflow-hidden
-            animate-enter
-        ">
 
-            {/* Decorative background weather visual */}
-            <div className="
-                absolute
-                right-2
-                top-2
-                w-56
-                h-56
-                opacity-80
-                pointer-events-none
-            ">
+    return (
+        <div
+            className="
+                rounded-xl3
+                p-6 sm:p-7
+                bg-hero-gradient
+                text-white
+                shadow-pop
+                relative
+                overflow-hidden
+                animate-enter
+            "
+        >
+
+            {/* =================================================
+                DECORATIVE BACKGROUND VISUAL
+            ================================================= */}
+
+            <div
+                className="
+                    absolute
+                    right-2
+                    top-2
+                    w-56
+                    h-56
+                    opacity-80
+                    pointer-events-none
+                "
+            >
                 <WeatherVisual
                     weather={weatherForVisual}
                 />
@@ -167,51 +273,65 @@ export default function WeatherCard({
 
             <div className="relative z-10">
 
-                {/* Location */}
-                <p className="
-                    flex
-                    items-center
-                    gap-1
-                    text-sm
-                    text-sky-100
-                    font-medium
-                    mb-4
-                ">
+                {/* =================================================
+                    LOCATION
+                ================================================= */}
+
+                <p
+                    className="
+                        flex
+                        items-center
+                        gap-1
+                        text-sm
+                        text-sky-100
+                        font-medium
+                        mb-4
+                    "
+                >
                     <MapPin size={14} />
                     {locationText}
                 </p>
 
-                {/* Temperature + Weather Visual */}
-                <div className="
-                    flex
-                    items-end
-                    gap-4
-                    mb-1
-                ">
+                {/* =================================================
+                    TEMPERATURE + VISUAL
+                ================================================= */}
 
-                    {/* Main animated weather visual */}
-                    <div className="
-                        w-28
-                        h-28
+                <div
+                    className="
                         flex
-                        items-center
-                        justify-center
-                        shrink-0
-                        overflow-hidden
-                    ">
+                        items-end
+                        gap-4
+                        mb-1
+                    "
+                >
+
+                    {/* Main weather visual */}
+                    <div
+                        className="
+                            w-28
+                            h-28
+                            flex
+                            items-center
+                            justify-center
+                            shrink-0
+                            overflow-hidden
+                        "
+                    >
                         <WeatherVisual
                             weather={weatherForVisual}
                         />
                     </div>
 
                     {/* Temperature */}
-                    <span className="
-                        text-6xl
-                        font-display
-                        font-extrabold
-                        leading-none
-                        tracking-tight
-                    ">
+                    <span
+                        className="
+                            text-6xl
+                            font-display
+                            font-extrabold
+                            leading-none
+                            tracking-tight
+                        "
+                    >
                         {temperature}
 
                         <span className="text-3xl align-top">
@@ -220,48 +340,80 @@ export default function WeatherCard({
                     </span>
                 </div>
 
-                {/* Condition */}
-                <p className="
-                    text-lg
-                    font-medium
-                    text-sky-50
-                    mt-2
-                ">
+                {/* =================================================
+                    CONDITION
+                ================================================= */}
+
+                <p
+                    className="
+                        text-lg
+                        font-medium
+                        text-sky-50
+                        mt-2
+                    "
+                >
                     {condition}
                 </p>
 
-                {/* Feels Like */}
+                {/* =================================================
+                    DAY / NIGHT
+                ================================================= */}
+
+                {isDay !== null && (
+                    <p
+                        className="
+                            text-xs
+                            text-sky-100
+                            font-medium
+                            mt-1
+                        "
+                    >
+                        {isDay === 1
+                            ? "☀️ Day"
+                            : "🌙 Night"}
+                    </p>
+                )}
+
+                {/* =================================================
+                    FEELS LIKE
+                ================================================= */}
+
                 <p className="text-sm text-sky-100/90">
                     {t.feelsLike || "Feels like"}{" "}
-                    {weather.feelsLike ??
-                        weather.feels_like ??
+                    {currentWeather.feelsLike ??
+                        currentWeather.feels_like ??
                         "--"}
                     °C
                 </p>
 
-                {/* Stats */}
-                <div className="
-                    grid
-                    grid-cols-3
-                    gap-3
-                    mt-6
-                ">
+                {/* =================================================
+                    STATS
+                ================================================= */}
+
+                <div
+                    className="
+                        grid
+                        grid-cols-3
+                        gap-3
+                        mt-6
+                    "
+                >
                     <Stat
                         icon={Droplets}
                         label={t.humidity || "Humidity"}
-                        value={`${weather.humidity ?? "--"}%`}
+                        value={`${currentWeather.humidity ?? "--"}%`}
                     />
 
                     <Stat
                         icon={Wind}
                         label={t.wind || "Wind"}
-                        value={`${weather.wind ?? "--"} km/h`}
+                        value={`${currentWeather.wind ?? "--"} km/h`}
                     />
 
                     <Stat
                         icon={CloudRain}
                         label={t.rainfall || "Rain"}
-                        value={`${weather.rain ?? 0}%`}
+                        value={`${currentWeather.rain ?? 0}%`}
                     />
                 </div>
             </div>
@@ -272,38 +424,45 @@ export default function WeatherCard({
 // =========================================================
 // STAT COMPONENT
 // =========================================================
+
 function Stat({
     icon: Icon,
     label,
     value,
 }) {
     return (
-        <div className="
-            rounded-xl2
-            bg-white/15
-            backdrop-blur-sm
-            px-3
-            py-2.5
-            text-center
-        ">
+        <div
+            className="
+                rounded-xl2
+                bg-white/15
+                backdrop-blur-sm
+                px-3
+                py-2.5
+                text-center
+            "
+        >
             <Icon
                 size={15}
                 className="mx-auto mb-1 text-sky-50"
             />
 
-            <p className="
-                text-sm
-                font-semibold
-                leading-none
-            ">
+            <p
+                className="
+                    text-sm
+                    font-semibold
+                    leading-none
+                "
+            >
                 {value}
             </p>
 
-            <p className="
-                text-[10px]
-                text-sky-100/80
-                mt-1
-            ">
+            <p
+                className="
+                    text-[10px]
+                    text-sky-100/80
+                    mt-1
+                "
+            >
                 {label}
             </p>
         </div>

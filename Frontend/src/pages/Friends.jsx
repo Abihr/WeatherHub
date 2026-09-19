@@ -82,7 +82,7 @@ export default function Friends() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl md:text-2xl font-display font-extrabold text-ink-900">
-          My Weather Circle
+          My Weather Hub
         </h1>
 
         <RefreshButton />

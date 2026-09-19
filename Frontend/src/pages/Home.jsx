@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { MapPin, RefreshCw } from "lucide-react";
 
@@ -7,13 +8,12 @@ import { useLanguage } from "../context/LanguageContext";
 import WeatherCard from "../components/WeatherCard";
 import { weatherIcon } from "../data/mockData";
 import EmptyState from "../components/EmptyState";
-import { getGreeting } from "../utils/greeting";
 import ForecastUI from "../components/ForecastUI";
 
 function getLocationText(friend) {
   if (!friend) return "Unknown location";
 
-  // If location is already a string
+  // Location already stored as a string
   if (
     typeof friend.location === "string" &&
     friend.location.trim()
@@ -21,7 +21,7 @@ function getLocationText(friend) {
     return friend.location;
   }
 
-  // If location is an object like { city, lat, lng }
+  // Location object: { city, lat, lng }
   if (
     friend.location &&
     typeof friend.location.city === "string" &&
@@ -38,12 +38,16 @@ function getLocationText(friend) {
     return friend.weather.locationName;
   }
 
-  // Fallback to latitude / longitude
+  // Direct latitude / longitude
   const lat =
-    friend.latitude ?? friend.location?.lat;
+    friend.latitude ??
+    friend.location?.lat ??
+    friend.weather?.latitude;
 
   const lng =
-    friend.longitude ?? friend.location?.lng;
+    friend.longitude ??
+    friend.location?.lng ??
+    friend.weather?.longitude;
 
   if (
     typeof lat === "number" &&
@@ -58,17 +62,39 @@ function getLocationText(friend) {
 function getTemperature(weather) {
   if (!weather) return null;
 
-  // Current Firebase structure
   if (typeof weather.temperature === "number") {
     return weather.temperature;
   }
 
-  // Fallback for older data
   if (typeof weather.temp === "number") {
     return weather.temp;
   }
 
   return null;
+}
+
+/*
+  Get greeting from actual local time.
+
+  This avoids relying on an old/stale greeting value
+  and keeps the greeting consistent with Day/Night.
+*/
+function getCurrentGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour >= 5 && hour < 12) {
+    return "Good Morning";
+  }
+
+  if (hour >= 12 && hour < 17) {
+    return "Good Afternoon";
+  }
+
+  if (hour >= 17 && hour < 21) {
+    return "Good Evening";
+  }
+
+  return "Good Night";
 }
 
 export default function Home() {
@@ -80,16 +106,78 @@ export default function Home() {
   } = useApp();
 
   const { t } = useLanguage();
-
   const navigate = useNavigate();
 
-  // Show Firebase friends directly
   const friends = friendsList.slice(0, 4);
 
-  console.log(
-    "🏠 HOME FORECAST:",
-    user?.forecast
-  );
+  /*
+    ---------------------------------------------------------
+    CURRENT WEATHER
+    ---------------------------------------------------------
+  */
+  const currentWeather = user?.weather || {};
+
+  /*
+    ---------------------------------------------------------
+    FORECAST LOCATION FALLBACK
+    ---------------------------------------------------------
+
+    ForecastUI expects location information.
+
+    Sometimes user.forecast.location is missing even though
+    user.weather contains the correct location.
+
+    Build a safe fallback here.
+  */
+  const forecast = user?.forecast
+    ? {
+        ...user.forecast,
+
+        location:
+          user.forecast.location ||
+          user.weather?.location ||
+          user.location ||
+          {
+            name:
+              user.weather?.locationName ||
+              user.weather?.location ||
+              user.location ||
+              "Your Location",
+
+            country:
+              user.weather?.country ||
+              user.country ||
+              "IN",
+
+            latitude:
+              user.forecast?.latitude ??
+              user.weather?.latitude ??
+              user.latitude ??
+              null,
+
+            longitude:
+              user.forecast?.longitude ??
+              user.weather?.longitude ??
+              user.longitude ??
+              null,
+
+            timezone:
+              user.forecast?.timezone ||
+              user.weather?.timezone ||
+              "Asia/Kolkata",
+          },
+      }
+    : null;
+
+  console.log("🏠 HOME FORECAST:", forecast);
+
+  console.log("🏠 HOME WEATHER:", {
+    location: user?.location,
+    weather: user?.weather,
+    forecast: user?.forecast,
+  });
+
+  const greeting = getCurrentGreeting();
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 pb-28 md:pb-10 flex flex-col gap-6">
@@ -100,7 +188,7 @@ export default function Home() {
       <div className="hidden md:flex items-center justify-between">
         <div>
           <p className="text-sm text-ink-400">
-            {t[getGreeting()] || "Good Morning"},
+            {t[greeting] || greeting},
           </p>
 
           <h1 className="text-2xl font-display font-extrabold text-ink-900">
@@ -109,6 +197,7 @@ export default function Home() {
         </div>
 
         <button
+          type="button"
           onClick={detectLocation}
           disabled={locating}
           className="
@@ -125,9 +214,7 @@ export default function Home() {
         >
           <RefreshCw
             size={14}
-            className={
-              locating ? "animate-spin" : ""
-            }
+            className={locating ? "animate-spin" : ""}
           />
 
           {locating
@@ -142,10 +229,11 @@ export default function Home() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display font-semibold text-ink-800">
-            {t.todaysWeather || "Your Weather"}
+            {t.todaysWeather || "Today's Weather"}
           </h2>
 
           <button
+            type="button"
             onClick={detectLocation}
             disabled={locating}
             className="
@@ -158,9 +246,7 @@ export default function Home() {
           >
             <RefreshCw
               size={12}
-              className={
-                locating ? "animate-spin" : ""
-              }
+              className={locating ? "animate-spin" : ""}
             />
 
             {locating
@@ -172,6 +258,8 @@ export default function Home() {
         <WeatherCard
           location={
             user?.location ||
+            currentWeather?.locationName ||
+            currentWeather?.location ||
             t.yourLocation ||
             "Your Location"
           }
@@ -181,11 +269,13 @@ export default function Home() {
       </div>
 
       {/* =================================================
-          7 DAYS FORECAST
+          FORECAST
       ================================================= */}
-      <ForecastUI
-        weatherData={user?.forecast}
-      />
+      {forecast && (
+        <ForecastUI
+          weatherData={forecast}
+        />
+      )}
 
       {/* =================================================
           MY FRIENDS
@@ -197,6 +287,7 @@ export default function Home() {
           </h2>
 
           <button
+            type="button"
             onClick={() => navigate("/friends")}
             className="
               text-xs
@@ -244,6 +335,7 @@ export default function Home() {
                     animate-enter
                   "
                 >
+
                   {/* FRIEND AVATAR */}
                   <div
                     className="
@@ -293,7 +385,6 @@ export default function Home() {
                         {weatherIcon[
                           friend.weather.icon
                         ] || "🌤️"}{" "}
-
                         {temperature !== null
                           ? `${temperature}°C`
                           : "--"}
@@ -313,6 +404,7 @@ export default function Home() {
 
                   {/* VIEW FRIEND */}
                   <button
+                    type="button"
                     onClick={() =>
                       navigate("/friends")
                     }
