@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Sprout, Droplets, Thermometer, Wind, Calendar, 
   AlertTriangle, TrendingUp, Tractor, CloudRain, 
@@ -132,6 +132,58 @@ const MOCK_FARMER_DATA = {
     { crop: "Sugarcane", icon: "🎋", price: "₹350", unit: "per quintal", trend: "stable", change: "0%" },
     { crop: "Cotton", icon: "🌿", price: "₹6,800", unit: "per quintal", trend: "up", change: "+8%" }
   ]
+};
+
+
+// ============================================================
+// FUNCTIONALITY ENGINE FROM THE SECOND DASHBOARD
+// ============================================================
+const generateCropRecommendation = (crop, weather) => {
+  const rainfall = Number(weather?.rainfall || 0);
+  const temperature = Number(weather?.temperature || 0);
+  const humidity = Number(weather?.humidity || 0);
+  const windSpeed = Number(weather?.windSpeed || 0);
+
+  if (crop === 'Wheat') {
+    if (rainfall > 10) {
+      return { action: 'Drainage', message: 'Significant rainfall detected. Check field drainage.', timing: 'Next 3 days', icon: '🌧️' };
+    }
+    if (temperature >= 32) {
+      return { action: 'Monitoring', message: 'High temperature detected. Monitor the wheat field closely.', timing: 'Next 3 days', icon: '🌡️' };
+    }
+    if (humidity >= 80) {
+      return { action: 'Disease Monitoring', message: 'High humidity may increase disease risk. Inspect wheat leaves.', timing: 'Next 3 days', icon: '⚠️' };
+    }
+    return { action: 'Monitoring', message: 'Weather is suitable. Continue normal crop monitoring.', timing: 'Next 5-7 days', icon: '🌱' };
+  }
+
+  if (crop === 'Sugarcane') {
+    if (rainfall > 15) {
+      return { action: 'Drainage', message: 'Heavy rainfall detected. Check sugarcane field drainage.', timing: 'Next 3 days', icon: '🌧️' };
+    }
+    if (temperature >= 35) {
+      return { action: 'Irrigation', message: 'High temperature may increase water requirement.', timing: 'Next 3 days', icon: '💧' };
+    }
+    if (windSpeed >= 25) {
+      return { action: 'Monitoring', message: 'Higher wind speed detected. Monitor the field for crop stress.', timing: 'Next 3 days', icon: '💨' };
+    }
+    return { action: 'Monitoring', message: 'Current weather is suitable. Continue normal crop monitoring.', timing: 'Next 5-7 days', icon: '🌱' };
+  }
+
+  if (crop === 'Cotton') {
+    if (rainfall > 10) {
+      return { action: 'Drainage', message: 'Rainfall detected. Check cotton field drainage.', timing: 'Next 3 days', icon: '🌧️' };
+    }
+    if (temperature >= 35) {
+      return { action: 'Irrigation', message: 'High temperature may increase cotton water requirement.', timing: 'Next 3 days', icon: '💧' };
+    }
+    if (humidity >= 80) {
+      return { action: 'Disease Monitoring', message: 'High humidity may increase disease risk. Inspect cotton plants.', timing: 'Next 3 days', icon: '⚠️' };
+    }
+    return { action: 'Monitoring', message: 'Weather is favorable. Continue normal cotton monitoring.', timing: 'Next 5-7 days', icon: '🌱' };
+  }
+
+  return { action: 'Monitoring', message: 'Continue normal field monitoring.', timing: 'Next 5-7 days', icon: '🌱' };
 };
 
 const FarmerDashboard = () => {
@@ -909,11 +961,97 @@ const FarmerDashboard = () => {
   };
 
   const translateAlertAction = (type) => {
-    const actions = {
-      'Heavy Rain Alert': { en: 'Prepare drainage in fields', hi: 'खेत में जल निकासी तैयार करें', bn: 'খেতে পানি নিষ্কাশন প্রস্তুত করুন', ta: 'களங்களில் வடிகால் தயார் செய்யுங்கள்', te: 'పొలాలలో నీరు తొలగించే ఏర్పాట్లు చేయండి', mr: 'शेतात पाण्याची वाहून जाण्याची व्यवस्था करा', gu: 'ખેતરમાં પાણીની નિકાસ તૈયાર કરો', kn: 'ಹೈದಿಯಲ್ಲಿ ನೀರು빠ಸುವ ವ್ಯವಸ್ಥೆ ಮಾಡಿ', ml: 'മുഴുവൻ പഴയതിൽ വെള്ളം പുറത്തേക്ക് പോകണം', pa: 'ਖੇਤਾਂ ਵਿੱਚ ਨਿਕਾਸ ਤਿਆਰ ਕਰੋ', ur: 'کھیتوں میں پانی نکالنے کی تیاری کریں', or: 'କ୍ଷେତରେ ଜଳ ନିକାଶ ପ୍ରସ୍ତୁତ କରନ୍ତୁ' },
-      'Pest Warning': { en: 'Spray fungicide if needed', hi: 'जरूरत हो तो फफूंदनाशक छिड़कें', bn: 'প্রয়োজনে ছত্রাকনাশক ছিটান', ta: 'தேவைப்பட்டால் பூஞ்சைக் கொல்லியை தெளிக்கவும்', te: 'అవసరమైతే பூஞ்சు నివారక మందును స్ప్రే చేయండి', mr: 'गरज पडल्यास कवकनाशक फवारणी करा', gu: 'જરૂર પડે તો ફંગસનાશક છંટકાવ કરો', kn: 'ಅಗತ್ಯವಾದಲ್ಲಿ ಫಂಗಸೈಡ್ ಸ್ಪ್ರೇ ಮಾಡಿ', ml: 'ആവശ്യമായാൽ ഫംഗിസൈഡ് സ്പ്രേ ചെയ്യുക', pa: 'ਲੋੜ ਹੋਵੇ ਤਾਂ ਫੰਗਸਾਈਡ ਛਿੜਕੋ', ur: 'ضرورت ہو تو فنجی سائیڈ چھڑکیں', or: 'ଆବଶ୍ୟକତା ହେଲେ ଫଙ୍ଗସାଇଡ୍ ଛିଡ଼ାନ୍ତୁ' },
-      'Irrigation Reminder': { en: 'Water your crops', hi: 'फसलें जलाएं', bn: 'ফসলকে পানি দিন', ta: 'உங்கள் பயிர்களுக்கு நீர் கொடுங்கள்', te: 'మీ పంటలకు నీరు ఇవ్వండి', mr: 'पिकाला पाणी द्या', gu: 'તમારા પાકને પાણી આપો', kn: 'ಬೆಳೆಗಳಿಗೆ ನೀರು ನೀಡಿ', ml: 'നിങ്ങളുടെ വിളകൾക്ക് വെള്ളം കൊടുക്കുക', pa: 'ਆਪਣੀਆਂ ਫਸਲਾਂ ਨੂੰ ਪਾਣੀ ਦਿਓ', ur: 'اپنی فصلوں کو پانی دیں', or: 'ଆପନା ପ୍ରତିବେଶକୁ ପାଣି ଦିଅନ୍ତୁ' }
-    };
+   const actions = {
+  Sowing: {
+    en: 'Sowing',
+    hi: 'बोना',
+    bn: 'বপন',
+    ta: 'விதைப்பு',
+    te: 'విత్తనం',
+    mr: 'बियाणे',
+    gu: 'બિયારણ',
+    kn: 'ಬಿತ್ತನೆ',
+    ml: 'വിതയ്ക്കൽ',
+    pa: 'ਬੀਜ ਬੋਣਾ',
+    ur: 'بیج ڈالنا',
+    or: 'ବୀଜ ବୁଣନ୍ତୁ'
+  },
+
+  Harvesting: {
+    en: 'Harvesting',
+    hi: 'कटाई',
+    bn: 'ফসল তোলা',
+    ta: 'பயிர் அறுவடை',
+    te: 'పంట కోత',
+    mr: 'कापणी',
+    gu: 'ફસ્લ કાપણી',
+    kn: 'ಸುಗ್ಗಿ',
+    ml: 'കൊയ്തുയരിക്കൽ',
+    pa: 'ਫਸਲ ਕੱਟਣਾ',
+    ur: 'فصل کٹانا',
+    or: 'ଫସଲ କାଟନ୍ତୁ'
+  },
+
+  Irrigation: {
+    en: 'Irrigation',
+    hi: 'सिंचाई',
+    bn: 'সেচ',
+    ta: 'நீர்ப்பாசனம்',
+    te: 'నీటి పంట',
+    mr: 'सिंचन',
+    gu: 'સિંચાઈ',
+    kn: 'ನೀರಾವರಿ',
+    ml: 'ജലസേചനം',
+    pa: 'ਸਿੰਚਾਈ',
+    ur: 'سائٹ',
+    or: 'ସିଚନ'
+  },
+
+  Drainage: {
+    en: 'Drainage',
+    hi: 'जल निकासी',
+    bn: 'নিষ্কাশন',
+    ta: 'வடிகால்',
+    te: 'డ్రైనేజ్',
+    mr: 'निचरा',
+    gu: 'ડ્રેનેજ',
+    kn: 'ಒಳಚರಂಡಿ',
+    ml: 'ഡ്രെയിനേജ്',
+    pa: 'ਨਿਕਾਸੀ',
+    ur: 'نکاسی آب',
+    or: 'ନିଷ୍କାସନ'
+  },
+
+  Monitoring: {
+    en: 'Monitoring',
+    hi: 'निगरानी',
+    bn: 'পর্যবেক্ষণ',
+    ta: 'கண்காணிப்பு',
+    te: 'పర్యవేక్షణ',
+    mr: 'निगराणी',
+    gu: 'નિરીક્ષણ',
+    kn: 'ಮೇಲ್ವಿಚಾರಣೆ',
+    ml: 'നിരീക്ഷണം',
+    pa: 'ਨਿਗਰਾਨੀ',
+    ur: 'نگرانی',
+    or: 'ନିରୀକ୍ଷଣ'
+  },
+
+  'Disease Monitoring': {
+    en: 'Disease Monitoring',
+    hi: 'रोग निगरानी',
+    bn: 'রোগ পর্যবেক্ষণ',
+    ta: 'நோய் கண்காணிப்பு',
+    te: 'వ్యాధి పర్యవేక్షణ',
+    mr: 'रोग निरीक्षण',
+    gu: 'રોગ નિરીક્ષણ',
+    kn: 'ರೋಗ ಮೇಲ್ವಿಚಾರಣೆ',
+    ml: 'രോഗ നിരീക്ഷണം',
+    pa: 'ਰੋਗ ਨਿਗਰਾਨੀ',
+    ur: 'بیماری کی نگرانی',
+    or: 'ରୋଗ ନିରୀକ୍ଷଣ'
+  }
+};
 
     return actions[type]?.[language] || actions[type]?.en || type;
   };
@@ -922,7 +1060,10 @@ const FarmerDashboard = () => {
     const actions = {
       Sowing: { en: 'Sowing', hi: 'बोना', bn: 'বপন', ta: 'விதைப்பு', te: 'విత్తనం', mr: 'बियाणे', gu: 'બિયારણ', kn: 'ಬಿತ್ತನೆ', ml: 'വിതയ്ക്കൽ', pa: 'ਬੀਜ ਬੋਣਾ', ur: 'بیج ڈالنا', or: 'ବୀଜ ବୁଣନ୍ତୁ' },
       Harvesting: { en: 'Harvesting', hi: 'कटाई', bn: 'ফসল তোলা', ta: 'பயிர் அறுவடை', te: 'పంట కోత', mr: 'कापणी', gu: 'ફસ્લ કાપણી', kn: 'ಸುಗ್ಗಿ', ml: 'കൊയ്തുയരിക്കൽ', pa: 'ਫਸਲ ਕੱਟਣਾ', ur: 'فصل کٹانا', or: 'ଫସଲ କାଟନ୍ତୁ' },
-      Irrigation: { en: 'Irrigation', hi: 'सिंचाई', bn: 'সেচ', ta: 'நீர்ப்பாசனம்', te: 'నీటి పంట', mr: 'सिंचन', gu: 'સિંચાઈ', kn: 'ನೀರಾವರಿ', ml: 'ജലസേചനം', pa: 'ਸਿੰਚਾਈ', ur: 'سائٹ', or: 'ସିଚନ' }
+      Irrigation: { en: 'Irrigation', hi: 'सिंचाई', bn: 'সেচ', ta: 'நீர்ப்பாசனம்', te: 'నీటి పంట', mr: 'सिंचन', gu: 'સિંચાઈ', kn: 'ನೀರಾವರಿ', ml: 'ജലസേചനം', pa: 'ਸਿੰਚਾਈ', ur: 'سائٹ', or: 'ସିଚନ' },
+      Drainage: { en: 'Drainage', hi: 'जल निकासी', bn: 'নিষ্কাশন', ta: 'வடிகால்', te: 'డ్రైనేజ్', mr: 'निचरा', gu: 'ડ્રેનેજ', kn: 'ಒಳಚರಂಡಿ', ml: 'ഡ്രെയിനേജ്', pa: 'ਨਿਕਾਸੀ', ur: 'نکاسی آب', or: 'ନିଷ୍କାସନ' },
+      Monitoring: { en: 'Monitoring', hi: 'निगरानी', bn: 'পর্যবেক্ষণ', ta: 'கண்காணிப்பு', te: 'పర్యవేక్షణ', mr: 'निगराणी', gu: 'નિરીક્ષણ', kn: 'ಮೇಲ್ವಿಚಾರಣೆ', ml: 'നിരീക്ഷണം', pa: 'ਨਿਗਰਾਨੀ', ur: 'نگرانی', or: 'ନିରୀକ୍ଷଣ' },
+      'Disease Monitoring': { en: 'Disease Monitoring', hi: 'रोग निगरानी', bn: 'রোগ পর্যবেক্ষণ', ta: 'நோய் கண்காணிப்பு', te: 'వ్యాధి పర్యవేక్షణ', mr: 'रोग निरीक्षण', gu: 'રોગ નિરીક્ષણ', kn: 'ರೋಗ ಮೇಲ್ವಿಚಾರಣೆ', ml: 'രോഗ നിരീക്ഷണം', pa: 'ਰੋਗ ਨਿਗਰਾਨੀ', ur: 'بیماری کی نگرانی', or: 'ରୋଗ ନିରୀକ୍ଷଣ' }
     };
     return actions[action]?.[language] || action;
   };
@@ -1036,35 +1177,132 @@ const FarmerDashboard = () => {
     setTimeout(() => setLoading(false), 1500);
   };
 
-  const filteredRecommendations = selectedCrop === 'all' 
-    ? farmerData.cropRecommendations 
-    : farmerData.cropRecommendations.filter(r => r.crop === selectedCrop);
+  const getLocalizedTaskLabel = (label) => {
+    const labels = {
+      Inspect: { en: 'Inspect', hi: 'निरीक्षण', bn: 'পরিদর্শন', ta: 'ஆய்வு', te: 'పరిశీలించండి', mr: 'तपासणी', gu: 'તપાસ', kn: 'ಪರಿಶೀಲನೆ', ml: 'പരിശോധിക്കുക', pa: 'ਜਾਂਚ', ur: 'معائنہ', or: 'ଯାଞ୍ଚ' },
+      Review: { en: 'Review', hi: 'जांचें', bn: 'পর্যালোচনা', ta: 'மதிப்பாய்வு', te: 'సమీక్ష', mr: 'पुनरावलोकन', gu: 'સમીક્ષા', kn: 'ಪರಿಶೀಲನೆ', ml: 'അവലോകനം', pa: 'ਸਮੀਖਿਆ', ur: 'جائزہ', or: 'ସମୀକ୍ଷା' }
+    };
+    return labels[label]?.[language] || labels[label]?.en || label;
+  };
+
+  // The visual design remains from the first dashboard, while the
+  // recommendation, alert and task logic comes from the second dashboard.
+  const weatherToday = useMemo(() => ({
+    temperature: Number(farmerData.weatherForecast?.today?.temp || 0),
+    humidity: Number(farmerData.weatherForecast?.today?.humidity || 0),
+    rainfall: Number(farmerData.weatherForecast?.today?.rainfall || 0),
+    windSpeed: Number(farmerData.weatherForecast?.today?.windSpeed || 0),
+    condition: farmerData.weatherForecast?.today?.condition || 'Sunny'
+  }), [farmerData]);
+
+  const dynamicRecommendations = useMemo(() => {
+    return farmerData.farmDetails.crops.map((crop) => ({
+      crop,
+      ...generateCropRecommendation(crop, weatherToday)
+    }));
+  }, [farmerData, weatherToday]);
+
+  const filteredRecommendations = useMemo(() => {
+    if (selectedCrop === 'all') return dynamicRecommendations;
+    return dynamicRecommendations.filter((item) => item.crop === selectedCrop);
+  }, [selectedCrop, dynamicRecommendations]);
 
   const localizedRecommendations = filteredRecommendations.map((rec) => ({
     ...rec,
+    cropIcon: rec.crop === 'Wheat' ? '🌾' : rec.crop === 'Sugarcane' ? '🎋' : '🌿',
+    actionIcon: rec.icon,
     crop: getLocalizedCropName(rec.crop),
     action: translateActionLabel(rec.action),
-    recommendation: getRecommendationTip(rec.crop, rec.action),
-    simpleTip: getRecommendationTip(rec.crop, rec.action)
+    recommendation: rec.message,
+    simpleTip: rec.message,
+    confidence: 'Dynamic',
+    color: rec.action === 'Irrigation' ? 'blue' : rec.action === 'Drainage' ? 'amber' : 'green'
   }));
 
-  const localizedAlerts = farmerData.alerts.map((alert) => ({
+  const dynamicAlerts = useMemo(() => {
+    const alerts = [];
+    const { temperature, humidity, rainfall, windSpeed } = weatherToday;
+
+    if (rainfall > 10) {
+      alerts.push({
+        id: 'rainfall',
+        type: 'Heavy Rain Alert',
+        typeIcon: '🌧️',
+        message: 'Significant rainfall detected. Check field drainage.',
+        simpleMessage: 'Check field drainage because rainfall is high.',
+        priority: 'High',
+        action: 'Prepare drainage in fields'
+      });
+    }
+
+    if (temperature >= 35) {
+      alerts.push({
+        id: 'temperature',
+        type: 'Temperature Alert',
+        typeIcon: '🌡️',
+        message: 'High temperature detected. Monitor crop water requirements.',
+        simpleMessage: 'Monitor crops and water needs.',
+        priority: 'High',
+        action: 'Monitor field and irrigation'
+      });
+    }
+
+    if (humidity >= 80) {
+      alerts.push({
+        id: 'humidity',
+        type: 'Pest Warning',
+        typeIcon: '🐛',
+        message: 'High humidity may increase disease and pest activity.',
+        simpleMessage: 'Inspect crops for disease or pests.',
+        priority: 'Medium',
+        action: 'Inspect crops'
+      });
+    }
+
+    if (windSpeed >= 25) {
+      alerts.push({
+        id: 'wind',
+        type: 'Wind Alert',
+        typeIcon: '💨',
+        message: 'Higher wind speed detected. Monitor crops for stress or damage.',
+        simpleMessage: 'Check crops after strong winds.',
+        priority: 'Medium',
+        action: 'Monitor field'
+      });
+    }
+
+    return alerts;
+  }, [weatherToday]);
+
+  const localizedAlerts = dynamicAlerts.map((alert) => ({
     ...alert,
     type: getAlertTypeLabel(alert.type),
-    message: getAlertSummary(alert.type),
-    simpleMessage: getAlertSummary(alert.type),
-    action: translateAlertAction(alert.type)
+    action: alert.action,
   }));
 
+  // Keep the second dashboard's task behavior: three concrete farm tasks,
+  // with completion persisted by the first dashboard's localStorage logic.
   const farmTasks = [
-    ...localizedRecommendations.map((recommendation, index) => ({
-      id: `recommendation-${index}`,
-      title: `${recommendation.crop}: ${recommendation.action}`,
-      detail: recommendation.simpleTip,
-      icon: recommendation.actionIcon
-    })),
+    {
+      id: 'cotton',
+      title: `${getLocalizedCropName('Cotton')}: ${translateActionLabel('Irrigation')}`,
+      detail: dynamicRecommendations.find((item) => item.crop === 'Cotton')?.message || 'Monitor cotton irrigation needs.',
+      icon: '💧'
+    },
+    {
+      id: 'wheat',
+      title: `${getLocalizedCropName('Wheat')}: ${getLocalizedTaskLabel('Inspect')}`,
+      detail: dynamicRecommendations.find((item) => item.crop === 'Wheat')?.message || 'Inspect wheat field.',
+      icon: '🌱'
+    },
+    {
+      id: 'sugarcane',
+      title: `${getLocalizedCropName('Sugarcane')}: ${getLocalizedTaskLabel('Review')}`,
+      detail: dynamicRecommendations.find((item) => item.crop === 'Sugarcane')?.message || 'Review sugarcane field.',
+      icon: '🚜'
+    },
     ...localizedAlerts.slice(0, 1).map((alert) => ({
-      id: 'alert-0',
+      id: `alert-${alert.id}`,
       title: alert.type,
       detail: alert.action,
       icon: alert.typeIcon
@@ -1442,7 +1680,7 @@ const FarmerDashboard = () => {
         </div>
         
         <div className="space-y-3">
-          {farmerData.alerts.map((alert, index) => {
+          {localizedAlerts.map((alert, index) => {
             const style = getPriorityStyle(alert.priority);
             return (
               <div 
